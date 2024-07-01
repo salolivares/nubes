@@ -10,7 +10,7 @@ export default defineConfig((env) => {
   const name = forgeConfigSelf.name ?? "";
 
   return {
-    root,
+    root: `${root}/src/renderer`,
     mode,
     base: "./",
     build: {
