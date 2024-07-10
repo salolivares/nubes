@@ -11,9 +11,9 @@
   "main": "packages/main/dist/index.js",
   "scripts": {
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
-    "build:main": "cd ./packages/main && vite build",
-    "build:preload": "cd ./packages/preload && vite build",
-    "build:renderer": "cd ./packages/renderer && vite build",
+    "build:main": "vite build --config ./packages/main/vite.config.js",
+    "build:preload": "vite build --config ./packages/preload/vite.config.js",
+    "build:renderer": "vite build --config ./packages/renderer/vite.config.js",
     "compile": "cross-env MODE=production npm run build && electron-builder build --config electron-builder.yml --dir --config.asar=false",
     "test": "npm run test:main && npm run test:preload && npm run test:renderer && npm run test:e2e",
     "test:e2e": "npm run build && vitest run",
