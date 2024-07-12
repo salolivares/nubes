@@ -17,26 +17,11 @@ type ThemeProviderState = {
   setTheme: (theme: Theme) => void;
 };
 
-export interface ThemePreferences {
-  system: Theme;
-  local: Theme | null;
-}
-
-async function getCurrentTheme() {
-  const currentTheme = await themeIPC.current();
-  const localTheme = localStorage.getItem(THEME_KEY) as Theme | null;
-
-  return {
-    system: currentTheme,
-    local: localTheme,
-  };
-}
-
 function updateDocumentTheme(isDarkMode: boolean) {
   if (!isDarkMode) {
-    document.documentElement.classList.remove('dark');
+    window.document.documentElement.classList.remove('dark');
   } else {
-    document.documentElement.classList.add('dark');
+    window.document.documentElement.classList.add('dark');
   }
 }
 
@@ -58,16 +43,6 @@ async function setElectronTheme(newTheme: Theme) {
   localStorage.setItem(THEME_KEY, newTheme);
 }
 
-async function syncThemeWithLocal(defaultTheme: Theme) {
-  const { local } = await getCurrentTheme();
-  if (!local) {
-    setElectronTheme(defaultTheme);
-    return;
-  }
-
-  await setElectronTheme(local);
-}
-
 const initialState: ThemeProviderState = {
   theme: 'system',
   setTheme: () => null,
@@ -86,17 +61,12 @@ export function ThemeProvider({
   );
 
   useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-    syncThemeWithLocal(defaultTheme);
-  }, [theme, defaultTheme]);
+    setElectronTheme(theme);
+  }, [theme]);
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
-    },
+    setTheme,
   };
 
   return (
