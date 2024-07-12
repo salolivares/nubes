@@ -1,6 +1,5 @@
 {
     "compilerOptions": {
-      "composite": true,
       "allowSyntheticDefaultImports": true,
       "module": "esnext",
       "target": "esnext",
@@ -10,8 +9,12 @@
       "strict": true,
       "isolatedModules": true,
       "types": ["node"],
-      "baseUrl": "."
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["./src/*"],
+        "@common": ["../common/src"]
+      }
     },
-    "include": ["src/**/*.ts", "../../types/**/*.d.ts"],
+    "include": ["src/**/*.ts", "../../types/**/*.d.ts", "../common/src/**/*.ts"],
     "exclude": ["**/*.spec.ts", "**/*.test.ts"]
 }
