@@ -1,1 +1,1 @@
-export const HELLO_WORLD = 'hello-world';
+export * from './theme-channels';

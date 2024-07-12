@@ -4,7 +4,7 @@ import { LoginForm } from './components/login-form';
 
 export function App() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="dark">
       <ModeToggle />
       <LoginForm />
     </ThemeProvider>

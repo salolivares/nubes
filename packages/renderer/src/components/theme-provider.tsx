@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { theme as themeIPC } from '#preload';
 
 type Theme = 'dark' | 'light' | 'system';
+
+const THEME_KEY = 'ui-theme';
+const DEFAULT_THEME = 'system';
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -13,6 +17,57 @@ type ThemeProviderState = {
   setTheme: (theme: Theme) => void;
 };
 
+export interface ThemePreferences {
+  system: Theme;
+  local: Theme | null;
+}
+
+async function getCurrentTheme() {
+  const currentTheme = await themeIPC.current();
+  const localTheme = localStorage.getItem(THEME_KEY) as Theme | null;
+
+  return {
+    system: currentTheme,
+    local: localTheme,
+  };
+}
+
+function updateDocumentTheme(isDarkMode: boolean) {
+  if (!isDarkMode) {
+    document.documentElement.classList.remove('dark');
+  } else {
+    document.documentElement.classList.add('dark');
+  }
+}
+
+async function setElectronTheme(newTheme: Theme) {
+  switch (newTheme) {
+    case 'dark':
+      await themeIPC.dark();
+      updateDocumentTheme(true);
+      break;
+    case 'light':
+      await themeIPC.light();
+      updateDocumentTheme(false);
+      break;
+    case 'system':
+      updateDocumentTheme(await themeIPC.system());
+      break;
+  }
+
+  localStorage.setItem(THEME_KEY, newTheme);
+}
+
+async function syncThemeWithLocal(defaultTheme: Theme) {
+  const { local } = await getCurrentTheme();
+  if (!local) {
+    setElectronTheme(defaultTheme);
+    return;
+  }
+
+  await setElectronTheme(local);
+}
+
 const initialState: ThemeProviderState = {
   theme: 'system',
   setTheme: () => null,
@@ -22,8 +77,8 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = 'system',
-  storageKey = 'vite-ui-theme',
+  defaultTheme = DEFAULT_THEME,
+  storageKey = THEME_KEY,
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(
@@ -32,20 +87,9 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
-
     root.classList.remove('light', 'dark');
-
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
-
-      root.classList.add(systemTheme);
-      return;
-    }
-
-    root.classList.add(theme);
-  }, [theme]);
+    syncThemeWithLocal(defaultTheme);
+  }, [theme, defaultTheme]);
 
   const value = {
     theme,
