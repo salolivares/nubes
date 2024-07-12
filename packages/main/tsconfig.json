@@ -11,9 +11,10 @@
       "types": ["node"],
       "baseUrl": ".",
       "paths": {
-        "@/*": ["./src/*"]
+        "@/*": ["./src/*"],
+        "@common": ["../common/src"]
       }
     },
-    "include": ["src/**/*.ts", "../../types/**/*.d.ts"],
+    "include": ["src/**/*.ts", "../../types/**/*.d.ts", "../common/src/**/*.ts"],
     "exclude": ["**/*.spec.ts", "**/*.test.ts"]
 }

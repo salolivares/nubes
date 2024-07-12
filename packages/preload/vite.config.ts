@@ -1,6 +1,7 @@
 import { chrome } from '../../.electron-vendors.cache.json';
 import { join } from 'node:path';
 import { preload } from 'unplugin-auto-expose';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 const PACKAGE_ROOT = __dirname;
 const PROJECT_ROOT = join(PACKAGE_ROOT, '../..');
@@ -34,7 +35,7 @@ const config = {
     emptyOutDir: true,
     reportCompressedSize: false,
   },
-  plugins: [preload.vite()],
+  plugins: [preload.vite(), tsconfigPaths()],
 };
 
 export default config;

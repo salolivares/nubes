@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registerListeners } from './listeners';
 
 async function createWindow() {
   const browserWindow = new BrowserWindow({
@@ -13,6 +14,8 @@ async function createWindow() {
       preload: join(app.getAppPath(), 'packages/preload/dist/index.mjs'),
     },
   });
+
+  registerListeners(browserWindow);
 
   /**
    * If the 'show' property of the BrowserWindow's constructor is omitted from the initialization options,
