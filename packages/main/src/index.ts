@@ -3,6 +3,7 @@ import './securityRestrictions';
 import { restoreOrCreateWindow } from './mainWindow';
 import { platform } from 'node:process';
 import updater from 'electron-updater';
+import { Storage } from './storage';
 
 /**
  * Prevent electron from running multiple instances.
@@ -38,7 +39,11 @@ app.on('activate', restoreOrCreateWindow);
  */
 app
   .whenReady()
-  .then(restoreOrCreateWindow)
+  .then(() => {
+    // Initialize the storage instance
+    Storage.instance;
+    restoreOrCreateWindow();
+  })
   .catch((e) => console.error('Failed create window:', e));
 
 /**

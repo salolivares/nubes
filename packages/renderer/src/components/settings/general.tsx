@@ -6,27 +6,39 @@ import { Input } from '../ui/input';
 
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { FC } from 'react';
+import { useState } from 'react';
+
+import { storage } from '#preload';
+
+interface AWSCredentialsFormProps {
+  accessKeyId?: string;
+  secretAccessKey?: string;
+}
 
 const awsCredentialsSchema = z.object({
   accessKeyId: z.string().regex(/^AKIA[0-9A-Z]{16}$/, 'Invalid AWS Access Key ID format'),
   secretAccessKey: z.string().regex(/^[0-9a-zA-Z/+]{40}$/, 'Invalid AWS Secret Access Key format'),
 });
 
-const AWSCredentialsForm = () => {
+const AWSCredentialsForm: FC<AWSCredentialsFormProps> = ({ accessKeyId, secretAccessKey }) => {
   const form = useForm<z.infer<typeof awsCredentialsSchema>>({
     resolver: zodResolver(awsCredentialsSchema),
     defaultValues: {
-      accessKeyId: '',
-      secretAccessKey: '',
+      accessKeyId: accessKeyId ?? '',
+      secretAccessKey: secretAccessKey ?? '',
     },
-    mode: 'onTouched',
+    mode: 'onChange',
   });
+
+  const [showAccessKeyId, setShowAccessKeyId] = useState(!accessKeyId);
+  const [showSecretAccessKey, setShowSecretAccessKey] = useState(!secretAccessKey);
 
   const { isDirty, isValid } = form.formState;
 
-  function onSubmit(values: z.infer<typeof awsCredentialsSchema>) {
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
+  async function onSubmit(values: z.infer<typeof awsCredentialsSchema>) {
+    await storage.secureWrite('accessKeyId', values.accessKeyId);
+    await storage.secureWrite('secretAccessKey', values.secretAccessKey);
     console.log(values);
   }
 
@@ -49,7 +61,13 @@ const AWSCredentialsForm = () => {
                 <FormItem>
                   <FormLabel>Access Key ID</FormLabel>
                   <FormControl>
-                    <Input placeholder="Access Key ID" {...field} />
+                    <Input
+                      placeholder="Access Key ID"
+                      {...field}
+                      type={showAccessKeyId ? 'text' : 'password'}
+                      onFocus={() => setShowAccessKeyId(true)}
+                      onBlur={() => setShowAccessKeyId(false)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -62,7 +80,13 @@ const AWSCredentialsForm = () => {
                 <FormItem>
                   <FormLabel>Secret Access Key</FormLabel>
                   <FormControl>
-                    <Input placeholder="Secrets access key" {...field} />
+                    <Input
+                      placeholder="Secrets access key"
+                      {...field}
+                      type={showSecretAccessKey ? 'text' : 'password'}
+                      onFocus={() => setShowSecretAccessKey(true)}
+                      onBlur={() => setShowSecretAccessKey(false)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

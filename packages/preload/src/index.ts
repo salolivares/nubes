@@ -7,3 +7,4 @@ import { versions } from './versions';
 
 export { versions, sha256sum };
 export * as theme from './theme';
+export * as storage from './storage';
