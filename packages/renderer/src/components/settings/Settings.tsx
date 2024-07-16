@@ -6,8 +6,6 @@ const links = [{ name: 'General', href: '/settings' }];
 export const Settings = () => {
   const location = useLocation();
 
-  console.log(location.pathname === '/settings');
-
   return (
     <>
       <div className="mx-auto grid w-full max-w-6xl gap-2">
