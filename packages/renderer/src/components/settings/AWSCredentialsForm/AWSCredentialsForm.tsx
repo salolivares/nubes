@@ -23,7 +23,14 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAWSCredentials } from './useAWSCredentials';
-import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from './constants';
+import {
+  ACCESS_KEY_ID,
+  ERROR_ON_SAVE_MESSAGE,
+  INVALID_ACCESS_KEY_ID_MESSAGE,
+  INVALID_SECRET_ACCESS_KEY_MESSAGE,
+  SECRET_ACCESS_KEY,
+  SUCCESS_ON_SAVE_MESSAGE,
+} from './constants';
 import { toast } from 'sonner';
 
 interface AWSCredentialsFormProps {
@@ -32,8 +39,8 @@ interface AWSCredentialsFormProps {
 }
 
 const awsCredentialsSchema = z.object({
-  accessKeyId: z.string().regex(/^AKIA[0-9A-Z]{16}$/, 'Invalid AWS Access Key ID format'),
-  secretAccessKey: z.string().regex(/^[0-9a-zA-Z/+]{40}$/, 'Invalid AWS Secret Access Key format'),
+  accessKeyId: z.string().regex(/^AKIA[0-9A-Z]{16}$/, INVALID_ACCESS_KEY_ID_MESSAGE),
+  secretAccessKey: z.string().regex(/^[0-9a-zA-Z/+]{40}$/, INVALID_SECRET_ACCESS_KEY_MESSAGE),
 });
 
 export const AWSCredentialsForm: FC<AWSCredentialsFormProps> = () => {
@@ -64,10 +71,10 @@ export const AWSCredentialsForm: FC<AWSCredentialsFormProps> = () => {
     try {
       await storage.secureWrite(ACCESS_KEY_ID, values.accessKeyId);
       await storage.secureWrite(SECRET_ACCESS_KEY, values.secretAccessKey);
-      toast.success('AWS credentials saved');
+      toast.success(SUCCESS_ON_SAVE_MESSAGE);
     } catch (error) {
-      console.log('Error saving AWS credentials', error);
-      toast.error('Error saving AWS credentials');
+      console.log(ERROR_ON_SAVE_MESSAGE, error);
+      toast.error(ERROR_ON_SAVE_MESSAGE);
     }
   }
 
