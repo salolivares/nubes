@@ -5,5 +5,5 @@ import { addStorageEventListeners } from './storage';
 export function registerListeners(mainWindow: BrowserWindow) {
   // Register listeners here
   addThemeEventListeners();
-  addStorageEventListeners();
+  addStorageEventListeners(mainWindow);
 }

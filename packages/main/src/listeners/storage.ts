@@ -1,11 +1,15 @@
 import { Storage } from '@/storage';
 import {
+  ACCESS_KEY_ID,
+  SECRET_ACCESS_KEY,
   SECURE_STORAGE_READ,
   SECURE_STORAGE_WRITE,
+  STORAGE_CHANGE,
   STORAGE_CHANNEL,
   STORAGE_READ,
   STORAGE_WRITE,
 } from '@common';
+import type { BrowserWindow } from 'electron';
 import { ipcMain } from 'electron';
 
 type ReadAction = typeof STORAGE_READ | typeof SECURE_STORAGE_READ;
@@ -44,7 +48,7 @@ function validateArgs(args: unknown): asserts args is Args {
   }
 }
 
-export function addStorageEventListeners() {
+export function addStorageEventListeners(mainWindow: BrowserWindow) {
   ipcMain.handle(STORAGE_CHANNEL, async (_event, args) => {
     validateArgs(args);
 
@@ -68,5 +72,21 @@ export function addStorageEventListeners() {
     }
 
     throw new Error('Invalid action');
+  });
+
+  Storage.instance.store.onDidChange(ACCESS_KEY_ID, (newValue: string, oldValue: string) => {
+    mainWindow.webContents.send(STORAGE_CHANGE, {
+      key: ACCESS_KEY_ID,
+      newValue: Storage.instance.decrypt(newValue),
+      oldValue: Storage.instance.decrypt(oldValue),
+    });
+  });
+
+  Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, (newValue: string, oldValue: string) => {
+    mainWindow.webContents.send(STORAGE_CHANGE, {
+      key: SECRET_ACCESS_KEY,
+      newValue: Storage.instance.decrypt(newValue),
+      oldValue: Storage.instance.decrypt(oldValue),
+    });
   });
 }

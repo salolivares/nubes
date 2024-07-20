@@ -42,12 +42,7 @@ export class Storage {
   }
 
   public secureWrite(key: string, value: string): void {
-    let data = null;
-    if (this.isEncryptionAvailable) {
-      data = safeStorage.encryptString(value).toString('base64');
-    } else {
-      data = this.encrypt(value);
-    }
+    const data = this.encrypt(value);
     this.store.set(key, data);
   }
 
@@ -56,14 +51,7 @@ export class Storage {
 
     if (!data) return null;
 
-    let value = null;
-    if (this.isEncryptionAvailable) {
-      value = safeStorage.decryptString(Buffer.from(data, 'base64'));
-    } else {
-      value = this.decrypt(data);
-    }
-
-    return value;
+    return this.decrypt(data);
   }
 
   public write(key: string, value: string): void {
@@ -74,13 +62,21 @@ export class Storage {
     return this.store.get(key) ?? null;
   }
 
-  private encrypt(value: string): string {
-    // TODO(sal): Implement fallback encryption
-    return Buffer.from(value).toString('base64');
+  public encrypt(value: string): string {
+    if (this.isEncryptionAvailable) {
+      return safeStorage.encryptString(value).toString('base64');
+    } else {
+      // TODO(sal): Implement fallback encryption
+      return Buffer.from(value).toString('base64');
+    }
   }
 
-  private decrypt(value: string): string {
-    // TODO(sal): Implement fallback decryption
-    return Buffer.from(value, 'base64').toString('utf8');
+  public decrypt(value: string): string {
+    if (this.isEncryptionAvailable) {
+      return safeStorage.decryptString(Buffer.from(value, 'base64'));
+    } else {
+      // TODO(sal): Implement fallback decryption
+      return Buffer.from(value, 'base64').toString('utf8');
+    }
   }
 }
