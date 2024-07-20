@@ -24,6 +24,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAWSCredentials } from './useAWSCredentials';
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from './constants';
+import { toast } from 'sonner';
 
 interface AWSCredentialsFormProps {
   accessKeyId?: string;
@@ -60,8 +61,14 @@ export const AWSCredentialsForm: FC<AWSCredentialsFormProps> = () => {
   const { isDirty, isValid } = form.formState;
 
   async function onSubmit(values: z.infer<typeof awsCredentialsSchema>) {
-    await storage.secureWrite(ACCESS_KEY_ID, values.accessKeyId);
-    await storage.secureWrite(SECRET_ACCESS_KEY, values.secretAccessKey);
+    try {
+      await storage.secureWrite(ACCESS_KEY_ID, values.accessKeyId);
+      await storage.secureWrite(SECRET_ACCESS_KEY, values.secretAccessKey);
+      toast.success('AWS credentials saved');
+    } catch (error) {
+      console.log('Error saving AWS credentials', error);
+      toast.error('Error saving AWS credentials');
+    }
   }
 
   return (

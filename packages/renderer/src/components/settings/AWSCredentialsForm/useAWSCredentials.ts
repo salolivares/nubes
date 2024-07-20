@@ -34,7 +34,7 @@ export const useAWSCredentials = () => {
 
     fetchAWSCredentials();
 
-    const unsubscribe = storage.onStorageChange((_event: unknown, args: StorageChangeArgs) => {
+    const unsubscribe = storage.onStorageChange((_, args: StorageChangeArgs) => {
       validateArgs(args);
       if (args.key === ACCESS_KEY_ID) {
         setAccessKeyId(args.newValue);

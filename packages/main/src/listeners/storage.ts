@@ -49,7 +49,7 @@ function validateArgs(args: unknown): asserts args is Args {
 }
 
 export function addStorageEventListeners(mainWindow: BrowserWindow) {
-  ipcMain.handle(STORAGE_CHANNEL, async (_event, args) => {
+  ipcMain.handle(STORAGE_CHANNEL, async (_, args) => {
     validateArgs(args);
 
     const { action, key } = args;
