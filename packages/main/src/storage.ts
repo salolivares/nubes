@@ -1,7 +1,6 @@
-import { CONFIG_FILE } from '@common';
-import { app, safeStorage } from 'electron';
-import path from 'path';
+import { safeStorage } from 'electron';
 import fs from 'fs';
+import Store from 'electron-store';
 
 interface Config {
   [key: string]: string;
@@ -9,15 +8,15 @@ interface Config {
 
 export class Storage {
   static #instance: Storage;
-  configPath: string;
   isEncryptionAvailable: boolean;
+  store: Store;
 
   /**
    * The Singleton's constructor should always be private to prevent direct
    * construction calls with the `new` operator.
    */
   private constructor() {
-    this.configPath = path.join(app.getPath('userData'), CONFIG_FILE);
+    this.store = new Store();
 
     if (safeStorage.isEncryptionAvailable()) {
       console.log('Safe Storage is available');
@@ -42,55 +41,37 @@ export class Storage {
     return Storage.#instance;
   }
 
-  public secureSave(key: string, value: string): void {
+  public secureWrite(key: string, value: string): void {
     let data = null;
     if (this.isEncryptionAvailable) {
       data = safeStorage.encryptString(value).toString('base64');
     } else {
       data = this.encrypt(value);
     }
-
-    const config = this.readConfigFile();
-    config[key] = data;
-    fs.writeFileSync(this.configPath, JSON.stringify(config));
+    this.store.set(key, data);
   }
 
   public secureRead(key: string): string | null {
-    const config = this.readConfigFile();
+    const data = this.store.get(key);
 
-    if (!config[key]) return null;
+    if (!data) return null;
 
     let value = null;
     if (this.isEncryptionAvailable) {
-      value = safeStorage.decryptString(Buffer.from(config[key], 'base64'));
+      value = safeStorage.decryptString(Buffer.from(data, 'base64'));
     } else {
-      value = this.decrypt(config[key]);
+      value = this.decrypt(data);
     }
 
     return value;
   }
 
   public write(key: string, value: string): void {
-    const config = this.readConfigFile();
-    config[key] = value;
-    fs.writeFileSync(this.configPath, JSON.stringify(config));
+    return this.store.set(key, value);
   }
 
   public read(key: string): string | null {
-    const config = this.readConfigFile();
-    return config[key] || null;
-  }
-
-  private readConfigFile(): Config {
-    try {
-      if (fs.existsSync(this.configPath)) {
-        const data = fs.readFileSync(this.configPath, 'utf8');
-        return JSON.parse(data);
-      }
-    } catch (error) {
-      console.error('Failed to read config file:', error);
-    }
-    return {};
+    return this.store.get(key) ?? null;
   }
 
   private encrypt(value: string): string {

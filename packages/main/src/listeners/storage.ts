@@ -1,38 +1,71 @@
 import { Storage } from '@/storage';
 import {
-  SECURE_STORAGE_READ_CHANNEL,
-  SECURE_STORAGE_WRITE_CHANNEL,
-  STORAGE_READ_CHANNEL,
-  STORAGE_WRITE_CHANNEL,
+  SECURE_STORAGE_READ,
+  SECURE_STORAGE_WRITE,
+  STORAGE_CHANNEL,
+  STORAGE_READ,
+  STORAGE_WRITE,
 } from '@common';
 import { ipcMain } from 'electron';
 
-type ReadArgs = [string];
-type WriteArgs = [string, string];
+type ReadAction = typeof STORAGE_READ | typeof SECURE_STORAGE_READ;
+type WriteAction = typeof STORAGE_WRITE | typeof SECURE_STORAGE_WRITE;
 
-function validateReadArgs(args: unknown[]): args is ReadArgs {
-  return args.length === 1 && typeof args[0] === 'string';
-}
+type ReadArgs = {
+  action: ReadAction;
+  key: string;
+};
 
-function validateWriteArgs(args: unknown[]): args is WriteArgs {
-  return args.length === 2 && typeof args[0] === 'string' && typeof args[1] === 'string';
+type WriteArgs = {
+  action: WriteAction;
+  key: string;
+  value: string;
+};
+
+type Args = ReadArgs | WriteArgs;
+
+function validateArgs(args: unknown): asserts args is Args {
+  if (!args || typeof args !== 'object') {
+    throw new Error('Invalid arguments');
+  }
+
+  const { action, key, value } = args as Record<string, unknown>;
+
+  if (typeof action !== 'string' || typeof key !== 'string') {
+    throw new Error('Invalid arguments');
+  }
+
+  if ((action === SECURE_STORAGE_WRITE || action === STORAGE_WRITE) && typeof value !== 'string') {
+    throw new Error('Invalid arguments');
+  }
+
+  if ((action === SECURE_STORAGE_READ || action === STORAGE_READ) && value !== undefined) {
+    throw new Error('Invalid arguments');
+  }
 }
 
 export function addStorageEventListeners() {
-  ipcMain.handle(SECURE_STORAGE_READ_CHANNEL, async (event, ...args) => {
-    if (!validateReadArgs(args)) {
-      throw new Error('Invalid arguments');
+  ipcMain.handle(STORAGE_CHANNEL, async (_event, args) => {
+    validateArgs(args);
+
+    if (args.action === SECURE_STORAGE_READ || args.action === STORAGE_READ) {
+      const { action, key } = args;
+      switch (action) {
+        case SECURE_STORAGE_READ:
+          return Storage.instance.secureRead(key);
+        case STORAGE_READ:
+          return Storage.instance.read(key);
+      }
+    } else if (args.action === SECURE_STORAGE_WRITE || args.action === STORAGE_WRITE) {
+      const { action, key, value } = args;
+      switch (action) {
+        case SECURE_STORAGE_WRITE:
+          return Storage.instance.secureWrite(key, value);
+        case STORAGE_WRITE:
+          return Storage.instance.write(key, value);
+      }
     }
 
-    Storage.instance.secureRead(args[0]);
+    throw new Error('Invalid action');
   });
-  ipcMain.handle(SECURE_STORAGE_WRITE_CHANNEL, async (event, ...args) => {
-    if (!validateWriteArgs(args)) {
-      throw new Error('Invalid arguments');
-    }
-
-    Storage.instance.secureSave(args[0], args[1]);
-  });
-  ipcMain.handle(STORAGE_READ_CHANNEL, async (event, ...args) => {});
-  ipcMain.handle(STORAGE_WRITE_CHANNEL, async (event, ...args) => {});
 }
