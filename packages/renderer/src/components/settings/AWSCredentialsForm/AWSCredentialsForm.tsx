@@ -1,15 +1,29 @@
-import { useForm } from 'react-hook-form';
-import { Button } from '../ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
-import { Input } from '../ui/input';
-
-import { z } from 'zod';
+import { storage } from '#preload';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
+import {
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+  Form,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { FC } from 'react';
-import { useState } from 'react';
-
-import { storage } from '#preload';
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { useAWSCredentials } from './useAWSCredentials';
+import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from './constants';
 
 interface AWSCredentialsFormProps {
   accessKeyId?: string;
@@ -21,25 +35,33 @@ const awsCredentialsSchema = z.object({
   secretAccessKey: z.string().regex(/^[0-9a-zA-Z/+]{40}$/, 'Invalid AWS Secret Access Key format'),
 });
 
-const AWSCredentialsForm: FC<AWSCredentialsFormProps> = ({ accessKeyId, secretAccessKey }) => {
+export const AWSCredentialsForm: FC<AWSCredentialsFormProps> = () => {
+  const { accessKeyId, secretAccessKey } = useAWSCredentials();
+
   const form = useForm<z.infer<typeof awsCredentialsSchema>>({
     resolver: zodResolver(awsCredentialsSchema),
     defaultValues: {
-      accessKeyId: accessKeyId ?? '',
-      secretAccessKey: secretAccessKey ?? '',
+      accessKeyId,
+      secretAccessKey,
     },
     mode: 'onChange',
   });
 
-  const [showAccessKeyId, setShowAccessKeyId] = useState(!accessKeyId);
-  const [showSecretAccessKey, setShowSecretAccessKey] = useState(!secretAccessKey);
+  const [showAccessKeyId, setShowAccessKeyId] = useState(false);
+  const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
+
+  useEffect(() => {
+    form.reset({
+      accessKeyId,
+      secretAccessKey,
+    });
+  }, [accessKeyId, secretAccessKey, form]);
 
   const { isDirty, isValid } = form.formState;
 
   async function onSubmit(values: z.infer<typeof awsCredentialsSchema>) {
-    await storage.secureWrite('accessKeyId', values.accessKeyId);
-    await storage.secureWrite('secretAccessKey', values.secretAccessKey);
-    console.log(values);
+    await storage.secureWrite(ACCESS_KEY_ID, values.accessKeyId);
+    await storage.secureWrite(SECRET_ACCESS_KEY, values.secretAccessKey);
   }
 
   return (
@@ -101,13 +123,5 @@ const AWSCredentialsForm: FC<AWSCredentialsFormProps> = ({ accessKeyId, secretAc
         </form>
       </Form>
     </Card>
-  );
-};
-
-export const GeneralSettings = () => {
-  return (
-    <div className="grid gap-6">
-      <AWSCredentialsForm />
-    </div>
   );
 };
