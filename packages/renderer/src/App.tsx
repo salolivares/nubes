@@ -1,12 +1,14 @@
-import { ThemeProvider } from '@/components/theme-provider';
-import { ModeToggle } from './components/mode-toggle';
-import { LoginForm } from './components/login-form';
+import { RouterProvider } from 'react-router-dom';
+import { ThemeProvider } from './components/theme-provider';
+
+import { router } from './routes';
+import { Toaster } from './components/ui/sonner';
 
 export function App() {
   return (
-    <ThemeProvider defaultTheme="dark">
-      <ModeToggle />
-      <LoginForm />
+    <ThemeProvider>
+      <RouterProvider router={router} />
+      <Toaster />
     </ThemeProvider>
   );
 }
