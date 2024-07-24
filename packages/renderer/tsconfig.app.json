@@ -25,8 +25,11 @@
 
     "paths": {
       "#preload": ["../preload/src/index"],
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
     },
   },
-  "include": ["src"],
+  "include": ["src", "../common/src/**/*.ts"],
+  "references": [
+    { "path": "../preload" }
+  ]
 }

@@ -49,5 +49,7 @@ export const useAWSCredentials = () => {
     };
   }, []);
 
-  return { accessKeyId, secretAccessKey };
+  const isSet = accessKeyId && secretAccessKey;
+
+  return { accessKeyId, secretAccessKey, isSet };
 };

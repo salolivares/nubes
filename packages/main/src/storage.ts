@@ -1,15 +1,10 @@
 import { safeStorage } from 'electron';
-import fs from 'fs';
 import Store from 'electron-store';
-
-interface Config {
-  [key: string]: string;
-}
 
 export class Storage {
   static #instance: Storage;
-  isEncryptionAvailable: boolean;
-  store: Store;
+  private isEncryptionAvailable: boolean;
+  public store: Store;
 
   /**
    * The Singleton's constructor should always be private to prevent direct
