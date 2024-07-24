@@ -19,6 +19,7 @@ const config = {
   resolve: {
     alias: {
       '@/': join(PACKAGE_ROOT, 'src') + '/',
+      '@common/': join(PROJECT_ROOT, 'packages/common/src') + '/',
     },
   },
   base: '',

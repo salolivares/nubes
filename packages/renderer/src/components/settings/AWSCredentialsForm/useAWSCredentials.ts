@@ -1,6 +1,6 @@
 import { storage } from '#preload';
+import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '@common';
 import { useState, useEffect } from 'react';
-import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from './constants';
 
 type StorageChangeArgs = {
   key: typeof ACCESS_KEY_ID | typeof SECRET_ACCESS_KEY;

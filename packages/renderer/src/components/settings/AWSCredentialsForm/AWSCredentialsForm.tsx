@@ -24,14 +24,13 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAWSCredentials } from './useAWSCredentials';
 import {
-  ACCESS_KEY_ID,
   ERROR_ON_SAVE_MESSAGE,
   INVALID_ACCESS_KEY_ID_MESSAGE,
   INVALID_SECRET_ACCESS_KEY_MESSAGE,
-  SECRET_ACCESS_KEY,
   SUCCESS_ON_SAVE_MESSAGE,
 } from './constants';
 import { toast } from 'sonner';
+import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '@common';
 
 interface AWSCredentialsFormProps {
   accessKeyId?: string;
