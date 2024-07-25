@@ -1,13 +1,13 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <title>Hello World!</title>
-
+    <meta charset="UTF-8">
+    <meta content="script-src 'self' blob:" http-equiv="Content-Security-Policy">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Nubes</title>
   </head>
   <body>
-    <h1>💖 Hello World!</h1>
-    <p>Welcome to your Electron application.</p>
-    <script type="module" src="/src/renderer/renderer.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/renderer/main.tsx"></script>
   </body>
 </html>
