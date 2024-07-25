@@ -3,7 +3,7 @@
   "productName": "nested",
   "version": "1.0.0",
   "description": "My Electron application description",
-  "main": ".vite/build/main.js",
+  "main": ".vite/build/index.js",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
@@ -25,6 +25,7 @@
     "@typescript-eslint/parser": "^5.62.0",
     "electron": "31.3.0",
     "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "ts-node": "^10.9.2",
     "typescript": "~4.5.4",
