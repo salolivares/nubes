@@ -9,6 +9,9 @@ module.exports = {
     'eslint:recommended',
     /** @see https://github.com/typescript-eslint/typescript-eslint/tree/master/packages/eslint-plugin#recommended-configs */
     'plugin:@typescript-eslint/recommended',
+    'plugin:import/recommended',
+    'plugin:import/electron',
+    'plugin:import/typescript',
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
