@@ -1,7 +1,9 @@
 import { BrowserWindow } from 'electron';
-import { fileURLToPath } from 'node:url';
 import { registerListeners } from './listeners';
-import path from 'path';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function createWindow() {
   const browserWindow = new BrowserWindow({
@@ -54,7 +56,7 @@ async function createWindow() {
      * @see https://github.com/electron/electron/issues/6869
      */
     await browserWindow.loadFile(
-      fileURLToPath(new URL(`../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`))
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
     );
   }
 

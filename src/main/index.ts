@@ -2,7 +2,10 @@ import { app } from 'electron';
 import './securityRestrictions';
 import { restoreOrCreateWindow } from './mainWindow';
 import { platform } from 'node:process';
+import { createRequire } from 'node:module';
 import { Storage } from './drivers/storage';
+
+const require = createRequire(import.meta.url);
 
 /**
  * Handle creating/removing shortcuts on Windows when installing/uninstalling.
