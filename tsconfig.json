@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "CommonJS",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "outDir": "dist",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@client/*": ["./src/renderer/*"],
+      "@common": ["./src/common"],
+      "@ui/*": ["./src/renderer/components/ui/*"],
+    }
+  },
+  "include": ["src", "types/**/*.d.ts"],
+  "exclude": ["node_modules"]
+}

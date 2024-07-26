@@ -4,14 +4,14 @@
   "rsc": false,
   "tsx": true,
   "tailwind": {
-    "config": "tailwind.config.cjs",
-    "css": "packages/renderer/src/index.css",
+    "config": "tailwind.config.js",
+    "css": "src/renderer/index.css",
     "baseColor": "slate",
     "cssVariables": true,
     "prefix": ""
   },
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils"
+    "components": "@client/components",
+    "utils": "@client/lib/utils"
   }
 }
