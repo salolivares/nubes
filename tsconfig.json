@@ -18,5 +18,6 @@
       "@common": ["./src/common"],
       "@ui/*": ["./src/renderer/components/ui/*"],
     }
-  }
+  },
+  "include": ["src", "types/**/*.d.ts"],
 }

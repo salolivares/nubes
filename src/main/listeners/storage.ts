@@ -74,19 +74,19 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
     throw new Error('Invalid action');
   });
 
-  Storage.instance.store.onDidChange(ACCESS_KEY_ID, (newValue: string, oldValue: string) => {
+  Storage.instance.store.onDidChange(ACCESS_KEY_ID, (newValue: string, oldValue?: string) => {
     mainWindow.webContents.send(STORAGE_CHANGE, {
       key: ACCESS_KEY_ID,
       newValue: Storage.instance.decrypt(newValue),
-      oldValue: Storage.instance.decrypt(oldValue),
+      oldValue: Storage.instance.decrypt(oldValue ?? ''),
     });
   });
 
-  Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, (newValue: string, oldValue: string) => {
+  Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, (newValue: string, oldValue?: string) => {
     mainWindow.webContents.send(STORAGE_CHANGE, {
       key: SECRET_ACCESS_KEY,
       newValue: Storage.instance.decrypt(newValue),
-      oldValue: Storage.instance.decrypt(oldValue),
+      oldValue: Storage.instance.decrypt(oldValue ?? ''),
     });
   });
 }
