@@ -1,6 +1,7 @@
 import type { ConfigEnv, UserConfig } from 'vite';
 import { defineConfig, mergeConfig } from 'vite';
 import { getBuildConfig, external, pluginHotRestart, esmodule } from './vite.base.config';
+import path from 'node:path';
 
 // https://vitejs.dev/config
 export default defineConfig((env) => {
@@ -24,6 +25,14 @@ export default defineConfig((env) => {
       },
     },
     plugins: [pluginHotRestart('reload')],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+        '@client': path.resolve(__dirname, './src/renderer'),
+        '@common': path.resolve(__dirname, './src/common'),
+        '@ui': path.resolve(__dirname, './src/renderer/components/ui'),
+      },
+    },
   };
 
   return mergeConfig(getBuildConfig(forgeEnv), config);

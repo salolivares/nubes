@@ -1,6 +1,7 @@
 import type { ConfigEnv, UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import path from 'path';
 import { pluginExposeRenderer } from './vite.base.config';
 
 // https://vitejs.dev/config
@@ -19,6 +20,12 @@ export default defineConfig((env) => {
     plugins: [pluginExposeRenderer(name), react()],
     resolve: {
       preserveSymlinks: true,
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+        '@client': path.resolve(__dirname, './src/renderer'),
+        '@common': path.resolve(__dirname, './src/common'),
+        '@ui': path.resolve(__dirname, './src/renderer/components/ui'),
+      },
     },
     clearScreen: false,
   } as UserConfig;
