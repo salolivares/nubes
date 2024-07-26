@@ -1,8 +1,8 @@
 import { initTRPC } from '@trpc/server';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
-import { Storage } from '@/main/drivers/storage';
 import type { CreateContextOptions } from 'electron-trpc/main';
+import { S3 } from '@/main/drivers/s3';
 
 /**
  * This helper generates the "internals" for a tRPC context. If you need to use it, you can export
@@ -14,7 +14,7 @@ import type { CreateContextOptions } from 'electron-trpc/main';
  */
 const createInnerTRPCContext = () => {
   return {
-    storage: Storage.instance,
+    s3: S3.instance,
   };
 };
 

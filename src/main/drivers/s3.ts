@@ -9,10 +9,8 @@ export class S3 {
   private storage: Storage;
 
   private constructor() {
-    this.configureS3Client();
-
-    // Listen for changes in AWS credentials
     this.storage = Storage.instance;
+    this.configureS3Client();
 
     this.storage.store.onDidChange(ACCESS_KEY_ID, () => {
       this.configureS3Client();
