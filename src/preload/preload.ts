@@ -6,4 +6,4 @@ import { storage } from './storage';
 import { theme } from './theme';
 
 contextBridge.exposeInMainWorld('storage', storage);
-contextBridge.exposeInMainWorld('theme', theme);
+contextBridge.exposeInMainWorld('themeMode', theme);

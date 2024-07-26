@@ -1,6 +1,6 @@
 {
-  "name": "nested",
-  "productName": "nested",
+  "name": "nubes",
+  "productName": "nubes",
   "version": "1.0.0",
   "description": "My Electron application description",
   "main": ".vite/build/index.js",
