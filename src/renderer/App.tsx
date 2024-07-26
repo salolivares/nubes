@@ -2,13 +2,13 @@ import { RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from './components/theme-provider';
 import superjson from 'superjson';
 import { ipcLink } from 'electron-trpc/renderer';
-
 import { router } from './routes';
 import { Toaster } from './components/ui/sonner';
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { trpc } from './lib/trpc';
 import { loggerLink } from '@trpc/client';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 export function App() {
   const [queryClient] = useState(() => new QueryClient());
@@ -33,6 +33,7 @@ export function App() {
           <RouterProvider router={router} />
           <Toaster />
         </ThemeProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </trpc.Provider>
   );
