@@ -1,4 +1,4 @@
-import { AWSCredentialsForm } from './AWSCredentialsForm';
+import { AWSCredentialsForm } from '../components/AWSCredentialsForm';
 
 export const GeneralSettings = () => {
   return (
