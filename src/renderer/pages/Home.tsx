@@ -1,4 +1,5 @@
 import { trpc } from '@client/lib/trpc';
+import { Link } from 'react-router-dom';
 
 function FolderIcon(props) {
   return (
@@ -27,7 +28,8 @@ export const Home = () => {
       <h1>Select a folder to begin</h1>
       <div>
         {data?.map((bucket) => (
-          <div
+          <Link
+            to={`/bucket/${bucket.Name}/upload`}
             className="group flex flex-col items-center justify-center gap-2 bg-muted rounded-lg p-4 hover:bg-muted/60 transition-colors cursor-pointer"
             key={bucket.Name}
           >
@@ -35,7 +37,7 @@ export const Home = () => {
               <FolderIcon className="w-6 h-6" />
             </div>
             <span className="text-sm font-medium">{bucket.Name}</span>
-          </div>
+          </Link>
         ))}
       </div>
     </>
