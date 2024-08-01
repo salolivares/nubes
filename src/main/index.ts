@@ -1,9 +1,12 @@
-import { app } from 'electron';
 import './securityRestrictions';
-import { restoreOrCreateWindow } from './mainWindow';
-import { platform } from 'node:process';
+
 import { createRequire } from 'node:module';
+import { platform } from 'node:process';
+
+import { app } from 'electron';
+
 import { Storage } from './drivers/storage';
+import { restoreOrCreateWindow } from './mainWindow';
 
 const require = createRequire(import.meta.url);
 
@@ -54,6 +57,13 @@ app
     restoreOrCreateWindow();
   })
   .catch((e) => console.error('Failed create window:', e));
+
+/**
+ * Clean up resources on app quit.
+ */
+app.on('before-quit', () => {});
+
+app.on('will-quit', () => {});
 
 /**
  * Install React devtools or any other extension in development mode only.

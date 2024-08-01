@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron';
-import { addThemeEventListeners } from './theme';
+
 import { addStorageEventListeners } from './storage';
+import { addThemeEventListeners } from './theme';
 import { addTrpcEventListeners } from './trpc';
 
 export function registerListeners(mainWindow: BrowserWindow) {

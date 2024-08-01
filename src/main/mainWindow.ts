@@ -1,9 +1,40 @@
-import { BrowserWindow } from 'electron';
-import { registerListeners } from './listeners';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { app, BrowserWindow, MessageChannelMain, utilityProcess } from 'electron';
+
+import { registerListeners } from './listeners';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function createImageProcessor() {
+  const { port1, port2 } = new MessageChannelMain();
+  port1.start();
+  port2.start();
+
+  const imageProcessor = utilityProcess.fork(path.join(__dirname, './image-processor.js'));
+
+  app.on('before-quit', () => {
+    if (imageProcessor.kill()) {
+      console.log('imageProcessor killed');
+    }
+  });
+
+  app.on('will-quit', () => {
+    if (imageProcessor.kill()) {
+      console.log('imageProcessor killed');
+    }
+  });
+
+  process.on('uncaughtException', () => {
+    if (imageProcessor.kill()) {
+      console.log('Killing image processor due to uncaught exception');
+    }
+    app.quit();
+  });
+
+  return [imageProcessor, port1];
+}
 
 async function createWindow() {
   const browserWindow = new BrowserWindow({
@@ -20,6 +51,7 @@ async function createWindow() {
   });
 
   registerListeners(browserWindow);
+  const [imageProcessor, port] = createImageProcessor();
 
   /**
    * If the 'show' property of the BrowserWindow's constructor is omitted from the initialization options,
