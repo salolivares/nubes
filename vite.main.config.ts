@@ -1,13 +1,15 @@
+import path from 'node:path';
+
 import type { ConfigEnv, UserConfig } from 'vite';
 import { defineConfig, mergeConfig } from 'vite';
+
 import {
+  esmodule,
+  external,
   getBuildConfig,
   getBuildDefine,
-  external,
-  esmodule,
   pluginHotRestart,
 } from './vite.base.config';
-import path from 'node:path';
 
 // https://vitejs.dev/config
 export default defineConfig((env) => {

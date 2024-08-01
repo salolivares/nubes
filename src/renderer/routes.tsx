@@ -1,10 +1,11 @@
 import { createHashRouter, createRoutesFromElements, Route } from 'react-router-dom';
+
 import { BaseLayout } from './components/base-layout';
-import { Home } from './pages/Home';
-import { Settings } from './pages/Settings';
-import { GeneralSettings } from './pages/GeneralSettings';
 import { BucketViewer } from './pages/BucketBrowser';
+import { GeneralSettings } from './pages/GeneralSettings';
+import { Home } from './pages/Home';
 import { ImageUpload } from './pages/ImageUpload';
+import { Settings } from './pages/Settings';
 
 export const router = createHashRouter(
   createRoutesFromElements(
