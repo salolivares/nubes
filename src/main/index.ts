@@ -59,13 +59,6 @@ app
   .catch((e) => console.error('Failed create window:', e));
 
 /**
- * Clean up resources on app quit.
- */
-app.on('before-quit', () => {});
-
-app.on('will-quit', () => {});
-
-/**
  * Install React devtools or any other extension in development mode only.
  */
 if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {

@@ -1,41 +1,73 @@
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import prettyBytes from 'pretty-bytes';
 import sharp from 'sharp';
 
-// process.on('message', async (message: { imagePaths: string[]; width: number; height: number }) => {
-//   const { imagePaths, width, height } = message;
+import {
+  IMAGE_PROCESSOR_COMPLETE,
+  IMAGE_PROCESSOR_ERROR,
+  IMAGE_PROCESSOR_PROGRESS,
+} from '@/common';
 
-//   if (!process.send) {
-//     throw new Error('The process.send method is not available');
-//   }
+async function processImage(path: string) {
+  const name = path.split('.')[0];
+  const inputBuffer = fs.readFileSync(path);
 
-//   for (let i = 0; i < imagePaths.length; i++) {
-//     const imagePath = imagePaths[i];
-//     try {
-//       await sharp(imagePath)
-//         .resize(width, height)
-//         .toFile(path.join(path.dirname(imagePath), `resized_${path.basename(imagePath)}`));
+  // Determine the input format
+  const image = sharp(inputBuffer);
+  const metadata = await image.metadata();
+  const inputFormat = metadata.format;
 
-//       // Report progress
-//       process.send({
-//         type: 'progress',
-//         current: i + 1,
-//         total: imagePaths.length,
-//         imagePath: imagePath,
-//       });
-//     } catch (error) {
-//       process.send({
-//         type: 'error',
-//         error: (error as Error).message,
-//         imagePath: imagePath,
-//       });
-//     }
-//   }
+  // Rename the original file with its format
+  fs.renameSync(path, `${name}_original.${inputFormat}`);
 
-//   process.send({ type: 'complete' });
-// });
+  for (const res of [128, 640, 1280, 2880]) {
+    const jpgOutputFilename = `${name}_${res}.jpg`;
+    const webpOutputFilename = `${name}_${res}.webp`;
 
-process.parentPort.once('message', (e) => {
+    await image.resize(res).toFormat('jpg').toFile(jpgOutputFilename);
+    await image.resize(res).toFormat('webp').toFile(webpOutputFilename);
+
+    // TODO(sal): Send this to frontend somehow
+    console.log(`${res}x webp ${prettyBytes(fs.readFileSync(webpOutputFilename).byteLength)}`);
+    console.log(`${res}x jpg ${prettyBytes(fs.readFileSync(jpgOutputFilename).byteLength)}`);
+  }
+}
+
+process.parentPort.once('message', async (e) => {
   const [port] = e.ports;
-  port.postMessage('pong');
-  port.postMessage('pgasdfasdf');
+  const { folderPaths, imagePaths } = e.data;
+
+  for (const folderPath of folderPaths) {
+    const files = fs.readdirSync(folderPath);
+    const images = files.filter((file) => file.match(/\.(png|jpe?g)$/i));
+
+    for (const image of images) {
+      const imagePath = path.join(folderPath, image);
+      imagePaths.push(imagePath);
+    }
+  }
+
+  for (let i = 0; i < imagePaths.length; i++) {
+    const imagePath = imagePaths[i];
+
+    try {
+      await processImage(imagePath);
+      port.postMessage({
+        type: IMAGE_PROCESSOR_PROGRESS,
+        current: i + 1,
+        total: imagePaths.length,
+        path: imagePath,
+      });
+    } catch (error) {
+      port.postMessage({
+        type: IMAGE_PROCESSOR_ERROR,
+        error: (error as Error).message,
+        path: imagePath,
+      });
+    }
+  }
+
+  port.postMessage({ type: IMAGE_PROCESSOR_COMPLETE });
 });
