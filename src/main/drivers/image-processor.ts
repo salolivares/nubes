@@ -39,13 +39,15 @@ process.parentPort.once('message', async (e) => {
   const [port] = e.ports;
   const { folderPaths, imagePaths } = e.data;
 
-  for (const folderPath of folderPaths) {
-    const files = fs.readdirSync(folderPath);
-    const images = files.filter((file) => file.match(/\.(png|jpe?g)$/i));
+  if (folderPaths && folderPaths.length > 0) {
+    for (const folderPath of folderPaths) {
+      const files = fs.readdirSync(folderPath);
+      const images = files.filter((file) => file.match(/\.(png|jpe?g)$/i));
 
-    for (const image of images) {
-      const imagePath = path.join(folderPath, image);
-      imagePaths.push(imagePath);
+      for (const image of images) {
+        const imagePath = path.join(folderPath, image);
+        imagePaths.push(imagePath);
+      }
     }
   }
 

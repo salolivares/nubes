@@ -84,4 +84,9 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
       });
     }
   });
+
+  imageProcessor.postMessage(
+    { type: IMAGE_PROCESSOR_RESIZE, imagePaths: ['/Users/sal/dev/nubes/test.png'] },
+    [port2]
+  );
 }
