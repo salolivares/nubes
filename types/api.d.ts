@@ -14,7 +14,13 @@ interface ThemeModeContext {
   current: () => Promise<'dark' | 'light' | 'system'>;
 }
 
+interface ImageProcessorContext {
+  resize: (imagePaths: string[]) => void;
+  onProgressChange: (listener: (event: IpcRendererEvent, ...args: any[]) => void) => () => void;
+}
+
 declare interface Window {
   storage: StorageContext;
   themeMode: ThemeContext;
+  imageProcessor: ImageProcessorContext;
 }

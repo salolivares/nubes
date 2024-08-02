@@ -1,5 +1,5 @@
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '@common';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 type StorageChangeArgs = {
   key: typeof ACCESS_KEY_ID | typeof SECRET_ACCESS_KEY;

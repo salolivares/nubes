@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { Progress } from '../components/ui/progress';
 import { useImageStore } from '../stores/images';
@@ -13,14 +13,25 @@ export const ImageUpload = () => {
     return () => unloadPreviews();
   }, []);
 
+  const uploadRan = useRef(false);
+
+  useEffect(() => {
+    if (!uploadRan.current) {
+      window.imageProcessor.resize(
+        files.filter((file) => file.path !== undefined).map((file) => file.path)
+      );
+    }
+
+    return () => {
+      uploadRan.current = true;
+    };
+  }, []);
+
   return (
     <div className="container mx-auto px-4 md:px-6 py-12">
       <div className="max-w-2xl mx-auto grid gap-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight">Image Uploads</h1>
-          <p className="text-muted-foreground">
-            Monitor the progress of your image uploads in real-time.
-          </p>
         </div>
         <div className="grid gap-6">
           {files.map((item) => (

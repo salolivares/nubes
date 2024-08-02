@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import prettyBytes from 'pretty-bytes';
 import sharp from 'sharp';
 
 import { IMAGE_PROCESSOR_COMPLETE, IMAGE_PROCESSOR_PROGRESS } from '@/common';
@@ -9,14 +8,29 @@ import { IMAGE_PROCESSOR_COMPLETE, IMAGE_PROCESSOR_PROGRESS } from '@/common';
 // TODO(sal): output to temporary directory
 // TODO(sal): delete image cache after a while
 
-async function processImage(imagePath: string, outputFolder: string): Promise<string[]> {
+interface OutputImage {
+  imagePath: string;
+  type: 'jpg' | 'webp';
+  resolution: number;
+  byteLength: number;
+}
+
+interface ProcessedImage {
+  name: string;
+  imagePaths: OutputImage[];
+}
+
+async function processImage(
+  imagePath: string,
+  outputFolder: string,
+  dryRun = true
+): Promise<ProcessedImage[]> {
   console.log(`Processing ${imagePath}`);
-  console.log(`Output folder: ${outputFolder}`);
   const name = path.basename(imagePath, path.extname(imagePath));
   const inputBuffer = fs.readFileSync(imagePath);
 
   // Create the output folder if it doesn't exist
-  if (!fs.existsSync(outputFolder)) {
+  if (!dryRun && !fs.existsSync(outputFolder)) {
     fs.mkdirSync(outputFolder, { recursive: true });
   }
 
@@ -27,31 +41,53 @@ async function processImage(imagePath: string, outputFolder: string): Promise<st
 
   // Rename the original file with its format
   const originalOutputPath = path.join(outputFolder, `${name}_original.${inputFormat}`);
-  fs.copyFileSync(imagePath, originalOutputPath);
 
-  const processedImagePaths: string[] = [];
+  if (!dryRun) {
+    fs.copyFileSync(imagePath, originalOutputPath);
+  }
+
+  const processedImage: ProcessedImage[] = [];
 
   for (const res of [128, 640, 1280, 2880]) {
     const jpgOutputFilename = path.join(outputFolder, `${name}_${res}.jpg`);
     const webpOutputFilename = path.join(outputFolder, `${name}_${res}.webp`);
 
-    processedImagePaths.push(jpgOutputFilename);
-    processedImagePaths.push(webpOutputFilename);
+    if (!dryRun) {
+      await image.resize(res).toFormat('jpg').toFile(jpgOutputFilename);
+      await image.resize(res).toFormat('webp').toFile(webpOutputFilename);
 
-    await image.resize(res).toFormat('jpg').toFile(jpgOutputFilename);
-    await image.resize(res).toFormat('webp').toFile(webpOutputFilename);
-
-    // TODO(sal): Send this to frontend somehow
-    console.log(`${res}x webp ${prettyBytes(fs.readFileSync(webpOutputFilename).byteLength)}`);
-    console.log(`${res}x jpg ${prettyBytes(fs.readFileSync(jpgOutputFilename).byteLength)}`);
+      processedImage.push({
+        name,
+        imagePaths: [
+          {
+            imagePath: jpgOutputFilename,
+            type: 'jpg',
+            resolution: res,
+            byteLength: fs.readFileSync(jpgOutputFilename).byteLength,
+          },
+          {
+            imagePath: webpOutputFilename,
+            type: 'webp',
+            resolution: res,
+            byteLength: fs.readFileSync(webpOutputFilename).byteLength,
+          },
+        ],
+      });
+    }
   }
 
-  return processedImagePaths;
+  return processedImage;
 }
 
 process.parentPort.once('message', async (e) => {
   const [port] = e.ports;
-  const { folderPaths, imagePaths, tempFolder } = e.data;
+  const { folderPaths, imagePaths, tempFolder, dryRun } = e.data;
+
+  console.log('Processing images');
+  console.log(folderPaths);
+  console.log(imagePaths);
+  console.log(tempFolder);
+  console.log(dryRun);
 
   if (folderPaths && folderPaths.length > 0) {
     for (const folderPath of folderPaths) {
@@ -65,7 +101,7 @@ process.parentPort.once('message', async (e) => {
     }
   }
 
-  const processedImagePaths: string[] = [];
+  const processedImages: ProcessedImage[] = [];
   const erroredImagePaths: { error: string; path: string }[] = [];
 
   if (imagePaths && imagePaths.length > 0) {
@@ -80,8 +116,8 @@ process.parentPort.once('message', async (e) => {
           path: imagePath,
         });
 
-        const pip = await processImage(imagePath, tempFolder);
-        processedImagePaths.push(...pip);
+        const pip = await processImage(imagePath, tempFolder, dryRun);
+        processedImages.push(...pip);
       } catch (error) {
         console.error(`Error processing ${imagePath}: ${(error as Error).message}`);
         erroredImagePaths.push({
@@ -92,5 +128,9 @@ process.parentPort.once('message', async (e) => {
     }
   }
 
-  port.postMessage({ type: IMAGE_PROCESSOR_COMPLETE, processedImagePaths, erroredImagePaths });
+  port.postMessage({
+    type: IMAGE_PROCESSOR_COMPLETE,
+    processedImage: processedImages,
+    erroredImagePaths,
+  });
 });

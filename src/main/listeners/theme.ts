@@ -1,4 +1,5 @@
-import { nativeTheme, ipcMain } from 'electron';
+import { ipcMain, nativeTheme } from 'electron';
+
 import {
   THEME_MODE_CURRENT_CHANNEL,
   THEME_MODE_DARK_CHANNEL,
@@ -20,6 +21,7 @@ export function addThemeEventListeners() {
   ipcMain.handle(THEME_MODE_DARK_CHANNEL, () => (nativeTheme.themeSource = 'dark'));
   ipcMain.handle(THEME_MODE_LIGHT_CHANNEL, () => (nativeTheme.themeSource = 'light'));
   ipcMain.handle(THEME_MODE_SYSTEM_CHANNEL, () => {
+    console.log('nativeTheme.themeSource', nativeTheme.themeSource);
     nativeTheme.themeSource = 'system';
     return nativeTheme.shouldUseDarkColors;
   });

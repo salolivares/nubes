@@ -55,10 +55,12 @@ function validateArgs(args: unknown): asserts args is Args {
     throw new Error('Invalid arguments');
   }
 
-  const { imagePaths, folderPaths } = args as Record<string, unknown>;
+  if ('imagePaths' in args && !Array.isArray(args.imagePaths)) {
+    throw new Error('Invalid imagePaths');
+  }
 
-  if (!Array.isArray(imagePaths) || !Array.isArray(folderPaths)) {
-    throw new Error('Invalid arguments');
+  if ('folderPaths' in args && !Array.isArray(args.folderPaths)) {
+    throw new Error('Invalid folderPaths');
   }
 }
 
@@ -73,7 +75,8 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
         type: IMAGE_PROCESSOR_RESIZE,
         folderPaths: args.folderPaths,
         imagePaths: args.imagePaths,
-        tempFolder: app.getPath('temp'),
+        tempFolder: path.join(app.getPath('temp'), 'nubes'),
+        dryRun: false,
       },
       [port2]
     );
@@ -91,7 +94,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
 
     if (message.data.type === IMAGE_PROCESSOR_COMPLETE) {
       mainWindow.webContents.send(IMAGE_PROCESSOR_COMPLETE, {
-        processedImagePaths: message.data.processedImagePaths,
+        processedImages: message.data.processedImages,
         erroredImagePaths: message.data.erroredImagePaths,
       });
     }

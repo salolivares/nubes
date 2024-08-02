@@ -3,6 +3,7 @@ import type { File } from 'node:buffer';
 import { create } from 'zustand';
 
 export interface CustomFile extends File {
+  path?: string;
   preview?: string;
 }
 
@@ -22,6 +23,13 @@ function createCustomFile(file: File, preview?: string): CustomFile {
   return Object.assign(file, { preview });
 }
 
+/**
+ * Image store for managing image uploads.
+ *
+ * Please call unloadPreviews() when the component unmounts to prevent memory leaks.
+ *
+ * TODO(sal): figure out a way to automatically call unloadPreviews() when the component unmounts.
+ */
 export const useImageStore = create<State & Action>()((set) => ({
   files: [],
   addFiles: (files: File[]) =>

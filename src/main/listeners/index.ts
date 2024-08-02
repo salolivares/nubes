@@ -10,5 +10,5 @@ export function registerListeners(mainWindow: BrowserWindow) {
   addThemeEventListeners();
   addStorageEventListeners(mainWindow);
   addTrpcEventListeners(mainWindow);
-  addImageProcessorEventListeners();
+  addImageProcessorEventListeners(mainWindow);
 }
