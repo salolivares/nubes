@@ -5,7 +5,7 @@ import type { BrowserWindow } from 'electron';
 import { app, ipcMain, MessageChannelMain, utilityProcess } from 'electron';
 
 import {
-  IMAGE_PROCESSOR_CHANNEL,
+  IMAGE_PROCESSOR_COMPLETE,
   IMAGE_PROCESSOR_PROGRESS,
   IMAGE_PROCESSOR_RESIZE,
 } from '@/common';
@@ -69,7 +69,12 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   ipcMain.handle(IMAGE_PROCESSOR_RESIZE, (_, args) => {
     validateArgs(args);
     imageProcessor.postMessage(
-      { type: IMAGE_PROCESSOR_RESIZE, folderPaths: args.folderPaths, imagePaths: args.imagePaths },
+      {
+        type: IMAGE_PROCESSOR_RESIZE,
+        folderPaths: args.folderPaths,
+        imagePaths: args.imagePaths,
+        tempFolder: app.getPath('temp'),
+      },
       [port2]
     );
   });
@@ -81,6 +86,13 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
         current: message.data.current,
         total: message.data.total,
         path: message.data.path,
+      });
+    }
+
+    if (message.data.type === IMAGE_PROCESSOR_COMPLETE) {
+      mainWindow.webContents.send(IMAGE_PROCESSOR_COMPLETE, {
+        processedImagePaths: message.data.processedImagePaths,
+        erroredImagePaths: message.data.erroredImagePaths,
       });
     }
   });

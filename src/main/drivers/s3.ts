@@ -1,7 +1,8 @@
-import { Storage } from './storage';
 import type { Bucket } from '@aws-sdk/client-s3';
 import { ListBucketsCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
+
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../../common/constants';
+import { Storage } from './storage';
 
 export class S3 {
   static #instance: S3;

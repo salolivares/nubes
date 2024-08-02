@@ -29,7 +29,7 @@ export const Home = () => {
       <div>
         {data?.map((bucket) => (
           <Link
-            to={`/bucket/${bucket.Name}/upload`}
+            to={`/bucket/${bucket.Name}/picker`}
             className="group flex flex-col items-center justify-center gap-2 bg-muted rounded-lg p-4 hover:bg-muted/60 transition-colors cursor-pointer"
             key={bucket.Name}
           >

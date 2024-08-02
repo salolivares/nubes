@@ -1,6 +1,6 @@
 import { Package2, Search } from 'lucide-react';
-
 import { Link, Outlet, useLocation } from 'react-router-dom';
+
 import { ModeToggle } from './mode-toggle';
 import { Input } from './ui/input';
 

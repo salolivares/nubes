@@ -4,15 +4,21 @@ import path from 'node:path';
 import prettyBytes from 'pretty-bytes';
 import sharp from 'sharp';
 
-import {
-  IMAGE_PROCESSOR_COMPLETE,
-  IMAGE_PROCESSOR_ERROR,
-  IMAGE_PROCESSOR_PROGRESS,
-} from '@/common';
+import { IMAGE_PROCESSOR_COMPLETE, IMAGE_PROCESSOR_PROGRESS } from '@/common';
 
-async function processImage(path: string) {
-  const name = path.split('.')[0];
-  const inputBuffer = fs.readFileSync(path);
+// TODO(sal): output to temporary directory
+// TODO(sal): delete image cache after a while
+
+async function processImage(imagePath: string, outputFolder: string): Promise<string[]> {
+  console.log(`Processing ${imagePath}`);
+  console.log(`Output folder: ${outputFolder}`);
+  const name = path.basename(imagePath, path.extname(imagePath));
+  const inputBuffer = fs.readFileSync(imagePath);
+
+  // Create the output folder if it doesn't exist
+  if (!fs.existsSync(outputFolder)) {
+    fs.mkdirSync(outputFolder, { recursive: true });
+  }
 
   // Determine the input format
   const image = sharp(inputBuffer);
@@ -20,11 +26,17 @@ async function processImage(path: string) {
   const inputFormat = metadata.format;
 
   // Rename the original file with its format
-  fs.renameSync(path, `${name}_original.${inputFormat}`);
+  const originalOutputPath = path.join(outputFolder, `${name}_original.${inputFormat}`);
+  fs.copyFileSync(imagePath, originalOutputPath);
+
+  const processedImagePaths: string[] = [];
 
   for (const res of [128, 640, 1280, 2880]) {
-    const jpgOutputFilename = `${name}_${res}.jpg`;
-    const webpOutputFilename = `${name}_${res}.webp`;
+    const jpgOutputFilename = path.join(outputFolder, `${name}_${res}.jpg`);
+    const webpOutputFilename = path.join(outputFolder, `${name}_${res}.webp`);
+
+    processedImagePaths.push(jpgOutputFilename);
+    processedImagePaths.push(webpOutputFilename);
 
     await image.resize(res).toFormat('jpg').toFile(jpgOutputFilename);
     await image.resize(res).toFormat('webp').toFile(webpOutputFilename);
@@ -33,11 +45,13 @@ async function processImage(path: string) {
     console.log(`${res}x webp ${prettyBytes(fs.readFileSync(webpOutputFilename).byteLength)}`);
     console.log(`${res}x jpg ${prettyBytes(fs.readFileSync(jpgOutputFilename).byteLength)}`);
   }
+
+  return processedImagePaths;
 }
 
 process.parentPort.once('message', async (e) => {
   const [port] = e.ports;
-  const { folderPaths, imagePaths } = e.data;
+  const { folderPaths, imagePaths, tempFolder } = e.data;
 
   if (folderPaths && folderPaths.length > 0) {
     for (const folderPath of folderPaths) {
@@ -51,25 +65,32 @@ process.parentPort.once('message', async (e) => {
     }
   }
 
-  for (let i = 0; i < imagePaths.length; i++) {
-    const imagePath = imagePaths[i];
+  const processedImagePaths: string[] = [];
+  const erroredImagePaths: { error: string; path: string }[] = [];
 
-    try {
-      await processImage(imagePath);
-      port.postMessage({
-        type: IMAGE_PROCESSOR_PROGRESS,
-        current: i + 1,
-        total: imagePaths.length,
-        path: imagePath,
-      });
-    } catch (error) {
-      port.postMessage({
-        type: IMAGE_PROCESSOR_ERROR,
-        error: (error as Error).message,
-        path: imagePath,
-      });
+  if (imagePaths && imagePaths.length > 0) {
+    for (let i = 0; i < imagePaths.length; i++) {
+      const imagePath = imagePaths[i];
+
+      try {
+        port.postMessage({
+          type: IMAGE_PROCESSOR_PROGRESS,
+          current: i + 1,
+          total: imagePaths.length,
+          path: imagePath,
+        });
+
+        const pip = await processImage(imagePath, tempFolder);
+        processedImagePaths.push(...pip);
+      } catch (error) {
+        console.error(`Error processing ${imagePath}: ${(error as Error).message}`);
+        erroredImagePaths.push({
+          error: (error as Error).message,
+          path: imagePath,
+        });
+      }
     }
   }
 
-  port.postMessage({ type: IMAGE_PROCESSOR_COMPLETE });
+  port.postMessage({ type: IMAGE_PROCESSOR_COMPLETE, processedImagePaths, erroredImagePaths });
 });
