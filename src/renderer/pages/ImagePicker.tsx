@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '../components/ui/button';
+import type { CustomFile } from '../stores/images';
+import { useImageStoreSelectors } from '../stores/images';
+
+// TODO: file dialog does not work. see react drop zone docs.
+// TODO: move icons to own component
 
 function UploadIcon(props) {
   return (
@@ -46,22 +51,12 @@ function XIcon(props) {
 }
 
 export const ImagePicker = () => {
-  const [files, setFiles] = useState([]);
+  const { files, addFiles, removeFile, removeAllFiles, unloadPreviews } = useImageStoreSelectors();
 
-  const handleRemove = (index: number) => {
-    const updatedFiles = [...files];
-    updatedFiles.splice(index, 1);
-    URL.revokeObjectURL(files[index].preview);
-    setFiles(updatedFiles);
-  };
-
-  const handleRemoveAll = () => {
-    files.forEach((file) => URL.revokeObjectURL(file.preview));
-    setFiles([]);
-  };
+  const navigate = useNavigate();
 
   const handleUpload = () => {
-    console.log('Uploading files', files);
+    navigate('../upload', { relative: 'path' });
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -69,19 +64,13 @@ export const ImagePicker = () => {
       'image/*': [],
     },
     onDrop: (acceptedFiles) => {
-      setFiles(
-        acceptedFiles.map((file) =>
-          Object.assign(file, {
-            preview: URL.createObjectURL(file),
-          })
-        )
-      );
+      addFiles(acceptedFiles as CustomFile[]);
     },
   });
 
   useEffect(() => {
     // Revoke the data uris to avoid memory leaks, will run on unmount
-    return () => files.forEach((file) => URL.revokeObjectURL(file.preview));
+    return () => unloadPreviews();
   }, []);
 
   return (
@@ -105,7 +94,7 @@ export const ImagePicker = () => {
         <div className="grid gap-4">
           <div>
             <h3>Queued for upload</h3>
-            <Button onClick={handleRemoveAll}>Clear</Button>
+            <Button onClick={removeAllFiles}>Clear</Button>
             <Button onClick={handleUpload}>Upload</Button>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -113,7 +102,7 @@ export const ImagePicker = () => {
               <div key={index} className="relative group rounded-md overflow-hidden aspect-square">
                 <img src={file.preview} alt={file.name} className="w-full h-full object-cover" />
                 <button
-                  onClick={() => handleRemove(index)}
+                  onClick={() => removeFile(index)}
                   className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <XIcon className="w-4 h-4" />
