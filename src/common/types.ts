@@ -1,15 +1,21 @@
-export interface OutputImage {
-  imagePath: string;
-  type: 'jpg' | 'webp';
-  resolution: number;
-  byteLength: number;
-}
+import { z } from 'zod';
 
-export interface ProcessedImage {
-  id: string;
-  name: string;
-  imagePaths: OutputImage[];
-}
+export const outputImageSchema = z.object({
+  imagePath: z.string(),
+  type: z.union([z.literal('jpg'), z.literal('webp')]),
+  resolution: z.number(),
+  byteLength: z.number(),
+});
+
+export type OutputImage = z.infer<typeof outputImageSchema>;
+
+export const processedImageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  imagePaths: z.array(outputImageSchema),
+});
+
+export type ProcessedImage = z.infer<typeof processedImageSchema>;
 
 export interface InProgressEvent {
   current: number;

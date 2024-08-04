@@ -1,35 +1,22 @@
 import { Button } from '@client/components/ui/button';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from '@ui/card';
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-  Form,
-} from '@ui/form';
-import { Input } from '@ui/input';
+import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '@common';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@ui/form';
+import { Input } from '@ui/input';
 import type { FC } from 'react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
-import { useAWSCredentials } from './useAWSCredentials';
+
 import {
   ERROR_ON_SAVE_MESSAGE,
   INVALID_ACCESS_KEY_ID_MESSAGE,
   INVALID_SECRET_ACCESS_KEY_MESSAGE,
   SUCCESS_ON_SAVE_MESSAGE,
 } from './constants';
-import { toast } from 'sonner';
-import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '@common';
+import { useAWSCredentials } from './useAWSCredentials';
 
 interface AWSCredentialsFormProps {
   accessKeyId?: string;
@@ -37,12 +24,8 @@ interface AWSCredentialsFormProps {
 }
 
 const awsCredentialsSchema = z.object({
-  accessKeyId: z
-    .string()
-    .regex(/^AKIA[0-9A-Z]{16}$/, INVALID_ACCESS_KEY_ID_MESSAGE),
-  secretAccessKey: z
-    .string()
-    .regex(/^[0-9a-zA-Z/+]{40}$/, INVALID_SECRET_ACCESS_KEY_MESSAGE),
+  accessKeyId: z.string().regex(/^AKIA[0-9A-Z]{16}$/, INVALID_ACCESS_KEY_ID_MESSAGE),
+  secretAccessKey: z.string().regex(/^[0-9a-zA-Z/+]{40}$/, INVALID_SECRET_ACCESS_KEY_MESSAGE),
 });
 
 export const AWSCredentialsForm: FC<AWSCredentialsFormProps> = () => {
@@ -72,10 +55,7 @@ export const AWSCredentialsForm: FC<AWSCredentialsFormProps> = () => {
   async function onSubmit(values: z.infer<typeof awsCredentialsSchema>) {
     try {
       await window.storage.secureWrite(ACCESS_KEY_ID, values.accessKeyId);
-      await window.storage.secureWrite(
-        SECRET_ACCESS_KEY,
-        values.secretAccessKey
-      );
+      await window.storage.secureWrite(SECRET_ACCESS_KEY, values.secretAccessKey);
       toast.success(SUCCESS_ON_SAVE_MESSAGE);
     } catch (error) {
       console.log(ERROR_ON_SAVE_MESSAGE, error);
@@ -88,8 +68,8 @@ export const AWSCredentialsForm: FC<AWSCredentialsFormProps> = () => {
       <CardHeader>
         <CardTitle>AWS Credentials</CardTitle>
         <CardDescription>
-          Used to retrieve and save images to s3 buckets. Click here to figure
-          to learn how to create AWS credentials safely.
+          Used to retrieve and save images to s3 buckets. Click here to figure to learn how to
+          create AWS credentials safely.
         </CardDescription>
       </CardHeader>
       <Form {...form}>

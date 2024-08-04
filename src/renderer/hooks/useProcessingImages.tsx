@@ -15,8 +15,6 @@ export const useProcessingImages = () => {
   const loadPreviews = useImageStore((state) => state.loadPreviews);
   const unloadPreviews = useImageStore((state) => state.unloadPreviews);
 
-  console.log('Processing images', processingImages);
-
   useEffect(() => {
     loadPreviews();
     return () => unloadPreviews();
@@ -45,7 +43,6 @@ export const useProcessingImages = () => {
     );
 
     const unsubscribeComplete = window.imageProcessor.onComplete((_, processedImages) => {
-      console.log('Processed images', processedImages);
       setProcessed(true);
       setProcessedImages(processedImages.processedImages as ProcessedImage[]);
     });

@@ -1,6 +1,8 @@
 import type { Bucket } from '@aws-sdk/client-s3';
 import { ListBucketsCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 
+import type { ProcessedImage } from '@/common/types';
+
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../../common/constants';
 import { Storage } from './storage';
 
@@ -73,5 +75,13 @@ export class S3 {
       : [];
 
     return imageFiles;
+  }
+
+  public async createAlbum(bucketName: string, images: ProcessedImage[]): Promise<void> {
+    if (!this.client) {
+      throw new Error('S3 client not configured');
+    }
+
+    console.log('Creating album', bucketName, images);
   }
 }

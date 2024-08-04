@@ -1,8 +1,23 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 import { Button } from '../components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '../components/ui/form';
 import { Input } from '../components/ui/input';
 import { useProcessedImages } from '../hooks/useProcessedImages';
+import { trpc } from '../lib/trpc';
 
 function CheckIcon(props) {
   return (
@@ -44,9 +59,47 @@ function FilePenIcon(props) {
   );
 }
 
+const albumSchema = z.object({
+  albumName: z
+    .string()
+    .min(1, 'Album name is required')
+    .max(50, 'Album name must be 50 characters or less')
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Album name can only contain alphanumeric characters, underscores, and dashes'
+    ),
+});
+
 export const S3Upload = () => {
   const { processedImages, setProcessedImageName } = useProcessedImages();
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { mutate, isLoading } = trpc.bucket.createAlbum.useMutation({
+    onError: (error) => {
+      toast.error(error.message);
+    },
+    onSuccess: () => {
+      toast.success('Album created');
+    },
+  });
+
+  const { bucketName } = useParams();
+
+  const form = useForm<z.infer<typeof albumSchema>>({
+    resolver: zodResolver(albumSchema),
+    defaultValues: {
+      albumName: '',
+    },
+  });
+
+  const { isDirty, isValid } = form.formState;
+
+  const onSubmit = (values: z.infer<typeof albumSchema>) => {
+    if (bucketName) {
+      mutate({ bucketName, albumName: values.albumName, images: processedImages });
+    } else {
+      toast.error('Bucket name is required');
+    }
+  };
 
   return (
     <div>
@@ -111,6 +164,27 @@ export const S3Upload = () => {
           ))}
         </tbody>
       </table>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <FormField
+            control={form.control}
+            name="albumName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Album Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Album Name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" disabled={!isDirty || !isValid || isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Submit
+          </Button>
+        </form>
+      </Form>
     </div>
   );
 };
