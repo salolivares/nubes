@@ -90,6 +90,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
         total: message.data.total,
         path: message.data.path,
         name: message.data.name,
+        id: message.data.id,
       });
     }
 

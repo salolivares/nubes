@@ -6,6 +6,7 @@ export interface OutputImage {
 }
 
 export interface ProcessedImage {
+  id: string;
   name: string;
   imagePaths: OutputImage[];
 }
@@ -15,4 +16,5 @@ export interface InProgressEvent {
   total: number;
   path: string;
   name: string;
+  id: string;
 }

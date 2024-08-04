@@ -32,6 +32,7 @@ interface Action {
   setProcessedImages: (files: ProcessedImage[]) => void;
   setProcessed: (processed: boolean) => void;
   initializeProcessingImages: () => void;
+  setProcessedImageName: (id: string, name: string) => void;
 }
 
 function createCustomFile(file: File, preview?: string): CustomFile {
@@ -111,6 +112,17 @@ export const useImageStore = create<State & Action>()((set) => ({
       });
 
       return { processingImages: updatedProcessingImages };
+    }),
+  setProcessedImageName: (id: string, name: string) =>
+    set((state) => {
+      const processedImages = state.processedImages.map((img) => {
+        if (img.id === id) {
+          return { ...img, name };
+        }
+        return img;
+      });
+
+      return { processedImages };
     }),
 }));
 

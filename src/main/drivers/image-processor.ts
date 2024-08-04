@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -27,6 +28,14 @@ async function processImage(
   const image = sharp(inputBuffer);
   const metadata = await image.metadata();
   const inputFormat = metadata.format;
+  const width = metadata.width;
+  const height = metadata.height;
+
+  // Calculate a hash of the image content
+  const hash = crypto.createHash('sha256').update(inputBuffer).digest('hex');
+
+  // Generate a stable ID
+  const id = `${width}x${height}_${inputFormat}_${hash.substring(0, 16)}`;
 
   // Rename the original file with its format
   const originalOutputPath = path.join(outputFolder, `${name}_original.${inputFormat}`);
@@ -36,6 +45,7 @@ async function processImage(
   }
 
   const processedImage: ProcessedImage = {
+    id,
     name,
     imagePaths: [],
   };
@@ -97,16 +107,16 @@ process.parentPort.once('message', async (e) => {
       const imagePath = imagePaths[i];
 
       try {
+        const pip = await processImage(imagePath, tempFolder, dryRun);
+        processedImages.push(pip);
         port.postMessage({
           type: IMAGE_PROCESSOR_PROGRESS,
           current: i + 1,
           total: imagePaths.length,
           name: path.basename(imagePath),
+          id: pip.id,
           path: imagePath,
         });
-
-        const pip = await processImage(imagePath, tempFolder, dryRun);
-        processedImages.push(pip);
       } catch (error) {
         console.error(`Error processing ${imagePath}: ${(error as Error).message}`);
         erroredImagePaths.push({

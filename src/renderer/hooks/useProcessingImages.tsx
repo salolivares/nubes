@@ -15,6 +15,8 @@ export const useProcessingImages = () => {
   const loadPreviews = useImageStore((state) => state.loadPreviews);
   const unloadPreviews = useImageStore((state) => state.unloadPreviews);
 
+  console.log('Processing images', processingImages);
+
   useEffect(() => {
     loadPreviews();
     return () => unloadPreviews();
