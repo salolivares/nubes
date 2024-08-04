@@ -1,5 +1,7 @@
 import { safeStorage } from 'electron';
 import Store from 'electron-store';
+import baseLog from 'electron-log/main';
+const log = baseLog.scope('Storage');
 
 export class Storage {
   static #instance: Storage;
@@ -14,10 +16,10 @@ export class Storage {
     this.store = new Store();
 
     if (safeStorage.isEncryptionAvailable()) {
-      console.log('Safe Storage is available');
+      log.info('Safe Storage is available');
       this.isEncryptionAvailable = true;
     } else {
-      console.log('Safe Storage is not available');
+      log.warn('Safe Storage is not available');
       this.isEncryptionAvailable = false;
     }
   }

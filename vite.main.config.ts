@@ -1,13 +1,15 @@
+import path from 'node:path';
+
 import type { ConfigEnv, UserConfig } from 'vite';
 import { defineConfig, mergeConfig } from 'vite';
+
 import {
+  esmodule,
+  external,
   getBuildConfig,
   getBuildDefine,
-  external,
-  esmodule,
   pluginHotRestart,
 } from './vite.base.config';
-import path from 'node:path';
 
 // https://vitejs.dev/config
 export default defineConfig((env) => {
@@ -17,12 +19,18 @@ export default defineConfig((env) => {
   const config: UserConfig = {
     build: {
       lib: {
-        entry: forgeConfigSelf.entry!,
-        fileName: () => '[name].js',
+        entry: {
+          index: forgeConfigSelf.entry!,
+          'image-processor': path.resolve(__dirname, 'src/main/drivers/image-processor.ts'),
+        },
+        fileName: (_, entryName) => `${entryName}.js`,
         formats: [esmodule ? 'es' : 'cjs'],
       },
       rollupOptions: {
         external,
+        output: {
+          entryFileNames: '[name].js',
+        },
       },
     },
     plugins: [pluginHotRestart('restart')],

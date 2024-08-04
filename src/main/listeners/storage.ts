@@ -1,14 +1,15 @@
 import type { BrowserWindow } from 'electron';
 import { ipcMain } from 'electron';
+
 import {
-  STORAGE_READ,
-  SECURE_STORAGE_READ,
-  STORAGE_WRITE,
-  SECURE_STORAGE_WRITE,
-  STORAGE_CHANNEL,
   ACCESS_KEY_ID,
-  STORAGE_CHANGE,
   SECRET_ACCESS_KEY,
+  SECURE_STORAGE_READ,
+  SECURE_STORAGE_WRITE,
+  STORAGE_CHANGE,
+  STORAGE_CHANNEL,
+  STORAGE_READ,
+  STORAGE_WRITE,
 } from '../../common/constants';
 import { Storage } from '../drivers/storage';
 

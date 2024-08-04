@@ -1,9 +1,12 @@
-import { app } from 'electron';
 import './securityRestrictions';
-import { restoreOrCreateWindow } from './mainWindow';
-import { platform } from 'node:process';
+
 import { createRequire } from 'node:module';
+import { platform } from 'node:process';
+
+import { app } from 'electron';
+
 import { Storage } from './drivers/storage';
+import { restoreOrCreateWindow } from './mainWindow';
 
 const require = createRequire(import.meta.url);
 

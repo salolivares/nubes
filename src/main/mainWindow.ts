@@ -1,7 +1,9 @@
-import { BrowserWindow } from 'electron';
-import { registerListeners } from './listeners';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { BrowserWindow } from 'electron';
+
+import { registerListeners } from './listeners';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
