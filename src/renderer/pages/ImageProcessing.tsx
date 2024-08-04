@@ -58,7 +58,9 @@ export const ImageProcessing = () => {
           ))}
         </div>
         <div>
-          <Button onClick={() => navigate('../s3', { relative: 'path' })}>Go to s3 upload</Button>
+          {processed && (
+            <Button onClick={() => navigate('../s3', { relative: 'path' })}>Go to s3 upload</Button>
+          )}
         </div>
       </div>
     </div>

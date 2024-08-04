@@ -27,10 +27,6 @@ export const useProcessingImages = () => {
   useEffect(() => {
     const unsubscribeProgress = window.imageProcessor.onProgressChange(
       (_, inProgressEvent: InProgressEvent) => {
-        if (inProgressEvent.current === inProgressEvent.total) {
-          setProcessed(true);
-        }
-
         setProcessingImages(
           processingImages.map((file) => {
             if (file.name === inProgressEvent.name) {
@@ -46,12 +42,11 @@ export const useProcessingImages = () => {
       }
     );
 
-    const unsubscribeComplete = window.imageProcessor.onComplete(
-      (_, processedImages: ProcessedImage[]) => {
-        setProcessed(true);
-        setProcessedImages(processedImages);
-      }
-    );
+    const unsubscribeComplete = window.imageProcessor.onComplete((_, processedImages) => {
+      console.log('Processed images', processedImages);
+      setProcessed(true);
+      setProcessedImages(processedImages.processedImages as ProcessedImage[]);
+    });
 
     return () => {
       unsubscribeProgress();

@@ -13,7 +13,7 @@ async function processImage(
   imagePath: string,
   outputFolder: string,
   dryRun = true
-): Promise<ProcessedImage[]> {
+): Promise<ProcessedImage> {
   console.log(`Processing ${imagePath}`);
   const name = path.basename(imagePath, path.extname(imagePath));
   const inputBuffer = fs.readFileSync(imagePath);
@@ -35,7 +35,10 @@ async function processImage(
     fs.copyFileSync(imagePath, originalOutputPath);
   }
 
-  const processedImage: ProcessedImage[] = [];
+  const processedImage: ProcessedImage = {
+    name,
+    imagePaths: [],
+  };
 
   for (const res of [128, 640, 1280, 2880]) {
     const jpgOutputFilename = path.join(outputFolder, `${name}_${res}.jpg`);
@@ -45,22 +48,18 @@ async function processImage(
       await image.resize(res).toFormat('jpg').toFile(jpgOutputFilename);
       await image.resize(res).toFormat('webp').toFile(webpOutputFilename);
 
-      processedImage.push({
-        name,
-        imagePaths: [
-          {
-            imagePath: jpgOutputFilename,
-            type: 'jpg',
-            resolution: res,
-            byteLength: fs.readFileSync(jpgOutputFilename).byteLength,
-          },
-          {
-            imagePath: webpOutputFilename,
-            type: 'webp',
-            resolution: res,
-            byteLength: fs.readFileSync(webpOutputFilename).byteLength,
-          },
-        ],
+      processedImage.imagePaths.push({
+        imagePath: jpgOutputFilename,
+        type: 'jpg',
+        resolution: res,
+        byteLength: fs.readFileSync(jpgOutputFilename).byteLength,
+      });
+
+      processedImage.imagePaths.push({
+        imagePath: webpOutputFilename,
+        type: 'webp',
+        resolution: res,
+        byteLength: fs.readFileSync(webpOutputFilename).byteLength,
       });
     }
   }
@@ -107,7 +106,7 @@ process.parentPort.once('message', async (e) => {
         });
 
         const pip = await processImage(imagePath, tempFolder, dryRun);
-        processedImages.push(...pip);
+        processedImages.push(pip);
       } catch (error) {
         console.error(`Error processing ${imagePath}: ${(error as Error).message}`);
         erroredImagePaths.push({
