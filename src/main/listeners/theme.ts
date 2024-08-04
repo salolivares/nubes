@@ -21,7 +21,6 @@ export function addThemeEventListeners() {
   ipcMain.handle(THEME_MODE_DARK_CHANNEL, () => (nativeTheme.themeSource = 'dark'));
   ipcMain.handle(THEME_MODE_LIGHT_CHANNEL, () => (nativeTheme.themeSource = 'light'));
   ipcMain.handle(THEME_MODE_SYSTEM_CHANNEL, () => {
-    console.log('nativeTheme.themeSource', nativeTheme.themeSource);
     nativeTheme.themeSource = 'system';
     return nativeTheme.shouldUseDarkColors;
   });

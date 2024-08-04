@@ -17,6 +17,7 @@ interface ThemeModeContext {
 interface ImageProcessorContext {
   resize: (imagePaths: string[]) => void;
   onProgressChange: (listener: (event: IpcRendererEvent, ...args: any[]) => void) => () => void;
+  onComplete: (listener: (event: IpcRendererEvent, ...args: any[]) => void) => () => void;
 }
 
 declare interface Window {

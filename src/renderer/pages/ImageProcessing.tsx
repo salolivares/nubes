@@ -1,17 +1,14 @@
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
+import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
-import { useImageStore } from '../stores/images';
+import { useProcessingImages } from '../hooks/useProcessingImages';
 
-export const ImageUpload = () => {
-  const files = useImageStore((state) => state.files);
-  const loadPreviews = useImageStore((state) => state.loadPreviews);
-  const unloadPreviews = useImageStore((state) => state.unloadPreviews);
-
-  useEffect(() => {
-    loadPreviews();
-    return () => unloadPreviews();
-  }, []);
+export const ImageProcessing = () => {
+  const { files, processingImages, processed } = useProcessingImages();
+  const navigate = useNavigate();
 
   const uploadRan = useRef(false);
 
@@ -27,17 +24,23 @@ export const ImageUpload = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (processed) {
+      toast.success('Images processed successfully');
+    }
+  }, [processed]);
+
   return (
     <div className="container mx-auto px-4 md:px-6 py-12">
       <div className="max-w-2xl mx-auto grid gap-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight">Image Uploads</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Image Processing</h1>
         </div>
         <div className="grid gap-6">
-          {files.map((item) => (
+          {processingImages.map((item) => (
             <div key={item.name} className="flex items-center gap-4">
               <img
-                src={item.preview}
+                src={item.file.preview}
                 alt={`Image ${item.name}`}
                 width={80}
                 height={80}
@@ -47,12 +50,15 @@ export const ImageUpload = () => {
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">{item.name}</span>
-                  <span className="text-sm text-muted-foreground">0%</span>
+                  <span className="text-sm text-muted-foreground">{item.progress}%</span>
                 </div>
-                <Progress value={0} />
+                <Progress value={item.progress} />
               </div>
             </div>
           ))}
+        </div>
+        <div>
+          <Button onClick={() => navigate('../s3', { relative: 'path' })}>Go to s3 upload</Button>
         </div>
       </div>
     </div>

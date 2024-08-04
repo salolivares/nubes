@@ -4,21 +4,10 @@ import path from 'node:path';
 import sharp from 'sharp';
 
 import { IMAGE_PROCESSOR_COMPLETE, IMAGE_PROCESSOR_PROGRESS } from '@/common';
+import type { ProcessedImage } from '@/common/types';
 
 // TODO(sal): output to temporary directory
 // TODO(sal): delete image cache after a while
-
-interface OutputImage {
-  imagePath: string;
-  type: 'jpg' | 'webp';
-  resolution: number;
-  byteLength: number;
-}
-
-interface ProcessedImage {
-  name: string;
-  imagePaths: OutputImage[];
-}
 
 async function processImage(
   imagePath: string,
@@ -113,6 +102,7 @@ process.parentPort.once('message', async (e) => {
           type: IMAGE_PROCESSOR_PROGRESS,
           current: i + 1,
           total: imagePaths.length,
+          name: path.basename(imagePath),
           path: imagePath,
         });
 
@@ -130,7 +120,7 @@ process.parentPort.once('message', async (e) => {
 
   port.postMessage({
     type: IMAGE_PROCESSOR_COMPLETE,
-    processedImage: processedImages,
+    processedImages,
     erroredImagePaths,
   });
 });

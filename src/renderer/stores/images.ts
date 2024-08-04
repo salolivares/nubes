@@ -2,13 +2,24 @@ import type { File } from 'node:buffer';
 
 import { create } from 'zustand';
 
+import type { ProcessedImage } from '@/common/types';
+
 export interface CustomFile extends File {
   path?: string;
   preview?: string;
 }
 
+export interface ProcessingImage {
+  name: string;
+  progress: number;
+  file: CustomFile;
+}
+
 interface State {
   files: CustomFile[];
+  processingImages: ProcessingImage[];
+  processedImages: ProcessedImage[];
+  processed: boolean;
 }
 
 interface Action {
@@ -17,6 +28,10 @@ interface Action {
   removeAllFiles: () => void;
   unloadPreviews: () => void;
   loadPreviews: () => void;
+  setProcessingImages: (files: ProcessingImage[]) => void;
+  setProcessedImages: (files: ProcessedImage[]) => void;
+  setProcessed: (processed: boolean) => void;
+  initializeProcessingImages: () => void;
 }
 
 function createCustomFile(file: File, preview?: string): CustomFile {
@@ -32,6 +47,9 @@ function createCustomFile(file: File, preview?: string): CustomFile {
  */
 export const useImageStore = create<State & Action>()((set) => ({
   files: [],
+  processingImages: [],
+  processedImages: [],
+  processed: false,
   addFiles: (files: File[]) =>
     set((state) => ({
       files: [
@@ -70,6 +88,30 @@ export const useImageStore = create<State & Action>()((set) => ({
         createCustomFile(file, file.preview ?? URL.createObjectURL(file))
       ),
     })),
+  setProcessingImages: (files: ProcessingImage[]) => set({ processingImages: files }),
+  setProcessedImages: (files: ProcessedImage[]) => set({ processedImages: files }),
+  setProcessed: (processed: boolean) => set({ processed }),
+  initializeProcessingImages: () =>
+    set((state) => {
+      const existingProcessingImages = state.processingImages.reduce((acc, img) => {
+        acc[img.name] = img;
+        return acc;
+      }, {} as Record<string, ProcessingImage>);
+
+      const updatedProcessingImages = state.files.map((file) => {
+        const existingImage = existingProcessingImages[file.name];
+        if (existingImage) {
+          return existingImage; // Preserve existing progress
+        }
+        return {
+          name: file.name,
+          file,
+          progress: 0,
+        };
+      });
+
+      return { processingImages: updatedProcessingImages };
+    }),
 }));
 
 export const useImageStoreSelectors = () => {
