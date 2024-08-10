@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -73,12 +73,14 @@ const albumSchema = z.object({
 export const S3Upload = () => {
   const { processedImages, setProcessedImageName } = useProcessedImages();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { mutate, isLoading } = trpc.bucket.createAlbum.useMutation({
     onError: (error) => {
       toast.error(error.message);
     },
     onSuccess: () => {
       toast.success('Album created');
+      navigate('../summary', { relative: 'path', state: {} });
     },
   });
 

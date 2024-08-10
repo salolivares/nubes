@@ -77,11 +77,15 @@ export class S3 {
     return imageFiles;
   }
 
-  public async createAlbum(bucketName: string, images: ProcessedImage[]): Promise<void> {
+  public async createAlbum(
+    bucketName: string,
+    albumName: string,
+    images: ProcessedImage[]
+  ): Promise<void> {
     if (!this.client) {
       throw new Error('S3 client not configured');
     }
 
-    console.log('Creating album', bucketName, images);
+    console.log('Creating album', bucketName, albumName, images);
   }
 }

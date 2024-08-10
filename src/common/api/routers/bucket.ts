@@ -17,8 +17,9 @@ export const bucketRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await ctx.s3.createAlbum(input.bucketName, input.images);
+      await ctx.s3.createAlbum(input.bucketName, input.albumName, input.images);
       // mock 3 second delay
-      return new Promise((resolve) => setTimeout(resolve, 3000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      return { success: true };
     }),
 });
