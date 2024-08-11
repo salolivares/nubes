@@ -1,23 +1,11 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { Album } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { AlbumForm } from '../components/AlbumForm/AlbumForm';
 import { Button } from '../components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '../components/ui/form';
 import { Input } from '../components/ui/input';
 import { useProcessedImages } from '../hooks/useProcessedImages';
-import { trpc } from '../lib/trpc';
 
 function CheckIcon(props) {
   return (
@@ -59,49 +47,11 @@ function FilePenIcon(props) {
   );
 }
 
-const albumSchema = z.object({
-  albumName: z
-    .string()
-    .min(1, 'Album name is required')
-    .max(50, 'Album name must be 50 characters or less')
-    .regex(
-      /^[a-zA-Z0-9_-]+$/,
-      'Album name can only contain alphanumeric characters, underscores, and dashes'
-    ),
-});
-
 export const S3Upload = () => {
-  const { processedImages, setProcessedImageName } = useProcessedImages();
+  const { processedImages, setProcessedImage } = useProcessedImages();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { mutate, isLoading } = trpc.bucket.createAlbum.useMutation({
-    onError: (error) => {
-      toast.error(error.message);
-    },
-    onSuccess: () => {
-      toast.success('Album created');
-      navigate('../summary', { relative: 'path', state: {} });
-    },
-  });
 
-  const { bucketName } = useParams();
-
-  const form = useForm<z.infer<typeof albumSchema>>({
-    resolver: zodResolver(albumSchema),
-    defaultValues: {
-      albumName: '',
-    },
-  });
-
-  const { isDirty, isValid } = form.formState;
-
-  const onSubmit = (values: z.infer<typeof albumSchema>) => {
-    if (bucketName) {
-      mutate({ bucketName, albumName: values.albumName, images: processedImages });
-    } else {
-      toast.error('Bucket name is required');
-    }
-  };
+  console.log('processedImages', processedImages);
 
   return (
     <div>
@@ -111,6 +61,8 @@ export const S3Upload = () => {
           <tr className="bg-muted">
             <th className="px-4 py-2 text-left">Image</th>
             <th className="px-4 py-2 text-left">Name</th>
+            <th className="px-4 py-2 text-left">Description</th>
+            <th className="px-4 py-2 text-left">Camera</th>
             <th className="px-4 py-2 text-right">Actions</th>
           </tr>
         </thead>
@@ -132,10 +84,10 @@ export const S3Upload = () => {
                     <Input
                       type="text"
                       defaultValue={image.name}
-                      onBlur={(e) => setProcessedImageName(image.id, e.target.value)}
+                      onBlur={(e) => setProcessedImage(image.id, { name: e.target.value })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          setProcessedImageName(image.id, e.target.value);
+                          setProcessedImage(image.id, { name: e.target.value });
                         }
                       }}
                       className="flex-1"
@@ -144,6 +96,48 @@ export const S3Upload = () => {
                 ) : (
                   <div className="flex items-center justify-between">
                     <div>{image.name}</div>
+                  </div>
+                )}
+              </td>
+              <td className="px-4 py-3 text-right">
+                {editingId === image.id ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      defaultValue={image.description}
+                      onBlur={(e) => setProcessedImage(image.id, { description: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setProcessedImage(image.id, { description: e.target.value });
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>{image.description}</div>
+                  </div>
+                )}
+              </td>
+              <td className="px-4 py-3 text-right">
+                {editingId === image.id ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      defaultValue={image.camera}
+                      onBlur={(e) => setProcessedImage(image.id, { camera: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setProcessedImage(image.id, { camera: e.target.value });
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>{image.camera}</div>
                   </div>
                 )}
               </td>
@@ -166,27 +160,7 @@ export const S3Upload = () => {
           ))}
         </tbody>
       </table>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <FormField
-            control={form.control}
-            name="albumName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Album Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Album Name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button type="submit" disabled={!isDirty || !isValid || isLoading}>
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Submit
-          </Button>
-        </form>
-      </Form>
+      <AlbumForm processedImages={processedImages} />
     </div>
   );
 };

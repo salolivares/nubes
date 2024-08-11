@@ -8,7 +8,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 
-import type { ProcessedImage } from '@/common/types';
+import type { Album, ProcessedImage } from '@/common/types';
 
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../../common/constants';
 import { Storage } from './storage';
@@ -119,14 +119,16 @@ export class S3 {
     return { results, errors };
   }
 
-  public async createAlbum(bucketName: string, albumName: string, images: ProcessedImage[]) {
+  private async createAlbumImages(bucketName: string, album: Album, images: ProcessedImage[]) {
     const operations: Array<() => Promise<PutObjectCommandOutput>> = [];
 
     for (const image of images) {
       for (const outputImage of image.imagePaths) {
         const { imagePath, type, resolution } = outputImage;
 
-        const key = `${albumName}/${image.name}_${resolution}.${type}`;
+        const key = `${album.year}-${album.location.replace(/\s+/g, '-').toLowerCase()}/${
+          image.name
+        }_${resolution}.${type}`;
         const imageData = await this.getImageData(imagePath);
 
         const uploadCommand = new PutObjectCommand({
@@ -152,5 +154,60 @@ export class S3 {
     }
 
     return this.batchPromises(operations, (operation) => operation());
+  }
+
+  /**
+   * Creates a json file in the bucket with metadata about the album.
+   */
+  private createAlbumMetadata(bucketName: string, album: Album, images: ProcessedImage[]) {
+    if (!this.client) {
+      throw new Error('S3 client not configured');
+    }
+
+    const key = `${album.year}-${album.location.replace(/\s+/g, '-').toLowerCase()}/metadata.json`;
+    // Create the metadata object that matches the JSON structure
+    const metadata = {
+      title: album.name,
+      location: album.location,
+      year: album.year,
+      published: album.published,
+      images: images.map((image) => ({
+        id: image.name.replace(/\s+/g, '-').toLowerCase(),
+        description: image.description,
+        camera: image.camera,
+      })),
+    };
+
+    // Convert the metadata object to JSON
+    const metadataJson = JSON.stringify(metadata);
+
+    const uploadCommand = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: metadataJson,
+      ContentType: 'application/json',
+    });
+
+    try {
+      return this.client.send(uploadCommand);
+    } catch (err) {
+      console.error(`Failed to upload metadata ${key}:`, err);
+      throw err;
+    }
+  }
+
+  public async createAlbum(bucketName: string, album: Album, images: ProcessedImage[]) {
+    const imageUploadResults = await this.createAlbumImages(bucketName, album, images);
+
+    try {
+      await this.createAlbumMetadata(bucketName, album, images);
+    } catch (error) {
+      console.error('Failed to upload metadata:', error);
+      return { success: false };
+    }
+
+    const success = imageUploadResults.errors.length === 0;
+
+    return { success };
   }
 }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { processedImageSchema } from '@/common/types';
+import { albumSchema, processedImageSchema } from '@/common/types';
 
 import { createTRPCRouter, publicProcedure } from '../trpc';
 
@@ -12,11 +12,11 @@ export const bucketRouter = createTRPCRouter({
     .input(
       z.object({
         bucketName: z.string(),
-        albumName: z.string(),
+        album: albumSchema,
         images: z.array(processedImageSchema),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.s3.createAlbum(input.bucketName, input.albumName, input.images);
+      return ctx.s3.createAlbum(input.bucketName, input.album, input.images);
     }),
 });
