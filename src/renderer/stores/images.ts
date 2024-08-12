@@ -32,10 +32,7 @@ interface Action {
   setProcessedImages: (files: ProcessedImage[]) => void;
   setProcessed: (processed: boolean) => void;
   initializeProcessingImages: () => void;
-  setProcessedImage: (
-    id: string,
-    props: Partial<Pick<ProcessedImage, 'name' | 'camera' | 'description'>>
-  ) => void;
+  setProcessedImage: (id: string, props: Partial<Pick<ProcessedImage, 'name' | 'camera'>>) => void;
 }
 
 function createCustomFile(file: File, preview?: string): CustomFile {

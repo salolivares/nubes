@@ -1,6 +1,4 @@
-import { Album } from 'lucide-react';
 import { useState } from 'react';
-import { z } from 'zod';
 
 import { AlbumForm } from '../components/AlbumForm/AlbumForm';
 import { Button } from '../components/ui/button';
@@ -51,8 +49,6 @@ export const S3Upload = () => {
   const { processedImages, setProcessedImage } = useProcessedImages();
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  console.log('processedImages', processedImages);
-
   return (
     <div>
       <h1>S3 Uploads</h1>
@@ -61,7 +57,6 @@ export const S3Upload = () => {
           <tr className="bg-muted">
             <th className="px-4 py-2 text-left">Image</th>
             <th className="px-4 py-2 text-left">Name</th>
-            <th className="px-4 py-2 text-left">Description</th>
             <th className="px-4 py-2 text-left">Camera</th>
             <th className="px-4 py-2 text-right">Actions</th>
           </tr>
@@ -71,7 +66,7 @@ export const S3Upload = () => {
             <tr key={image.id} className="border-b hover:bg-muted/50 transition-colors">
               <td className="px-4 py-3 text-left">
                 <img
-                  src="/placeholder.svg"
+                  src={`data:image/jpeg;base64,${image.preview}`}
                   alt={image.name}
                   width={64}
                   height={64}
@@ -96,27 +91,6 @@ export const S3Upload = () => {
                 ) : (
                   <div className="flex items-center justify-between">
                     <div>{image.name}</div>
-                  </div>
-                )}
-              </td>
-              <td className="px-4 py-3 text-right">
-                {editingId === image.id ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      defaultValue={image.description}
-                      onBlur={(e) => setProcessedImage(image.id, { description: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          setProcessedImage(image.id, { description: e.target.value });
-                        }
-                      }}
-                      className="flex-1"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div>{image.description}</div>
                   </div>
                 )}
               </td>

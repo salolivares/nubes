@@ -12,9 +12,9 @@ export type OutputImage = z.infer<typeof outputImageSchema>;
 export const processedImageSchema = z.object({
   id: z.string(),
   name: z.string(),
-  description: z.string().optional(),
   camera: z.string().optional(),
   imagePaths: z.array(outputImageSchema),
+  preview: z.string().base64(),
 });
 
 export type ProcessedImage = z.infer<typeof processedImageSchema>;

@@ -173,7 +173,7 @@ export class S3 {
       published: album.published,
       images: images.map((image) => ({
         id: image.name.replace(/\s+/g, '-').toLowerCase(),
-        description: image.description,
+        name: image.name,
         camera: image.camera,
       })),
     };

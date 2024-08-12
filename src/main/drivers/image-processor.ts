@@ -44,11 +44,7 @@ async function processImage(
     fs.copyFileSync(imagePath, originalOutputPath);
   }
 
-  const processedImage: ProcessedImage = {
-    id,
-    name,
-    imagePaths: [],
-  };
+  const imagePaths: ProcessedImage['imagePaths'] = [];
 
   for (const res of [128, 640, 1280, 2880]) {
     const jpgOutputFilename = path.join(outputFolder, `${name}_${res}.jpg`);
@@ -58,14 +54,14 @@ async function processImage(
       await image.resize(res).toFormat('jpg').toFile(jpgOutputFilename);
       await image.resize(res).toFormat('webp').toFile(webpOutputFilename);
 
-      processedImage.imagePaths.push({
+      imagePaths.push({
         imagePath: jpgOutputFilename,
         type: 'jpg',
         resolution: res,
         byteLength: fs.readFileSync(jpgOutputFilename).byteLength,
       });
 
-      processedImage.imagePaths.push({
+      imagePaths.push({
         imagePath: webpOutputFilename,
         type: 'webp',
         resolution: res,
@@ -74,18 +70,21 @@ async function processImage(
     }
   }
 
+  const preview = fs.readFileSync(path.join(outputFolder, `${name}_128.jpg`)).toString('base64');
+
+  const processedImage: ProcessedImage = {
+    id,
+    name,
+    imagePaths,
+    preview,
+  };
+
   return processedImage;
 }
 
 process.parentPort.once('message', async (e) => {
   const [port] = e.ports;
   const { folderPaths, imagePaths, tempFolder, dryRun } = e.data;
-
-  console.log('Processing images');
-  console.log(folderPaths);
-  console.log(imagePaths);
-  console.log(tempFolder);
-  console.log(dryRun);
 
   if (folderPaths && folderPaths.length > 0) {
     for (const folderPath of folderPaths) {
