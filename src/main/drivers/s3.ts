@@ -126,9 +126,9 @@ export class S3 {
       for (const outputImage of image.imagePaths) {
         const { imagePath, type, resolution } = outputImage;
 
-        const key = `${album.year}-${album.location
+        const key = `${album.year}-${album.location.replace(/\s+/g, '-').toLowerCase()}/${image.name
           .replace(/\s+/g, '-')
-          .toLowerCase()}/${image.name.toLowerCase()}_${resolution}.${type}`;
+          .toLowerCase()}_${resolution}.${type}`;
         const imageData = await this.getImageData(imagePath);
 
         const uploadCommand = new PutObjectCommand({
