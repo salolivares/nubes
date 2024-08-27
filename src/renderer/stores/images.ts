@@ -32,7 +32,7 @@ interface Action {
   setProcessedImages: (files: ProcessedImage[]) => void;
   setProcessed: (processed: boolean) => void;
   initializeProcessingImages: () => void;
-  setProcessedImageName: (id: string, name: string) => void;
+  setProcessedImage: (id: string, props: Partial<Pick<ProcessedImage, 'name' | 'camera'>>) => void;
 }
 
 function createCustomFile(file: File, preview?: string): CustomFile {
@@ -113,11 +113,11 @@ export const useImageStore = create<State & Action>()((set) => ({
 
       return { processingImages: updatedProcessingImages };
     }),
-  setProcessedImageName: (id: string, name: string) =>
+  setProcessedImage: (id: string, props) =>
     set((state) => {
       const processedImages = state.processedImages.map((img) => {
         if (img.id === id) {
-          return { ...img, name };
+          return { ...img, ...props };
         }
         return img;
       });
