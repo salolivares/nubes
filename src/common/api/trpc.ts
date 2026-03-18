@@ -1,8 +1,10 @@
 import { initTRPC } from '@trpc/server';
+import type { CreateContextOptions } from 'electron-trpc/main';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
-import type { CreateContextOptions } from 'electron-trpc/main';
-import { S3 } from '@/main/drivers/s3';
+
+import type { IS3Provider } from '@/main/drivers/s3';
+import { getS3Provider } from '@/main/drivers/s3';
 
 /**
  * This helper generates the "internals" for a tRPC context. If you need to use it, you can export
@@ -12,9 +14,9 @@ import { S3 } from '@/main/drivers/s3';
  * - testing, so we don't have to mock Next.js' req/res
  *
  */
-const createInnerTRPCContext = () => {
+const createInnerTRPCContext = (): { s3: IS3Provider } => {
   return {
-    s3: S3.instance,
+    s3: getS3Provider(),
   };
 };
 

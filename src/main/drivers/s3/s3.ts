@@ -10,10 +10,11 @@ import {
 
 import type { Album, ProcessedImage } from '@/common/types';
 
-import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../../common/constants';
-import { Storage } from './storage';
+import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../../../common/constants';
+import { Storage } from '../storage';
+import type { IS3Provider } from './s3-provider';
 
-export class S3 {
+export class S3 implements IS3Provider {
   static #instance: S3;
   private client: S3Client | null = null;
   private storage: Storage;
@@ -77,7 +78,7 @@ export class S3 {
 
     const imageFiles = response.Contents
       ? response.Contents.filter((item) => item.Key?.match(/\.(jpg|jpeg|png|gif)$/i)).map(
-          (item) => item.Key ?? ''
+          (item) => item.Key ?? '',
         )
       : [];
 
@@ -91,7 +92,7 @@ export class S3 {
   private async batchPromises<T, R>(
     items: T[],
     operation: (item: T) => Promise<R>,
-    batchSize = 5
+    batchSize = 5,
   ): Promise<{ results: R[]; errors: Error[] }> {
     const results: R[] = [];
     const errors: Error[] = [];
@@ -102,9 +103,9 @@ export class S3 {
         batch.map((item) =>
           operation(item).then(
             (result) => ({ result }),
-            (error) => ({ error })
-          )
-        )
+            (error) => ({ error }),
+          ),
+        ),
       );
 
       for (const batchResult of batchResults) {
