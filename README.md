@@ -6,5 +6,10 @@ Basically you drop some images, it converts them to various sizes of webp and jp
 
 Built with Electron, React, TypeScript.
 
+```bash
+nvm use
+npm install
+npm start
+```
 
 [^1]: Still need to update astro collections to read the new images from s3. so working on automating that somehow.
