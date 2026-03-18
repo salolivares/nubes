@@ -20,8 +20,16 @@ interface ImageProcessorContext {
   onComplete: (listener: (event: IpcRendererEvent, ...args: any[]) => void) => () => void;
 }
 
+interface DebugContext {
+  setMockS3: (enabled: boolean) => Promise<void>;
+  isMockS3: () => Promise<boolean>;
+  getMockS3Path: () => Promise<string>;
+  openMockS3Path: () => Promise<void>;
+}
+
 declare interface Window {
   storage: StorageContext;
   themeMode: ThemeContext;
   imageProcessor: ImageProcessorContext;
+  debug?: DebugContext;
 }
