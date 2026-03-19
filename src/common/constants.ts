@@ -16,6 +16,16 @@ export const THEME_MODE_DARK_CHANNEL = 'theme-mode:dark';
 export const THEME_MODE_LIGHT_CHANNEL = 'theme-mode:light';
 export const THEME_MODE_SYSTEM_CHANNEL = 'theme-mode:system';
 
+export const DEBUG_CHANNEL = 'debug';
+export const DEBUG_SET_MOCK_S3 = `${DEBUG_CHANNEL}:setMockS3`;
+export const DEBUG_IS_MOCK_S3 = `${DEBUG_CHANNEL}:isMockS3`;
+export const DEBUG_GET_MOCK_S3_PATH = `${DEBUG_CHANNEL}:getMockS3Path`;
+export const DEBUG_OPEN_MOCK_S3_PATH = `${DEBUG_CHANNEL}:openMockS3Path`;
+
+export const IMAGE_PICKER_CHANNEL = 'image-picker';
+export const IMAGE_PICKER_OPEN = `${IMAGE_PICKER_CHANNEL}:open`;
+export const IMAGE_PICKER_READ_THUMBNAIL = `${IMAGE_PICKER_CHANNEL}:read-thumbnail`;
+
 export const IMAGE_PROCESSOR_CHANNEL = 'image-processor';
 export const IMAGE_PROCESSOR_RESIZE = `${IMAGE_PROCESSOR_CHANNEL}:resize`;
 export const IMAGE_PROCESSOR_PROGRESS = `${IMAGE_PROCESSOR_CHANNEL}:progress`;

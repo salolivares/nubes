@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 
@@ -6,7 +6,6 @@ import { Button } from '../components/ui/button';
 import type { CustomFile } from '../stores/images';
 import { useImageStoreSelectors } from '../stores/images';
 
-// TODO: file dialog does not work. see react drop zone docs.
 // TODO: move icons to own component
 
 function UploadIcon(props) {
@@ -51,7 +50,8 @@ function XIcon(props) {
 }
 
 export const ImagePicker = () => {
-  const { files, addFiles, removeFile, removeAllFiles, unloadPreviews } = useImageStoreSelectors();
+  const { files, addFiles, addFilesFromPaths, setFilePreview, removeFile, removeAllFiles, unloadPreviews } =
+    useImageStoreSelectors();
 
   const navigate = useNavigate();
 
@@ -59,10 +59,24 @@ export const ImagePicker = () => {
     navigate('../upload', { relative: 'path' });
   };
 
+  const handleBrowse = useCallback(async () => {
+    const entries = await window.imagePicker.open();
+    if (entries.length > 0) {
+      addFilesFromPaths(entries);
+      // Lazy-load thumbnails for newly added files
+      for (const entry of entries) {
+        window.imagePicker.readThumbnail(entry.path).then((dataUrl) => {
+          setFilePreview(entry.path, dataUrl);
+        });
+      }
+    }
+  }, [addFilesFromPaths, setFilePreview]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
       'image/*': [],
     },
+    noClick: true,
     onDrop: (acceptedFiles) => {
       addFiles(acceptedFiles as CustomFile[]);
     },
@@ -78,7 +92,7 @@ export const ImagePicker = () => {
       <h1>Upload</h1>
       <div
         {...getRootProps()}
-        className="flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/20 transition-colors hover:border-primary/30 hover:bg-muted/30 cursor-pointer"
+        className="flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/20 transition-colors hover:border-primary/30 hover:bg-muted/30"
       >
         <input {...getInputProps()} />
         <div className="text-center text-muted-foreground">
@@ -86,7 +100,12 @@ export const ImagePicker = () => {
           {isDragActive ? (
             <p>Drop the files here ...</p>
           ) : (
-            <p>Drag and drop files here or click to upload</p>
+            <>
+              <p>Drag and drop files here</p>
+              <Button variant="outline" className="mt-2" onClick={handleBrowse}>
+                Browse files
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -100,7 +119,13 @@ export const ImagePicker = () => {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {files.map((file, index) => (
               <div key={index} className="relative group rounded-md overflow-hidden aspect-square">
-                <img src={file.preview} alt={file.name} className="w-full h-full object-cover" />
+                {file.preview ? (
+                  <img src={file.preview} alt={file.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-muted animate-pulse">
+                    <span className="text-xs text-muted-foreground">{file.name}</span>
+                  </div>
+                )}
                 <button
                   onClick={() => removeFile(index)}
                   className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"

@@ -24,6 +24,8 @@ interface State {
 
 interface Action {
   addFiles: (files: CustomFile[]) => void;
+  addFilesFromPaths: (entries: { path: string; name: string }[]) => void;
+  setFilePreview: (filePath: string, preview: string) => void;
   removeFile: (index: number) => void;
   removeAllFiles: () => void;
   unloadPreviews: () => void;
@@ -58,10 +60,27 @@ export const useImageStore = create<State & Action>()((set) => ({
         ...files.map((file) => createCustomFile(file, URL.createObjectURL(file))),
       ],
     })),
+  addFilesFromPaths: (entries: { path: string; name: string }[]) =>
+    set((state) => ({
+      files: [
+        ...state.files,
+        ...entries.map((entry) => {
+          const file = new File([], entry.name);
+          Object.defineProperty(file, 'path', { value: entry.path, writable: false });
+          return file as CustomFile;
+        }),
+      ],
+    })),
+  setFilePreview: (filePath: string, preview: string) =>
+    set((state) => ({
+      files: state.files.map((file) =>
+        file.path === filePath ? Object.assign(file, { preview }) : file
+      ),
+    })),
   removeFile: (index: number) =>
     set((state) => {
       const updatedFiles = [...state.files];
-      if (state.files[index].preview) {
+      if (state.files[index].preview?.startsWith('blob:')) {
         URL.revokeObjectURL(state.files[index].preview);
       }
       updatedFiles.splice(index, 1);
@@ -70,24 +89,29 @@ export const useImageStore = create<State & Action>()((set) => ({
   removeAllFiles: () =>
     set((state) => {
       state.files.forEach((file) => {
-        if (file.preview) URL.revokeObjectURL(file.preview);
+        if (file.preview?.startsWith('blob:')) URL.revokeObjectURL(file.preview);
       });
       return { files: [] };
     }),
   unloadPreviews: () =>
     set((state) => ({
       files: state.files.map((file) => {
-        if (file.preview) {
+        if (file.preview?.startsWith('blob:')) {
           URL.revokeObjectURL(file.preview);
+          return createCustomFile(file);
         }
-        return createCustomFile(file);
+        // Preserve data URL previews (e.g. from dialog-selected files)
+        return createCustomFile(file, file.preview);
       }),
     })),
   loadPreviews: () =>
     set((state) => ({
-      files: state.files.map((file) =>
-        createCustomFile(file, file.preview ?? URL.createObjectURL(file))
-      ),
+      files: state.files.map((file) => {
+        if (file.preview) return createCustomFile(file, file.preview);
+        // Only create object URLs for files with actual data
+        if (file.size > 0) return createCustomFile(file, URL.createObjectURL(file));
+        return createCustomFile(file);
+      }),
     })),
   setProcessingImages: (files: ProcessingImage[]) => set({ processingImages: files }),
   setProcessedImages: (files: ProcessedImage[]) => set({ processedImages: files }),
@@ -130,6 +154,8 @@ export const useImageStoreSelectors = () => {
   return useImageStore((state) => ({
     files: state.files,
     addFiles: state.addFiles,
+    addFilesFromPaths: state.addFilesFromPaths,
+    setFilePreview: state.setFilePreview,
     removeFile: state.removeFile,
     removeAllFiles: state.removeAllFiles,
     unloadPreviews: state.unloadPreviews,

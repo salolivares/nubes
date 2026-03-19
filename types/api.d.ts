@@ -20,6 +20,16 @@ interface ImageProcessorContext {
   onComplete: (listener: (event: IpcRendererEvent, ...args: any[]) => void) => () => void;
 }
 
+interface ImagePickerFile {
+  path: string;
+  name: string;
+}
+
+interface ImagePickerContext {
+  open: () => Promise<ImagePickerFile[]>;
+  readThumbnail: (path: string) => Promise<string>;
+}
+
 interface DebugContext {
   setMockS3: (enabled: boolean) => Promise<void>;
   isMockS3: () => Promise<boolean>;
@@ -30,6 +40,7 @@ interface DebugContext {
 declare interface Window {
   storage: StorageContext;
   themeMode: ThemeContext;
+  imagePicker: ImagePickerContext;
   imageProcessor: ImageProcessorContext;
   debug?: DebugContext;
 }
