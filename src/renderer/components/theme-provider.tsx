@@ -2,13 +2,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'dark' | 'light' | 'system';
 
-const THEME_KEY = 'ui-theme';
-const DEFAULT_THEME = 'system';
-
 type ThemeProviderProps = {
   children: React.ReactNode;
-  defaultTheme?: Theme;
-  storageKey?: string;
 };
 
 type ThemeProviderState = {
@@ -38,8 +33,6 @@ async function setElectronTheme(newTheme: Theme) {
       updateDocumentTheme(await window.themeMode.system());
       break;
   }
-
-  localStorage.setItem(THEME_KEY, newTheme);
 }
 
 const initialState: ThemeProviderState = {
@@ -49,15 +42,14 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
-export function ThemeProvider({
-  children,
-  defaultTheme = DEFAULT_THEME,
-  storageKey = THEME_KEY,
-  ...props
-}: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+export function ThemeProvider({ children }: ThemeProviderProps) {
+  const [theme, setTheme] = useState<Theme>('system');
+
+  useEffect(() => {
+    window.themeMode.current().then((stored: Theme) => {
+      setTheme(stored || 'system');
+    });
+  }, []);
 
   useEffect(() => {
     setElectronTheme(theme);
@@ -69,7 +61,7 @@ export function ThemeProvider({
   };
 
   return (
-    <ThemeProviderContext.Provider {...props} value={value}>
+    <ThemeProviderContext.Provider value={value}>
       {children}
     </ThemeProviderContext.Provider>
   );
