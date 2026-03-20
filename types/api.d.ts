@@ -39,7 +39,7 @@ interface DebugContext {
 
 declare interface Window {
   storage: StorageContext;
-  themeMode: ThemeContext;
+  themeMode: ThemeModeContext;
   imagePicker: ImagePickerContext;
   imageProcessor: ImageProcessorContext;
   debug?: DebugContext;
