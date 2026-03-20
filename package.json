@@ -5,6 +5,7 @@
   "description": "My Electron application description",
   "main": ".vite/build/index.js",
   "type": "module",
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
@@ -83,5 +84,12 @@
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.23.8",
     "zustand": "^4.5.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "sharp"
+    ]
   }
 }

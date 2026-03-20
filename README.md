@@ -8,8 +8,8 @@ Built with Electron, React, TypeScript.
 
 ```bash
 nvm use
-npm install
-npm start
+pnpm install
+pnpm start
 ```
 
 [^1]: Still need to update astro collections to read the new images from s3. so working on automating that somehow.
