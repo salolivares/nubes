@@ -10,7 +10,7 @@ import {
 
 import type { Album, ProcessedImage } from '@/common/types';
 
-import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../../../common/constants';
+import { ACCESS_KEY_ID, AWS_REGION, DEFAULT_AWS_REGION, SECRET_ACCESS_KEY } from '../../../common/constants';
 import { Storage } from '../storage';
 import type { IS3Provider } from './s3-provider';
 
@@ -29,6 +29,9 @@ export class S3 implements IS3Provider {
     this.storage.store.onDidChange(SECRET_ACCESS_KEY, () => {
       this.configureS3Client();
     });
+    this.storage.store.onDidChange(AWS_REGION, () => {
+      this.configureS3Client();
+    });
   }
 
   public static get instance(): S3 {
@@ -42,6 +45,7 @@ export class S3 implements IS3Provider {
   private configureS3Client(): void {
     const accessKeyId = this.storage.secureRead(ACCESS_KEY_ID);
     const secretAccessKey = this.storage.secureRead(SECRET_ACCESS_KEY);
+    const region = this.storage.read(AWS_REGION) ?? DEFAULT_AWS_REGION;
 
     if (accessKeyId && secretAccessKey) {
       this.client = new S3Client({
@@ -49,8 +53,7 @@ export class S3 implements IS3Provider {
           accessKeyId,
           secretAccessKey,
         },
-        // TODO(sal): this should be configurable
-        region: 'us-west-1',
+        region,
       });
     } else {
       this.client = null;

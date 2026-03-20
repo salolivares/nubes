@@ -1,8 +1,8 @@
-import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '@common';
+import { ACCESS_KEY_ID, AWS_REGION, DEFAULT_AWS_REGION, SECRET_ACCESS_KEY } from '@common';
 import { useEffect, useState } from 'react';
 
 type StorageChangeArgs = {
-  key: typeof ACCESS_KEY_ID | typeof SECRET_ACCESS_KEY;
+  key: typeof ACCESS_KEY_ID | typeof SECRET_ACCESS_KEY | typeof AWS_REGION;
   newValue: string;
   oldValue: string;
 };
@@ -22,13 +22,16 @@ function validateArgs(args: unknown): asserts args is StorageChangeArgs {
 export const useAWSCredentials = () => {
   const [accessKeyId, setAccessKeyId] = useState<string>('');
   const [secretAccessKey, setSecretAccessKey] = useState<string>('');
+  const [awsRegion, setAwsRegion] = useState<string>(DEFAULT_AWS_REGION);
 
   useEffect(() => {
     async function fetchAWSCredentials() {
       const fetchedAccessKeyId = await window.storage.secureRead(ACCESS_KEY_ID);
       const fetchedSecretAccessKey = await window.storage.secureRead(SECRET_ACCESS_KEY);
+      const fetchedRegion = await window.storage.read(AWS_REGION);
       setAccessKeyId(fetchedAccessKeyId ?? '');
       setSecretAccessKey(fetchedSecretAccessKey ?? '');
+      setAwsRegion(fetchedRegion ?? DEFAULT_AWS_REGION);
     }
 
     fetchAWSCredentials();
@@ -41,6 +44,9 @@ export const useAWSCredentials = () => {
       if (args.key === SECRET_ACCESS_KEY) {
         setSecretAccessKey(args.newValue);
       }
+      if (args.key === AWS_REGION) {
+        setAwsRegion(args.newValue || DEFAULT_AWS_REGION);
+      }
     });
 
     return () => {
@@ -50,5 +56,5 @@ export const useAWSCredentials = () => {
 
   const isSet = accessKeyId && secretAccessKey;
 
-  return { accessKeyId, secretAccessKey, isSet };
+  return { accessKeyId, secretAccessKey, awsRegion, isSet };
 };

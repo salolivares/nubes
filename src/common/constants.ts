@@ -9,6 +9,8 @@ export const CONFIG_FILE = 'config.json';
 
 export const ACCESS_KEY_ID = 'accessKeyId';
 export const SECRET_ACCESS_KEY = 'secretAccessKey';
+export const AWS_REGION = 'awsRegion';
+export const DEFAULT_AWS_REGION = 'us-east-1';
 
 export const THEME_MODE_CURRENT_CHANNEL = 'theme-mode:current';
 export const THEME_MODE_TOGGLE_CHANNEL = 'theme-mode:toggle';
