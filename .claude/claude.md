@@ -156,11 +156,16 @@ window.imageProcessor
 Defined in `tsconfig.json` and duplicated in each Vite config's
 `resolve.alias`.
 
+## Development Rules
+
+- When modifying `src/main/drivers/s3/s3.ts` (real S3 driver), always
+  check whether `src/main/drivers/s3/mock-s3.ts` needs a matching
+  update. They both implement `IS3Provider` and should stay in sync.
+
 ## Known TODOs
 
 - `S3Summary` page is a stub (returns null)
 - Image processor should output to a temp directory and clean up
 - File dialog doesn't work in ImagePicker (react-dropzone config)
-- S3 region is hardcoded to `us-west-1`
 - Fallback encryption is just base64 (no real encryption)
 - Icons are inline SVGs, should be extracted to components

@@ -3,6 +3,7 @@ import { ipcMain } from 'electron';
 
 import {
   ACCESS_KEY_ID,
+  AWS_REGION,
   SECRET_ACCESS_KEY,
   SECURE_STORAGE_READ,
   SECURE_STORAGE_WRITE,
@@ -88,6 +89,14 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
       key: SECRET_ACCESS_KEY,
       newValue: Storage.instance.decrypt(newValue),
       oldValue: Storage.instance.decrypt(oldValue ?? ''),
+    });
+  });
+
+  Storage.instance.store.onDidChange(AWS_REGION, (newValue: string, oldValue?: string) => {
+    mainWindow.webContents.send(STORAGE_CHANGE, {
+      key: AWS_REGION,
+      newValue: newValue ?? '',
+      oldValue: oldValue ?? '',
     });
   });
 }
