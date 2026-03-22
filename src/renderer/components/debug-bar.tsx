@@ -26,7 +26,7 @@ export function DebugBar() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center gap-4 border-t bg-background/80 px-4 py-2 text-xs backdrop-blur-sm">
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center gap-4 border-t bg-background/80 px-4 py-2 text-xs backdrop-blur-xs">
       <span className="font-semibold text-muted-foreground">Debug</span>
       <div className="flex items-center gap-2">
         <Checkbox
