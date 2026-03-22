@@ -1,6 +1,7 @@
 import { safeStorage } from 'electron';
-import Store from 'electron-store';
 import baseLog from 'electron-log/main';
+import Store from 'electron-store';
+
 const log = baseLog.scope('Storage');
 
 export class Storage {
