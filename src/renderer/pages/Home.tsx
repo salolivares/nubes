@@ -1,5 +1,11 @@
+import { useAWSCredentials } from '@client/components/AWSCredentialsForm/useAWSCredentials';
+import { Button } from '@client/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@client/components/ui/card';
 import { trpc } from '@client/lib/trpc';
+import { KeyRound } from 'lucide-react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 function FolderIcon(props) {
   return (
@@ -21,7 +27,42 @@ function FolderIcon(props) {
 }
 
 export const Home = () => {
-  const { data } = trpc.bucket.list.useQuery();
+  const { isSet } = useAWSCredentials();
+  const { data, error } = trpc.bucket.list.useQuery(undefined, {
+    enabled: !!isSet,
+  });
+
+  useEffect(() => {
+    if (error) {
+      toast.error('Failed to load buckets', {
+        description: error.message,
+      });
+    }
+  }, [error]);
+
+  if (!isSet) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <KeyRound className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <CardTitle>AWS credentials required</CardTitle>
+            <CardDescription>
+              Configure your AWS credentials in Settings before browsing
+              buckets.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button asChild>
+              <Link to="/settings">Go to Settings</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <>
