@@ -35,6 +35,7 @@ interface Action {
   setProcessed: (processed: boolean) => void;
   initializeProcessingImages: () => void;
   setProcessedImage: (id: string, props: Partial<Pick<ProcessedImage, 'name' | 'camera'>>) => void;
+  reset: () => void;
 }
 
 function createCustomFile(file: File, preview?: string): CustomFile {
@@ -147,6 +148,13 @@ export const useImageStore = create<State & Action>()((set) => ({
       });
 
       return { processedImages };
+    }),
+  reset: () =>
+    set((state) => {
+      state.files.forEach((file) => {
+        if (file.preview?.startsWith('blob:')) URL.revokeObjectURL(file.preview);
+      });
+      return { files: [], processingImages: [], processedImages: [], processed: false };
     }),
 }));
 

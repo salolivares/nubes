@@ -30,19 +30,19 @@ export const AlbumForm: FC<Props> = ({ processedImages }) => {
     onError: (error) => {
       toast.error(error.message);
     },
-    onSuccess: () => {
-      toast.success('Album created');
-      navigate('../summary', { relative: 'path', state: {} });
-    },
   });
 
   const onSubmit = (values: z.infer<typeof albumSchema>) => {
     if (bucketName) {
-      mutate({
-        bucketName,
-        album: values,
-        images: processedImages,
-      });
+      mutate(
+        { bucketName, album: values, images: processedImages },
+        {
+          onSuccess: () => {
+            toast.success('Album created');
+            navigate('../summary', { relative: 'path', state: { album: values } });
+          },
+        },
+      );
     } else {
       toast.error('Bucket name is required');
     }
