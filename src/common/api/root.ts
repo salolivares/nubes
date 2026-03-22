@@ -1,5 +1,5 @@
 import { bucketRouter } from './routers/bucket';
-import { createTRPCRouter, publicProcedure } from './trpc';
+import { createTRPCRouter } from './trpc';
 
 export const appRouter = createTRPCRouter({
   bucket: bucketRouter,
