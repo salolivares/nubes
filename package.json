@@ -32,10 +32,12 @@
     "@electron/fuses": "^1.8.0",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/postcss": "^4.2.2",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/node": "^24.1.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "drizzle-kit": "^0.31.10",
     "electron": "41.0.3",
     "electron-devtools-installer": "^3.2.0",
     "eslint": "^10.1.0",
@@ -67,8 +69,10 @@
     "@trpc/react-query": "^10.45.2",
     "@trpc/server": "^10.45.2",
     "@vitejs/plugin-react": "^4.3.1",
+    "better-sqlite3": "^12.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.1",
     "electron-log": "^5.4.3",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^11.0.2",
@@ -92,9 +96,13 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "better-sqlite3",
       "electron",
       "esbuild",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "node-abi": "^3.89.0"
+    }
   }
 }
