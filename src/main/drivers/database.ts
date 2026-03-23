@@ -1,11 +1,12 @@
 import path from 'node:path';
 
-import * as schema from '@/common/db/schema';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { app } from 'electron';
 import baseLog from 'electron-log/main';
+
+import * as schema from '@/common/db/schema';
 
 const log = baseLog.scope('Database');
 

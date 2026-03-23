@@ -31,6 +31,15 @@ export const IMAGE_PICKER_READ_THUMBNAIL = `${IMAGE_PICKER_CHANNEL}:read-thumbna
 export const CAMERAS_STORAGE_KEY = 'cameras';
 export const CAMERA_SORT_MODE_KEY = 'cameraSortMode';
 
+export const PHOTOSET_CHANNEL = 'photoset';
+export const PHOTOSET_LIST = `${PHOTOSET_CHANNEL}:list`;
+export const PHOTOSET_GET = `${PHOTOSET_CHANNEL}:get`;
+export const PHOTOSET_CREATE = `${PHOTOSET_CHANNEL}:create`;
+export const PHOTOSET_UPDATE = `${PHOTOSET_CHANNEL}:update`;
+export const PHOTOSET_DELETE = `${PHOTOSET_CHANNEL}:delete`;
+export const PHOTOSET_ADD_IMAGES = `${PHOTOSET_CHANNEL}:addImages`;
+export const PHOTOSET_PUBLISH = `${PHOTOSET_CHANNEL}:publish`;
+
 export const IMAGE_PROCESSOR_CHANNEL = 'image-processor';
 export const IMAGE_PROCESSOR_RESIZE = `${IMAGE_PROCESSOR_CHANNEL}:resize`;
 export const IMAGE_PROCESSOR_PROGRESS = `${IMAGE_PROCESSOR_CHANNEL}:progress`;
