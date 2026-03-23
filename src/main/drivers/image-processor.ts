@@ -85,6 +85,7 @@ async function processImage(
 // Receive the MessagePort once at init, then handle resize commands on it
 process.parentPort.once('message', (e) => {
   const [port] = e.ports;
+  port.start();
 
   port.on('message', async (msg) => {
     const { folderPaths, imagePaths, tempFolder, dryRun } = msg.data;
