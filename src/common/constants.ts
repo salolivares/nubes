@@ -28,6 +28,9 @@ export const IMAGE_PICKER_CHANNEL = 'image-picker';
 export const IMAGE_PICKER_OPEN = `${IMAGE_PICKER_CHANNEL}:open`;
 export const IMAGE_PICKER_READ_THUMBNAIL = `${IMAGE_PICKER_CHANNEL}:read-thumbnail`;
 
+export const CAMERAS_STORAGE_KEY = 'cameras';
+export const CAMERA_SORT_MODE_KEY = 'cameraSortMode';
+
 export const IMAGE_PROCESSOR_CHANNEL = 'image-processor';
 export const IMAGE_PROCESSOR_RESIZE = `${IMAGE_PROCESSOR_CHANNEL}:resize`;
 export const IMAGE_PROCESSOR_PROGRESS = `${IMAGE_PROCESSOR_CHANNEL}:progress`;

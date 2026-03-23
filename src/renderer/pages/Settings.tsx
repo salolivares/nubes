@@ -1,7 +1,10 @@
 import { cn } from '@client/lib/utils';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
-const links = [{ name: 'General', href: '/settings' }];
+const links = [
+  { name: 'General', href: '/settings' },
+  { name: 'Cameras', href: '/settings/cameras' },
+];
 
 export const Settings = () => {
   const location = useLocation();
