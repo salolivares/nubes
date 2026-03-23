@@ -58,13 +58,13 @@ export function CameraCombobox({ value, cameras, onSelect, onAdd }: CameraCombob
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlightIndex((i) => Math.min(i + 1, totalItems - 1));
+      if (totalItems > 0) setHighlightIndex((i) => Math.min(i + 1, totalItems - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setHighlightIndex((i) => Math.max(i - 1, 0));
+      if (totalItems > 0) setHighlightIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (highlightIndex < filtered.length) {
+      if (highlightIndex >= 0 && highlightIndex < filtered.length) {
         handleSelect(filtered[highlightIndex].name);
       } else if (showAddOption) {
         handleAdd();
