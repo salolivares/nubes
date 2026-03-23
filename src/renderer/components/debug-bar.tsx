@@ -12,9 +12,10 @@ export function DebugBar() {
     window.debug?.isMockS3().then(setMockEnabled);
   }, []);
 
-  const handleToggle = useCallback((checked: boolean) => {
+  const handleToggle = useCallback(async (checked: boolean) => {
     setMockEnabled(checked);
-    window.debug?.setMockS3(checked);
+    await window.debug?.setMockS3(checked);
+    window.location.reload();
   }, []);
 
   const handleOpenPath = useCallback(() => {
@@ -39,7 +40,12 @@ export function DebugBar() {
         </Label>
       </div>
       {mockEnabled && (
-        <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs" onClick={handleOpenPath}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 gap-1 px-2 text-xs"
+          onClick={handleOpenPath}
+        >
           <FolderOpen className="h-3 w-3" />
           Open mock folder
         </Button>

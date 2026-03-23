@@ -1,6 +1,12 @@
 import { useAWSCredentials } from '@client/components/AWSCredentialsForm/useAWSCredentials';
 import { Button } from '@client/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@client/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@client/components/ui/card';
 import { trpc } from '@client/lib/trpc';
 import { KeyRound } from 'lucide-react';
 import { useEffect } from 'react';
@@ -50,8 +56,7 @@ export const Home = () => {
             </div>
             <CardTitle>AWS credentials required</CardTitle>
             <CardDescription>
-              Configure your AWS credentials in Settings before browsing
-              buckets.
+              Configure your AWS credentials in Settings before browsing buckets.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
@@ -67,7 +72,7 @@ export const Home = () => {
   return (
     <>
       <h1>Select a folder to begin</h1>
-      <div>
+      <div className="space-y-3">
         {data?.map((bucket) => (
           <Link
             to={`/bucket/${bucket.Name}/picker`}
