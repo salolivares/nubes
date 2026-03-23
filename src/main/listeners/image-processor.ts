@@ -67,19 +67,19 @@ function validateArgs(args: unknown): asserts args is Args {
 export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   const { imageProcessor, port1, port2 } = createImageProcessor();
 
-  // Pass along message to image worker process
+  // Transfer port2 to the worker once at startup
+  imageProcessor.postMessage({ type: 'init' }, [port2]);
+
+  // Pass along message to image worker process via port1
   ipcMain.handle(IMAGE_PROCESSOR_RESIZE, (_, args) => {
     validateArgs(args);
-    imageProcessor.postMessage(
-      {
-        type: IMAGE_PROCESSOR_RESIZE,
-        folderPaths: args.folderPaths,
-        imagePaths: args.imagePaths,
-        tempFolder: path.join(app.getPath('temp'), 'nubes'),
-        dryRun: false,
-      },
-      [port2]
-    );
+    port1.postMessage({
+      type: IMAGE_PROCESSOR_RESIZE,
+      folderPaths: args.folderPaths,
+      imagePaths: args.imagePaths,
+      tempFolder: path.join(app.getPath('temp'), 'nubes'),
+      dryRun: false,
+    });
   });
 
   // send progress updates back to renderer
