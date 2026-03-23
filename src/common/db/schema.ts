@@ -1,3 +1,4 @@
+import { relations } from 'drizzle-orm';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const photosets = sqliteTable('photosets', {
@@ -44,3 +45,24 @@ export const photosetImageOutputs = sqliteTable('photoset_image_outputs', {
   resolution: integer('resolution').notNull(),
   byteLength: integer('byte_length').notNull(),
 });
+
+// Relations (for drizzle relational queries)
+
+export const photosetsRelations = relations(photosets, ({ many }) => ({
+  images: many(photosetImages),
+}));
+
+export const photosetImagesRelations = relations(photosetImages, ({ one, many }) => ({
+  photoset: one(photosets, {
+    fields: [photosetImages.photosetId],
+    references: [photosets.id],
+  }),
+  outputs: many(photosetImageOutputs),
+}));
+
+export const photosetImageOutputsRelations = relations(photosetImageOutputs, ({ one }) => ({
+  image: one(photosetImages, {
+    fields: [photosetImageOutputs.imageId],
+    references: [photosetImages.id],
+  }),
+}));

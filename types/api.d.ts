@@ -30,6 +30,88 @@ interface ImagePickerContext {
   readThumbnail: (path: string) => Promise<string>;
 }
 
+interface Photoset {
+  id: number;
+  name: string;
+  location: string | null;
+  year: number | null;
+  camera: string | null;
+  bucketName: string;
+  status: 'draft' | 'published';
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+}
+
+interface PhotosetImage {
+  id: number;
+  photosetId: number;
+  name: string;
+  camera: string | null;
+  originalPath: string;
+  preview: string | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
+interface PhotosetImageOutput {
+  id: number;
+  imageId: number;
+  imagePath: string;
+  type: 'jpg' | 'webp';
+  resolution: number;
+  byteLength: number;
+}
+
+interface PhotosetListOptions {
+  sortBy?: 'name' | 'createdAt' | 'status';
+  sortOrder?: 'asc' | 'desc';
+  status?: 'draft' | 'published';
+}
+
+interface PhotosetContext {
+  list: (args?: PhotosetListOptions) => Promise<(Photoset & { images: { id: number }[] })[]>;
+  get: (args: { id: number }) => Promise<
+    | (Photoset & {
+        images: (PhotosetImage & { outputs: PhotosetImageOutput[] })[];
+      })
+    | undefined
+  >;
+  create: (args: {
+    name: string;
+    bucketName: string;
+    location?: string;
+    year?: number;
+    camera?: string;
+  }) => Promise<Photoset>;
+  update: (args: {
+    id: number;
+    name?: string;
+    location?: string;
+    year?: number;
+    camera?: string;
+    status?: 'draft' | 'published';
+  }) => Promise<Photoset>;
+  delete: (args: { id: number }) => Promise<void>;
+  addImages: (args: {
+    photosetId: number;
+    images: Array<{
+      name: string;
+      camera?: string;
+      originalPath: string;
+      preview?: string;
+      sortOrder?: number;
+      outputs: Array<{
+        imagePath: string;
+        type: 'jpg' | 'webp';
+        resolution: number;
+        byteLength: number;
+      }>;
+    }>;
+  }) => Promise<PhotosetImage[]>;
+  publish: (args: { id: number }) => Promise<Photoset>;
+}
+
 interface DebugContext {
   setMockS3: (enabled: boolean) => Promise<void>;
   isMockS3: () => Promise<boolean>;
@@ -42,5 +124,6 @@ declare interface Window {
   themeMode: ThemeModeContext;
   imagePicker: ImagePickerContext;
   imageProcessor: ImageProcessorContext;
+  photosets: PhotosetContext;
   debug?: DebugContext;
 }
