@@ -1,9 +1,21 @@
 import { AlbumForm } from '../components/AlbumForm/AlbumForm';
+import { CameraCombobox } from '../components/CameraCombobox';
 import { Input } from '../components/ui/input';
+import { useCameras } from '../hooks/useCameras';
 import { useProcessedImages } from '../hooks/useProcessedImages';
 
 export const S3Upload = () => {
   const { processedImages, setProcessedImage } = useProcessedImages();
+  const { cameras, addCamera, touchCamera } = useCameras();
+
+  const handleCameraSelect = (imageId: string, cameraName: string) => {
+    setProcessedImage(imageId, { camera: cameraName });
+    touchCamera(cameraName);
+  };
+
+  const handleCameraAdd = async (name: string) => {
+    await addCamera(name);
+  };
 
   return (
     <div>
@@ -43,18 +55,11 @@ export const S3Upload = () => {
                 />
               </td>
               <td className="px-4 py-3 text-left">
-                <Input
-                  type="text"
-                  defaultValue={image.camera}
-                  placeholder="No camera"
-                  onBlur={(e) => setProcessedImage(image.id, { camera: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      setProcessedImage(image.id, { camera: (e.target as HTMLInputElement).value });
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
-                  className="border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background"
+                <CameraCombobox
+                  value={image.camera}
+                  cameras={cameras}
+                  onSelect={(name) => handleCameraSelect(image.id, name)}
+                  onAdd={handleCameraAdd}
                 />
               </td>
             </tr>

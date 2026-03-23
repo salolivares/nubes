@@ -2,6 +2,7 @@ import { createHashRouter, createRoutesFromElements, Route } from 'react-router-
 
 import { BaseLayout } from './components/base-layout';
 import { BucketViewer } from './pages/BucketBrowser';
+import { CameraSettings } from './pages/CameraSettings';
 import { GeneralSettings } from './pages/GeneralSettings';
 import { Home } from './pages/Home';
 import { ImagePicker } from './pages/ImagePicker';
@@ -21,6 +22,7 @@ export const router = createHashRouter(
       <Route path="bucket/:bucketName/summary" element={<S3Summary />} />
       <Route path="settings" element={<Settings />}>
         <Route index element={<GeneralSettings />} />
+        <Route path="cameras" element={<CameraSettings />} />
       </Route>
     </Route>
   )
