@@ -49,7 +49,13 @@ export class Storage {
 
     if (!data) return null;
 
-    return this.decrypt(data);
+    try {
+      return this.decrypt(data);
+    } catch (err) {
+      log.warn(`Failed to decrypt key "${key}", clearing stale data:`, err);
+      this.store.delete(key);
+      return null;
+    }
   }
 
   public write(key: string, value: string): void {
