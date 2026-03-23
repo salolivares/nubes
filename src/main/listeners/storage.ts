@@ -77,19 +77,27 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
   });
 
   Storage.instance.store.onDidChange(ACCESS_KEY_ID, (newValue: string, oldValue?: string) => {
-    mainWindow.webContents.send(STORAGE_CHANGE, {
-      key: ACCESS_KEY_ID,
-      newValue: Storage.instance.decrypt(newValue),
-      oldValue: Storage.instance.decrypt(oldValue ?? ''),
-    });
+    try {
+      mainWindow.webContents.send(STORAGE_CHANGE, {
+        key: ACCESS_KEY_ID,
+        newValue: Storage.instance.decrypt(newValue),
+        oldValue: Storage.instance.decrypt(oldValue ?? ''),
+      });
+    } catch {
+      // Stale ciphertext from a previous app identity — ignore
+    }
   });
 
   Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, (newValue: string, oldValue?: string) => {
-    mainWindow.webContents.send(STORAGE_CHANGE, {
-      key: SECRET_ACCESS_KEY,
-      newValue: Storage.instance.decrypt(newValue),
-      oldValue: Storage.instance.decrypt(oldValue ?? ''),
-    });
+    try {
+      mainWindow.webContents.send(STORAGE_CHANGE, {
+        key: SECRET_ACCESS_KEY,
+        newValue: Storage.instance.decrypt(newValue),
+        oldValue: Storage.instance.decrypt(oldValue ?? ''),
+      });
+    } catch {
+      // Stale ciphertext from a previous app identity — ignore
+    }
   });
 
   Storage.instance.store.onDidChange(AWS_REGION, (newValue: string, oldValue?: string) => {
