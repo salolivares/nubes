@@ -82,53 +82,58 @@ async function processImage(
   return processedImage;
 }
 
-process.parentPort.once('message', async (e) => {
+// Receive the MessagePort once at init, then handle resize commands on it
+process.parentPort.once('message', (e) => {
   const [port] = e.ports;
-  const { folderPaths, imagePaths, tempFolder, dryRun } = e.data;
+  port.start();
 
-  if (folderPaths && folderPaths.length > 0) {
-    for (const folderPath of folderPaths) {
-      const files = fs.readdirSync(folderPath);
-      const images = files.filter((file) => file.match(/\.(png|jpe?g)$/i));
+  port.on('message', async (msg) => {
+    const { folderPaths, imagePaths, tempFolder, dryRun } = msg.data;
 
-      for (const image of images) {
-        const imagePath = path.join(folderPath, image);
-        imagePaths.push(imagePath);
+    if (folderPaths && folderPaths.length > 0) {
+      for (const folderPath of folderPaths) {
+        const files = fs.readdirSync(folderPath);
+        const images = files.filter((file) => file.match(/\.(png|jpe?g)$/i));
+
+        for (const image of images) {
+          const imagePath = path.join(folderPath, image);
+          imagePaths.push(imagePath);
+        }
       }
     }
-  }
 
-  const processedImages: ProcessedImage[] = [];
-  const erroredImagePaths: { error: string; path: string }[] = [];
+    const processedImages: ProcessedImage[] = [];
+    const erroredImagePaths: { error: string; path: string }[] = [];
 
-  if (imagePaths && imagePaths.length > 0) {
-    for (let i = 0; i < imagePaths.length; i++) {
-      const imagePath = imagePaths[i];
+    if (imagePaths && imagePaths.length > 0) {
+      for (let i = 0; i < imagePaths.length; i++) {
+        const imagePath = imagePaths[i];
 
-      try {
-        const pip = await processImage(imagePath, tempFolder, dryRun);
-        processedImages.push(pip);
-        port.postMessage({
-          type: IMAGE_PROCESSOR_PROGRESS,
-          current: i + 1,
-          total: imagePaths.length,
-          name: path.basename(imagePath),
-          id: pip.id,
-          path: imagePath,
-        });
-      } catch (error) {
-        console.error(`Error processing ${imagePath}: ${(error as Error).message}`);
-        erroredImagePaths.push({
-          error: (error as Error).message,
-          path: imagePath,
-        });
+        try {
+          const pip = await processImage(imagePath, tempFolder, dryRun);
+          processedImages.push(pip);
+          port.postMessage({
+            type: IMAGE_PROCESSOR_PROGRESS,
+            current: i + 1,
+            total: imagePaths.length,
+            name: path.basename(imagePath),
+            id: pip.id,
+            path: imagePath,
+          });
+        } catch (error) {
+          console.error(`Error processing ${imagePath}: ${(error as Error).message}`);
+          erroredImagePaths.push({
+            error: (error as Error).message,
+            path: imagePath,
+          });
+        }
       }
     }
-  }
 
-  port.postMessage({
-    type: IMAGE_PROCESSOR_COMPLETE,
-    processedImages,
-    erroredImagePaths,
+    port.postMessage({
+      type: IMAGE_PROCESSOR_COMPLETE,
+      processedImages,
+      erroredImagePaths,
+    });
   });
 });
