@@ -5,6 +5,7 @@ import { platform } from 'node:process';
 
 import { app } from 'electron';
 
+import { Database } from './drivers/database';
 import { Storage } from './drivers/storage';
 import { restoreOrCreateWindow } from './mainWindow';
 
@@ -52,8 +53,9 @@ app.on('activate', restoreOrCreateWindow);
 app
   .whenReady()
   .then(() => {
-    // Initialize the storage instance
-    Storage.instance;
+    // Initialize singletons
+    void Storage.instance;
+    void Database.instance;
     restoreOrCreateWindow();
   })
   .catch((e) => console.error('Failed create window:', e));
