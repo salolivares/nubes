@@ -8,8 +8,16 @@ import type { CameraSortMode } from '../hooks/useCameras';
 import { useCameras } from '../hooks/useCameras';
 
 export const CameraSettings = () => {
-  const { cameras, rawCameras, sortMode, setSortMode, addCamera, removeCamera, reorderCameras } =
-    useCameras();
+  const {
+    cameras,
+    rawCameras,
+    sortMode,
+    setSortMode,
+    addCamera,
+    removeCamera,
+    renameCamera,
+    reorderCameras,
+  } = useCameras();
   const [newName, setNewName] = useState('');
 
   const handleAdd = async () => {
@@ -87,7 +95,17 @@ export const CameraSettings = () => {
             key={camera.name}
             className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
           >
-            <span className="flex-1 font-medium">{camera.name}</span>
+            <Input
+              defaultValue={camera.name}
+              onBlur={(e) => renameCamera(camera.name, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  renameCamera(camera.name, (e.target as HTMLInputElement).value);
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              className="flex-1 h-7 border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background font-medium"
+            />
             <span className="text-muted-foreground text-xs">{formatDate(camera.lastUsed)}</span>
             {sortMode === 'custom' && (
               <>

@@ -87,6 +87,17 @@ export function useCameras() {
     [cameras, persist]
   );
 
+  const renameCamera = useCallback(
+    async (oldName: string, newName: string) => {
+      const trimmed = newName.trim();
+      if (!trimmed || trimmed === oldName) return;
+      if (cameras.some((c) => c.name === trimmed)) return;
+      const next = cameras.map((c) => (c.name === oldName ? { ...c, name: trimmed } : c));
+      await persist(next);
+    },
+    [cameras, persist]
+  );
+
   const reorderCameras = useCallback(
     async (reordered: CameraEntry[]) => {
       await persist(reordered);
@@ -106,6 +117,7 @@ export function useCameras() {
     setSortMode,
     addCamera,
     removeCamera,
+    renameCamera,
     touchCamera,
     reorderCameras,
     loaded,
