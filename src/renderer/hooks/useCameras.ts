@@ -77,9 +77,11 @@ export function useCameras() {
 
   const touchCamera = useCallback(
     async (name: string) => {
-      const next = cameras.map((c) =>
-        c.name === name ? { ...c, lastUsed: new Date().toISOString() } : c
-      );
+      const now = new Date().toISOString();
+      const exists = cameras.some((c) => c.name === name);
+      const next = exists
+        ? cameras.map((c) => (c.name === name ? { ...c, lastUsed: now } : c))
+        : [...cameras, { name, lastUsed: now }];
       await persist(next);
     },
     [cameras, persist]
