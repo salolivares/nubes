@@ -6,7 +6,6 @@ export const photosets = sqliteTable('photosets', {
   name: text('name').notNull(),
   location: text('location'),
   year: integer('year'),
-  camera: text('camera'),
   bucketName: text('bucket_name').notNull(),
   status: text('status', { enum: ['draft', 'published'] })
     .notNull()
@@ -18,6 +17,7 @@ export const photosets = sqliteTable('photosets', {
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
   publishedAt: text('published_at'),
+  uploadedAt: text('uploaded_at'),
 });
 
 export const photosetImages = sqliteTable('photoset_images', {

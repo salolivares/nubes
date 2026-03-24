@@ -1,164 +1,74 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
 import type { FC } from 'react';
-import { useForm } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
-import type { z } from 'zod';
+import type { UseFormReturn } from 'react-hook-form';
 
-import type { ProcessedImage } from '@/common/types';
-import { albumSchema } from '@/common/types';
+import type { Album } from '@/common/types';
 
-import { trpc } from '../../lib/trpc';
-import { useImageStore } from '../../stores/images';
-import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
+import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
 import { Input } from '../ui/input';
 
 interface Props {
-  processedImages: ProcessedImage[];
+  form: UseFormReturn<Album>;
 }
 
-function toPhotosetImages(processedImages: ProcessedImage[]) {
-  return processedImages.map((img, i) => ({
-    name: img.name,
-    camera: img.camera,
-    originalPath: img.imagePaths[0]?.imagePath ?? '',
-    preview: img.preview,
-    sortOrder: i,
-    outputs: img.imagePaths.map((p) => ({
-      imagePath: p.imagePath,
-      type: p.type,
-      resolution: p.resolution,
-      byteLength: p.byteLength,
-    })),
-  }));
-}
-
-export const AlbumForm: FC<Props> = ({ processedImages }) => {
-  const { bucketName } = useParams();
-  const navigate = useNavigate();
-  const photosetId = useImageStore((s) => s.photosetId);
-
-  // TODO(sal): ideally these lots of these methods should be passed from the parent component
-  // we're making too many assumptions on where this component is being used
-
-  const { mutate, isLoading } = trpc.bucket.createAlbum.useMutation({
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const onSubmit = async (values: z.infer<typeof albumSchema>) => {
-    if (!bucketName) {
-      toast.error('Bucket name is required');
-      return;
-    }
-
-    mutate(
-      { bucketName, album: values, images: processedImages },
-      {
-        onSuccess: async () => {
-          // Update the photoset in the DB and mark as published if needed
-          if (photosetId) {
-            try {
-              await window.photosets.addImages({
-                photosetId,
-                images: toPhotosetImages(processedImages),
-              });
-              await window.photosets.update({
-                id: photosetId,
-                name: values.name,
-                location: values.location,
-                year: values.year,
-              });
-              if (values.published) {
-                await window.photosets.publish({ id: photosetId });
-              }
-            } catch {
-              // Non-fatal: S3 upload succeeded, DB update is best-effort
-            }
-          }
-          toast.success('Album created');
-          navigate('../summary', { relative: 'path' });
-        },
-      },
-    );
-  };
-
-  const form = useForm<z.infer<typeof albumSchema>>({
-    resolver: zodResolver(albumSchema),
-    defaultValues: {
-      name: '',
-      location: '',
-      year: new Date().getFullYear(),
-      published: false,
-    },
-  });
-
-  const { isDirty, isValid } = form.formState;
-
+export const AlbumForm: FC<Props> = ({ form }) => {
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Album name</FormLabel>
-              <FormControl>
-                <Input placeholder="My awesome album" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="location"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Location</FormLabel>
-              <FormControl>
-                <Input placeholder="Los Angeles, California" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="year"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Year</FormLabel>
-              <FormControl>
-                <Input type="number" placeholder="Year" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="published"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Published?</FormLabel>
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" disabled={!isDirty || !isValid || isLoading}>
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Submit
-        </Button>
-      </form>
-    </Form>
+    <>
+      <FormField
+        control={form.control}
+        name="name"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Album name</FormLabel>
+            <FormControl>
+              <Input placeholder="My awesome album" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="location"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Location</FormLabel>
+            <FormControl>
+              <Input placeholder="Los Angeles, California" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="year"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Year</FormLabel>
+            <FormControl>
+              <Input type="number" placeholder="Year" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="published"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Published</FormLabel>
+            <FormControl>
+              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+            </FormControl>
+            <FormDescription>
+              Mark this album as published in the metadata.json for downstream consumers.
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </>
   );
 };

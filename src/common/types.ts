@@ -14,7 +14,7 @@ export const processedImageSchema = z.object({
   name: z.string(),
   camera: z.string().optional(),
   imagePaths: z.array(outputImageSchema),
-  preview: z.string().base64(),
+  preview: z.string().base64().optional(),
 });
 
 export type ProcessedImage = z.infer<typeof processedImageSchema>;

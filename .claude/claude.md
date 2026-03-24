@@ -158,6 +158,10 @@ Defined in `tsconfig.json` and duplicated in each Vite config's
 
 ## Development Rules
 
+- **Package manager: pnpm** — never use npm or yarn. Use `pnpm install`,
+  `pnpm add`, `pnpm run`, etc.
+- **Don't package unless asked** — only run `pnpm run package` or
+  similar build/packaging commands when explicitly requested.
 - When modifying `src/main/drivers/s3/s3.ts` (real S3 driver), always
   check whether `src/main/drivers/s3/mock-s3.ts` needs a matching
   update. They both implement `IS3Provider` and should stay in sync.
