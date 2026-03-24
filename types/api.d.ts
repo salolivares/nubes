@@ -117,6 +117,7 @@ interface DebugContext {
   isMockS3: () => Promise<boolean>;
   getMockS3Path: () => Promise<string>;
   openMockS3Path: () => Promise<void>;
+  clearDb: () => Promise<void>;
 }
 
 declare interface Window {

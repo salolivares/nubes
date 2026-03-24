@@ -7,9 +7,6 @@ import sharp from 'sharp';
 import { IMAGE_PROCESSOR_COMPLETE, IMAGE_PROCESSOR_PROGRESS } from '@/common';
 import type { ProcessedImage } from '@/common/types';
 
-// TODO(sal): output to temporary directory
-// TODO(sal): delete image cache after a while
-
 async function processImage(
   imagePath: string,
   outputFolder: string,
