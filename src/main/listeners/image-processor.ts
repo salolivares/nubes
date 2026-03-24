@@ -77,7 +77,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
       type: IMAGE_PROCESSOR_RESIZE,
       folderPaths: args.folderPaths,
       imagePaths: args.imagePaths,
-      tempFolder: path.join(app.getPath('temp'), 'nubes'),
+      tempFolder: path.join(app.getPath('userData'), 'photosets'),
       dryRun: false,
     });
   });

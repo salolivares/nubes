@@ -1,5 +1,6 @@
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
@@ -20,6 +21,12 @@ export function DebugBar() {
 
   const handleOpenPath = useCallback(() => {
     window.debug?.openMockS3Path();
+  }, []);
+
+  const handleClearDb = useCallback(async () => {
+    await window.debug?.clearDb();
+    toast.success('Database cleared');
+    window.location.reload();
   }, []);
 
   if (process.env.NODE_ENV !== 'development' || !window.debug) {
@@ -50,6 +57,15 @@ export function DebugBar() {
           Open mock folder
         </Button>
       )}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 gap-1 px-2 text-xs text-destructive hover:text-destructive"
+        onClick={handleClearDb}
+      >
+        <Trash2 className="h-3 w-3" />
+        Clear DB
+      </Button>
     </div>
   );
 }
