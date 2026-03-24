@@ -2,15 +2,21 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import type { ProcessedImage } from '@/common/types';
+
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { useProcessingImages } from '../hooks/useProcessingImages';
+import { useImageStore } from '../stores/images';
 
 export const ImageProcessing = () => {
   const { files, processingImages, processed } = useProcessingImages();
   const navigate = useNavigate();
+  const photosetId = useImageStore((s) => s.photosetId);
+  const processedImages = useImageStore((s) => s.processedImages);
 
   const uploadRan = useRef(false);
+  const persistRan = useRef(false);
 
   useEffect(() => {
     if (!uploadRan.current) {
@@ -24,11 +30,39 @@ export const ImageProcessing = () => {
     };
   }, []);
 
+  // Persist processed images to the photoset in the DB
   useEffect(() => {
-    if (processed) {
-      toast.success('Images processed successfully');
-    }
-  }, [processed]);
+    if (!processed || !photosetId || persistRan.current || processedImages.length === 0) return;
+    persistRan.current = true;
+
+    const persist = async () => {
+      try {
+        await window.photosets.addImages({
+          photosetId,
+          images: processedImages.map((img: ProcessedImage, i: number) => ({
+            name: img.name,
+            camera: img.camera,
+            originalPath: img.imagePaths[0]?.imagePath ?? '',
+            preview: img.preview,
+            sortOrder: i,
+            outputs: img.imagePaths.map((p) => ({
+              imagePath: p.imagePath,
+              type: p.type,
+              resolution: p.resolution,
+              byteLength: p.byteLength,
+            })),
+          })),
+        });
+        toast.success('Images processed successfully');
+      } catch (err) {
+        toast.error('Failed to save images', {
+          description: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
+    };
+
+    persist();
+  }, [processed, photosetId, processedImages]);
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-12">
