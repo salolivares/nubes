@@ -1,4 +1,4 @@
-import { FolderOpen, Trash2 } from 'lucide-react';
+import { Copy, FolderOpen, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -21,6 +21,14 @@ export function DebugBar() {
 
   const handleOpenPath = useCallback(() => {
     window.debug?.openMockS3Path();
+  }, []);
+
+  const handleCopyDbPath = useCallback(async () => {
+    const dbPath = await window.debug?.getDbPath();
+    if (dbPath) {
+      await window.debug?.copyToClipboard(dbPath);
+      toast.success('DB path copied to clipboard');
+    }
   }, []);
 
   const handleClearDb = useCallback(async () => {
@@ -57,6 +65,15 @@ export function DebugBar() {
           Open mock folder
         </Button>
       )}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 gap-1 px-2 text-xs"
+        onClick={handleCopyDbPath}
+      >
+        <Copy className="h-3 w-3" />
+        Copy DB path
+      </Button>
       <Button
         variant="ghost"
         size="sm"

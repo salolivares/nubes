@@ -24,6 +24,8 @@ export const DEBUG_IS_MOCK_S3 = `${DEBUG_CHANNEL}:isMockS3`;
 export const DEBUG_GET_MOCK_S3_PATH = `${DEBUG_CHANNEL}:getMockS3Path`;
 export const DEBUG_OPEN_MOCK_S3_PATH = `${DEBUG_CHANNEL}:openMockS3Path`;
 export const DEBUG_CLEAR_DB = `${DEBUG_CHANNEL}:clearDb`;
+export const DEBUG_GET_DB_PATH = `${DEBUG_CHANNEL}:getDbPath`;
+export const DEBUG_COPY_TO_CLIPBOARD = `${DEBUG_CHANNEL}:copyToClipboard`;
 
 export const IMAGE_PICKER_CHANNEL = 'image-picker';
 export const IMAGE_PICKER_OPEN = `${IMAGE_PICKER_CHANNEL}:open`;
