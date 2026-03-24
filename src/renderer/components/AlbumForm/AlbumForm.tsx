@@ -20,6 +20,22 @@ interface Props {
   processedImages: ProcessedImage[];
 }
 
+function toPhotosetImages(processedImages: ProcessedImage[]) {
+  return processedImages.map((img, i) => ({
+    name: img.name,
+    camera: img.camera,
+    originalPath: img.imagePaths[0]?.imagePath ?? '',
+    preview: img.preview,
+    sortOrder: i,
+    outputs: img.imagePaths.map((p) => ({
+      imagePath: p.imagePath,
+      type: p.type,
+      resolution: p.resolution,
+      byteLength: p.byteLength,
+    })),
+  }));
+}
+
 export const AlbumForm: FC<Props> = ({ processedImages }) => {
   const { bucketName } = useParams();
   const navigate = useNavigate();
@@ -47,6 +63,10 @@ export const AlbumForm: FC<Props> = ({ processedImages }) => {
           // Update the photoset in the DB and mark as published if needed
           if (photosetId) {
             try {
+              await window.photosets.addImages({
+                photosetId,
+                images: toPhotosetImages(processedImages),
+              });
               await window.photosets.update({
                 id: photosetId,
                 name: values.name,

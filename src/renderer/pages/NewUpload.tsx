@@ -10,7 +10,7 @@ import {
 import { trpc } from '@client/lib/trpc';
 import { useImageStore } from '@client/stores/images';
 import { Folder, KeyRound } from 'lucide-react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -22,6 +22,8 @@ export const NewUpload = () => {
   const navigate = useNavigate();
   const reset = useImageStore((s) => s.reset);
   const setPhotosetId = useImageStore((s) => s.setPhotosetId);
+  const creatingRef = useRef(false);
+  const [creatingBucket, setCreatingBucket] = useState<string | null>(null);
 
   // Reset store when starting a new upload
   useEffect(() => {
@@ -38,6 +40,10 @@ export const NewUpload = () => {
 
   const handleBucketSelect = useCallback(
     async (bucketName: string) => {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setCreatingBucket(bucketName);
+
       try {
         const photoset = await window.photosets.create({
           name: `Upload ${new Date().toLocaleDateString()}`,
@@ -49,6 +55,9 @@ export const NewUpload = () => {
         toast.error('Failed to create photoset', {
           description: err instanceof Error ? err.message : 'Unknown error',
         });
+      } finally {
+        creatingRef.current = false;
+        setCreatingBucket(null);
       }
     },
     [navigate, setPhotosetId]
@@ -87,6 +96,7 @@ export const NewUpload = () => {
           <button
             type="button"
             onClick={() => handleBucketSelect(bucket.Name!)}
+            disabled={creatingBucket !== null}
             className="group flex w-full flex-col items-center justify-center gap-2 rounded-lg bg-muted p-4 transition-colors hover:bg-muted/60"
             key={bucket.Name}
           >
