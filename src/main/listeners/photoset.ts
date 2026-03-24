@@ -127,6 +127,9 @@ export function addPhotosetEventListeners() {
       return db.transaction((tx) => {
         const insertedImages = [];
 
+        // Replace existing images so repeated saves are idempotent for a photoset.
+        tx.delete(photosetImages).where(eq(photosetImages.photosetId, args.photosetId)).run();
+
         for (const image of args.images) {
           const { outputs, ...imageData } = image;
           const rows = tx

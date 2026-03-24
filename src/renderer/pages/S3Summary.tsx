@@ -1,10 +1,8 @@
 import { Calendar, Camera, CheckCircle2, MapPin } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
-
-import type { Album } from '@/common/types';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '../components/ui/button';
-import { useProcessedImages } from '../hooks/useProcessedImages';
 import { useImageStore } from '../stores/images';
 
 function formatBytes(bytes: number): string {
@@ -13,25 +11,50 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+type PhotosetData = Awaited<ReturnType<Window['photosets']['get']>>;
+
 export const S3Summary = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { processedImages } = useProcessedImages();
+  const photosetId = useImageStore((s) => s.photosetId);
   const reset = useImageStore((s) => s.reset);
+  const [photoset, setPhotoset] = useState<PhotosetData>(undefined);
+  const [loading, setLoading] = useState(true);
 
-  const album = (location.state as { album?: Album } | null)?.album;
+  useEffect(() => {
+    if (!photosetId) {
+      setLoading(false);
+      return;
+    }
 
-  const totalSize = processedImages.reduce(
-    (sum, img) => sum + img.imagePaths.reduce((s, p) => s + p.byteLength, 0),
+    window.photosets
+      .get({ id: photosetId })
+      .then(setPhotoset)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [photosetId]);
+
+  const totalSize = photoset?.images.reduce(
+    (sum, img) => sum + img.outputs.reduce((s, p) => s + p.byteLength, 0),
     0,
-  );
+  ) ?? 0;
 
-  const totalFiles = processedImages.reduce((sum, img) => sum + img.imagePaths.length, 0);
+  const totalFiles = photoset?.images.reduce(
+    (sum, img) => sum + img.outputs.length,
+    0,
+  ) ?? 0;
 
   const handleStartOver = () => {
     reset();
     navigate('/');
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -40,41 +63,47 @@ export const S3Summary = () => {
         <h1 className="text-2xl font-bold">Album Uploaded</h1>
       </div>
 
-      {album && (
+      {photoset && (
         <div className="rounded-lg border bg-muted/50 p-6 space-y-2">
-          <h2 className="text-lg font-semibold">{album.name}</h2>
+          <h2 className="text-lg font-semibold">{photoset.name}</h2>
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
-              {album.location}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              {album.year}
-            </span>
+            {photoset.location && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {photoset.location}
+              </span>
+            )}
+            {photoset.year && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                {photoset.year}
+              </span>
+            )}
             <span className="flex items-center gap-1">
               <Camera className="h-4 w-4" />
-              {processedImages.length} {processedImages.length === 1 ? 'image' : 'images'}
+              {photoset.images.length} {photoset.images.length === 1 ? 'image' : 'images'}
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
             {totalFiles} files totalling {formatBytes(totalSize)}
-            {album.published ? ' · Published' : ' · Draft'}
+            {photoset.status === 'published' ? ' · Published' : ' · Draft'}
           </p>
         </div>
       )}
 
-      {processedImages.length > 0 && (
+      {photoset && photoset.images.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Uploaded Images</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {processedImages.map((image) => (
+            {photoset.images.map((image) => (
               <div key={image.id} className="space-y-1">
-                <img
-                  src={`data:image/jpeg;base64,${image.preview}`}
-                  alt={image.name}
-                  className="aspect-square w-full rounded-md object-cover"
-                />
+                {image.preview && (
+                  <img
+                    src={`data:image/jpeg;base64,${image.preview}`}
+                    alt={image.name}
+                    className="aspect-square w-full rounded-md object-cover"
+                  />
+                )}
                 <p className="truncate text-xs text-muted-foreground">{image.name}</p>
               </div>
             ))}

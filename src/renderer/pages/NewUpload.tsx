@@ -8,9 +8,10 @@ import {
   CardTitle,
 } from '@client/components/ui/card';
 import { trpc } from '@client/lib/trpc';
+import { useImageStore } from '@client/stores/images';
 import { Folder, KeyRound } from 'lucide-react';
-import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export const NewUpload = () => {
@@ -18,6 +19,16 @@ export const NewUpload = () => {
   const { data, error } = trpc.bucket.list.useQuery(undefined, {
     enabled: !!isSet,
   });
+  const navigate = useNavigate();
+  const reset = useImageStore((s) => s.reset);
+  const setPhotosetId = useImageStore((s) => s.setPhotosetId);
+  const creatingRef = useRef(false);
+  const [creatingBucket, setCreatingBucket] = useState<string | null>(null);
+
+  // Reset store when starting a new upload
+  useEffect(() => {
+    reset();
+  }, [reset]);
 
   useEffect(() => {
     if (error) {
@@ -26,6 +37,31 @@ export const NewUpload = () => {
       });
     }
   }, [error]);
+
+  const handleBucketSelect = useCallback(
+    async (bucketName: string) => {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setCreatingBucket(bucketName);
+
+      try {
+        const photoset = await window.photosets.create({
+          name: `Upload ${new Date().toLocaleDateString()}`,
+          bucketName,
+        });
+        setPhotosetId(photoset.id);
+        navigate(`/bucket/${bucketName}/picker`);
+      } catch (err) {
+        toast.error('Failed to create photoset', {
+          description: err instanceof Error ? err.message : 'Unknown error',
+        });
+      } finally {
+        creatingRef.current = false;
+        setCreatingBucket(null);
+      }
+    },
+    [navigate, setPhotosetId]
+  );
 
   if (!isSet) {
     return (
@@ -57,16 +93,18 @@ export const NewUpload = () => {
       </h1>
       <div className="space-y-3">
         {data?.map((bucket) => (
-          <Link
-            to={`/bucket/${bucket.Name}/picker`}
-            className="group flex flex-col items-center justify-center gap-2 rounded-lg bg-muted p-4 transition-colors hover:bg-muted/60"
+          <button
+            type="button"
+            onClick={() => handleBucketSelect(bucket.Name!)}
+            disabled={creatingBucket !== null}
+            className="group flex w-full flex-col items-center justify-center gap-2 rounded-lg bg-muted p-4 transition-colors hover:bg-muted/60"
             key={bucket.Name}
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <Folder className="h-6 w-6" />
             </div>
             <span className="text-sm font-medium">{bucket.Name}</span>
-          </Link>
+          </button>
         ))}
       </div>
     </>

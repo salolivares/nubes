@@ -10,6 +10,7 @@ import type { ProcessedImage } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
 import { trpc } from '../../lib/trpc';
+import { useImageStore } from '../../stores/images';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
@@ -19,9 +20,26 @@ interface Props {
   processedImages: ProcessedImage[];
 }
 
+function toPhotosetImages(processedImages: ProcessedImage[]) {
+  return processedImages.map((img, i) => ({
+    name: img.name,
+    camera: img.camera,
+    originalPath: img.imagePaths[0]?.imagePath ?? '',
+    preview: img.preview,
+    sortOrder: i,
+    outputs: img.imagePaths.map((p) => ({
+      imagePath: p.imagePath,
+      type: p.type,
+      resolution: p.resolution,
+      byteLength: p.byteLength,
+    })),
+  }));
+}
+
 export const AlbumForm: FC<Props> = ({ processedImages }) => {
   const { bucketName } = useParams();
   const navigate = useNavigate();
+  const photosetId = useImageStore((s) => s.photosetId);
 
   // TODO(sal): ideally these lots of these methods should be passed from the parent component
   // we're making too many assumptions on where this component is being used
@@ -32,20 +50,41 @@ export const AlbumForm: FC<Props> = ({ processedImages }) => {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof albumSchema>) => {
-    if (bucketName) {
-      mutate(
-        { bucketName, album: values, images: processedImages },
-        {
-          onSuccess: () => {
-            toast.success('Album created');
-            navigate('../summary', { relative: 'path', state: { album: values } });
-          },
-        },
-      );
-    } else {
+  const onSubmit = async (values: z.infer<typeof albumSchema>) => {
+    if (!bucketName) {
       toast.error('Bucket name is required');
+      return;
     }
+
+    mutate(
+      { bucketName, album: values, images: processedImages },
+      {
+        onSuccess: async () => {
+          // Update the photoset in the DB and mark as published if needed
+          if (photosetId) {
+            try {
+              await window.photosets.addImages({
+                photosetId,
+                images: toPhotosetImages(processedImages),
+              });
+              await window.photosets.update({
+                id: photosetId,
+                name: values.name,
+                location: values.location,
+                year: values.year,
+              });
+              if (values.published) {
+                await window.photosets.publish({ id: photosetId });
+              }
+            } catch {
+              // Non-fatal: S3 upload succeeded, DB update is best-effort
+            }
+          }
+          toast.success('Album created');
+          navigate('../summary', { relative: 'path' });
+        },
+      },
+    );
   };
 
   const form = useForm<z.infer<typeof albumSchema>>({
