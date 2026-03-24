@@ -19,7 +19,7 @@ export function BaseLayout() {
   return (
     <div className="flex min-h-screen w-full">
       {/* Fixed sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r bg-background">
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-muted/30 ring-1 ring-border">
         {/* Logo */}
         <div className="flex h-16 items-center gap-2 border-b px-6">
           <Package2 className="h-6 w-6" />
@@ -37,39 +37,49 @@ export function BaseLayout() {
         </div>
 
         {/* Nav links */}
-        <nav className="flex-1 space-y-1 px-4 pt-4">
-          {navLinks.map(({ name, href, icon: Icon }) => {
-            const isActive =
-              href === '/'
-                ? location.pathname === '/'
-                : location.pathname.startsWith(href);
+        <nav className="flex-1 px-4 pt-4">
+          <ul className="-mx-2 space-y-1">
+            {navLinks.map(({ name, href, icon: Icon }) => {
+              const isActive =
+                href === '/'
+                  ? location.pathname === '/'
+                  : location.pathname.startsWith(href);
 
-            return (
-              <Link
-                key={href}
-                to={href}
-                className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {name}
-              </Link>
-            );
-          })}
+              return (
+                <li key={href}>
+                  <Link
+                    to={href}
+                    className={cn(
+                      'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                      isActive
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        'size-6 shrink-0',
+                        isActive
+                          ? 'text-foreground'
+                          : 'text-muted-foreground group-hover:text-foreground'
+                      )}
+                    />
+                    {name}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
 
         {/* Bottom controls */}
-        <div className="border-t px-4 py-3">
+        <div className="-mx-6 mt-auto border-t px-6 py-3">
           <ModeToggle />
         </div>
       </aside>
 
       {/* Main content area */}
-      <div className="flex min-h-screen flex-1 flex-col pl-64">
+      <div className="flex min-h-screen flex-1 flex-col pl-72">
         <main className="flex flex-1 flex-col gap-4 bg-muted/40 p-6 md:p-10">
           <ErrorBoundary
             FallbackComponent={RouteErrorFallback}

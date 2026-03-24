@@ -115,57 +115,69 @@ export const Home = () => {
           </Button>
         </div>
       ) : (
-        <div className="divide-y rounded-lg border bg-background">
+        <ul className="divide-y divide-border">
           {photosets.map((photoset) => (
+            <li key={photoset.id} className="relative">
             <Link
-              key={photoset.id}
               to={`/photoset/${photoset.id}`}
-              className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/50"
+              className="flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8"
             >
               {/* Status dot */}
               <div
                 className={cn(
-                  'h-2.5 w-2.5 shrink-0 rounded-full',
+                  'flex-none rounded-full p-1',
                   photoset.status === 'published'
-                    ? 'bg-green-500'
-                    : 'bg-gray-400'
+                    ? 'text-green-500 bg-green-500/10'
+                    : 'text-gray-400 bg-gray-100 dark:bg-gray-400/10'
                 )}
-              />
+              >
+                <div className="size-2 rounded-full bg-current" />
+              </div>
 
               {/* Name and details */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="truncate font-medium">
-                    {photoset.name}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {photoset.bucketName}
-                  </span>
+              <div className="min-w-0 flex-auto">
+                <div className="flex items-center gap-x-3">
+                  <h2 className="min-w-0 text-sm/6 font-semibold text-foreground">
+                    <span className="flex gap-x-2">
+                      <span className="truncate">{photoset.name}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="whitespace-nowrap text-muted-foreground">
+                        {photoset.bucketName}
+                      </span>
+                    </span>
+                  </h2>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {photoset.images.length}{' '}
-                  {photoset.images.length === 1 ? 'image' : 'images'}
-                  {' · '}
-                  Created {formatRelativeTime(photoset.createdAt)}
-                </p>
+                <div className="mt-3 flex items-center gap-x-2.5 text-xs/5 text-muted-foreground">
+                  <p className="truncate">
+                    {photoset.images.length}{' '}
+                    {photoset.images.length === 1 ? 'image' : 'images'}
+                  </p>
+                  <svg viewBox="0 0 2 2" className="size-0.5 flex-none fill-muted-foreground/50">
+                    <circle r={1} cx={1} cy={1} />
+                  </svg>
+                  <p className="whitespace-nowrap">
+                    Created {formatRelativeTime(photoset.createdAt)}
+                  </p>
+                </div>
               </div>
 
               {/* Status badge */}
-              <span
+              <div
                 className={cn(
-                  'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+                  'flex-none rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset',
                   photoset.status === 'published'
                     ? 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-500/20'
                     : 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20'
                 )}
               >
                 {photoset.status}
-              </span>
+              </div>
 
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <ChevronRight className="size-5 flex-none text-muted-foreground" />
             </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </>
   );
