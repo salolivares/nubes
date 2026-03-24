@@ -4,6 +4,7 @@ import {
   PHOTOSET_DELETE,
   PHOTOSET_GET,
   PHOTOSET_LIST,
+  PHOTOSET_MARK_UPLOADED,
   PHOTOSET_PUBLISH,
   PHOTOSET_UPDATE,
 } from '@common';
@@ -17,4 +18,5 @@ export const photosets: PhotosetContext = {
   delete: (args) => ipcRenderer.invoke(PHOTOSET_DELETE, args),
   addImages: (args) => ipcRenderer.invoke(PHOTOSET_ADD_IMAGES, args),
   publish: (args) => ipcRenderer.invoke(PHOTOSET_PUBLISH, args),
+  markUploaded: (args) => ipcRenderer.invoke(PHOTOSET_MARK_UPLOADED, args),
 };

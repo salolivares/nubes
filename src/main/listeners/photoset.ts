@@ -7,6 +7,7 @@ import {
   PHOTOSET_DELETE,
   PHOTOSET_GET,
   PHOTOSET_LIST,
+  PHOTOSET_MARK_UPLOADED,
   PHOTOSET_PUBLISH,
   PHOTOSET_UPDATE,
 } from '@/common/constants';
@@ -63,7 +64,6 @@ export function addPhotosetEventListeners() {
         bucketName: string;
         location?: string;
         year?: number;
-        camera?: string;
       }
     ) => {
       const db = getDb();
@@ -81,7 +81,6 @@ export function addPhotosetEventListeners() {
         name?: string;
         location?: string;
         year?: number;
-        camera?: string;
         status?: PhotosetStatus;
       }
     ) => {
@@ -164,6 +163,18 @@ export function addPhotosetEventListeners() {
     const rows = db
       .update(photosets)
       .set({ status: 'published', publishedAt: now, updatedAt: now })
+      .where(eq(photosets.id, args.id))
+      .returning()
+      .all();
+    return rows[0];
+  });
+
+  ipcMain.handle(PHOTOSET_MARK_UPLOADED, (_, args: { id: number }) => {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const rows = db
+      .update(photosets)
+      .set({ uploadedAt: now, updatedAt: now })
       .where(eq(photosets.id, args.id))
       .returning()
       .all();

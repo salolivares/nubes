@@ -35,12 +35,12 @@ interface Photoset {
   name: string;
   location: string | null;
   year: number | null;
-  camera: string | null;
   bucketName: string;
   status: 'draft' | 'published';
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
+  uploadedAt: string | null;
 }
 
 interface PhotosetImage {
@@ -82,14 +82,12 @@ interface PhotosetContext {
     bucketName: string;
     location?: string;
     year?: number;
-    camera?: string;
   }) => Promise<Photoset>;
   update: (args: {
     id: number;
     name?: string;
     location?: string;
     year?: number;
-    camera?: string;
     status?: 'draft' | 'published';
   }) => Promise<Photoset>;
   delete: (args: { id: number }) => Promise<void>;
@@ -110,6 +108,7 @@ interface PhotosetContext {
     }>;
   }) => Promise<PhotosetImage[]>;
   publish: (args: { id: number }) => Promise<Photoset>;
+  markUploaded: (args: { id: number }) => Promise<Photoset>;
 }
 
 interface DebugContext {

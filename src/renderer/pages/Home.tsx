@@ -133,11 +133,11 @@ export const Home = () => {
               to={`/photoset/${photoset.id}`}
               className="flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8"
             >
-              {/* Status dot */}
+              {/* Upload status dot */}
               <div
                 className={cn(
                   'flex-none rounded-full p-1',
-                  photoset.status === 'published'
+                  photoset.uploadedAt
                     ? 'text-green-500 bg-green-500/10'
                     : 'text-gray-400 bg-gray-100 dark:bg-gray-400/10'
                 )}
@@ -172,16 +172,16 @@ export const Home = () => {
                 </div>
               </div>
 
-              {/* Status badge */}
+              {/* Upload status badge */}
               <div
                 className={cn(
                   'flex-none rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset',
-                  photoset.status === 'published'
+                  photoset.uploadedAt
                     ? 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-500/20'
                     : 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20'
                 )}
               >
-                {photoset.status}
+                {photoset.uploadedAt ? 'uploaded' : 'draft'}
               </div>
 
               <ChevronRight className="size-5 flex-none text-muted-foreground" />

@@ -40,6 +40,7 @@ export const PHOTOSET_UPDATE = `${PHOTOSET_CHANNEL}:update`;
 export const PHOTOSET_DELETE = `${PHOTOSET_CHANNEL}:delete`;
 export const PHOTOSET_ADD_IMAGES = `${PHOTOSET_CHANNEL}:addImages`;
 export const PHOTOSET_PUBLISH = `${PHOTOSET_CHANNEL}:publish`;
+export const PHOTOSET_MARK_UPLOADED = `${PHOTOSET_CHANNEL}:markUploaded`;
 
 export const IMAGE_PROCESSOR_CHANNEL = 'image-processor';
 export const IMAGE_PROCESSOR_RESIZE = `${IMAGE_PROCESSOR_CHANNEL}:resize`;
