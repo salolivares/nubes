@@ -43,15 +43,19 @@ export const Home = () => {
   const [photosets, setPhotosets] = useState<PhotosetRow[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>('createdAt');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadPhotosets = useCallback(async (sort: SortBy) => {
     setLoading(true);
+    setError(null);
     try {
       const data = await window.photosets.list({
         sortBy: sort,
         sortOrder: sort === 'name' ? 'asc' : 'desc',
       });
       setPhotosets(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load photosets');
     } finally {
       setLoading(false);
     }
@@ -95,6 +99,13 @@ export const Home = () => {
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           Loading...
+        </div>
+      ) : error ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+          <p className="text-sm font-medium text-destructive">{error}</p>
+          <Button variant="outline" size="sm" onClick={() => loadPhotosets(sortBy)}>
+            Retry
+          </Button>
         </div>
       ) : photosets.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
