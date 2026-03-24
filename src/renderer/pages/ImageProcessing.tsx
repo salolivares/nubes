@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -9,6 +9,8 @@ import { Progress } from '../components/ui/progress';
 import { useProcessingImages } from '../hooks/useProcessingImages';
 import { useImageStore } from '../stores/images';
 
+const AUTO_NAVIGATE_SECONDS = 3;
+
 export const ImageProcessing = () => {
   const { files, processingImages, processed } = useProcessingImages();
   const navigate = useNavigate();
@@ -17,6 +19,11 @@ export const ImageProcessing = () => {
 
   const uploadRan = useRef(false);
   const persistRan = useRef(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  const goToNext = useCallback(() => {
+    navigate('../s3', { relative: 'path' });
+  }, [navigate]);
 
   useEffect(() => {
     if (!uploadRan.current) {
@@ -64,6 +71,22 @@ export const ImageProcessing = () => {
     persist();
   }, [processed, photosetId, processedImages]);
 
+  // Auto-navigate countdown once processing is done
+  useEffect(() => {
+    if (!processed) return;
+    setCountdown(AUTO_NAVIGATE_SECONDS);
+
+    const interval = setInterval(() => {
+      setCountdown((prev) => (prev === null ? null : prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [processed]);
+
+  useEffect(() => {
+    if (countdown === 0) goToNext();
+  }, [countdown, goToNext]);
+
   return (
     <div className="container mx-auto px-4 md:px-6 py-12">
       <div className="max-w-2xl mx-auto grid gap-8">
@@ -91,11 +114,16 @@ export const ImageProcessing = () => {
             </div>
           ))}
         </div>
-        <div>
-          {processed && (
-            <Button onClick={() => navigate('../s3', { relative: 'path' })}>Go to s3 upload</Button>
-          )}
-        </div>
+        {processed && countdown !== null && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Continuing in {countdown}s…
+            </p>
+            <Button variant="outline" size="sm" onClick={goToNext}>
+              Skip
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
