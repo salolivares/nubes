@@ -1,10 +1,13 @@
 import fsp from 'node:fs/promises';
+import path from 'node:path';
 
 import { sql } from 'drizzle-orm';
-import { ipcMain, shell } from 'electron';
+import { app, clipboard, ipcMain, shell } from 'electron';
 
 import {
   DEBUG_CLEAR_DB,
+  DEBUG_COPY_TO_CLIPBOARD,
+  DEBUG_GET_DB_PATH,
   DEBUG_GET_MOCK_S3_PATH,
   DEBUG_IS_MOCK_S3,
   DEBUG_OPEN_MOCK_S3_PATH,
@@ -41,6 +44,14 @@ export function addDebugEventListeners() {
     const mockPath = getMockS3Path();
     await fsp.mkdir(mockPath, { recursive: true });
     return shell.openPath(mockPath);
+  });
+
+  ipcMain.handle(DEBUG_GET_DB_PATH, () => {
+    return path.join(app.getPath('userData'), 'nubes.db');
+  });
+
+  ipcMain.handle(DEBUG_COPY_TO_CLIPBOARD, (_, text: string) => {
+    clipboard.writeText(text);
   });
 
   ipcMain.handle(DEBUG_CLEAR_DB, () => {

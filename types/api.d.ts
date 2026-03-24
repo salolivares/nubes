@@ -118,6 +118,8 @@ interface DebugContext {
   getMockS3Path: () => Promise<string>;
   openMockS3Path: () => Promise<void>;
   clearDb: () => Promise<void>;
+  getDbPath: () => Promise<string>;
+  copyToClipboard: (text: string) => Promise<void>;
 }
 
 declare interface Window {
