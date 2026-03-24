@@ -19,7 +19,7 @@ export function BaseLayout() {
   return (
     <div className="flex min-h-screen w-full">
       {/* Fixed sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-muted/30 ring-1 ring-border">
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-72 flex-col overflow-hidden bg-muted/30 ring-1 ring-border">
         {/* Logo */}
         <div className="flex h-16 items-center gap-2 border-b px-6">
           <Package2 className="h-6 w-6" />
