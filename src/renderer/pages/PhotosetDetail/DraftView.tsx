@@ -27,14 +27,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '../../components/ui/alert-dialog';
 import { Button } from '../../components/ui/button';
 import { ButtonGroup } from '../../components/ui/button-group';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
 import { Form } from '../../components/ui/form';
@@ -81,6 +82,7 @@ export function DraftView({
   const [images, setImages] = useState(photoset.images);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [processingTotal, setProcessingTotal] = useState(0);
@@ -297,12 +299,47 @@ export function DraftView({
               </>
             )}
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" disabled={busy}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
+          <ButtonGroup>
+            <Button disabled={!canSubmit} onClick={handleSave}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save Draft
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button disabled={!canSubmit && !canUpload} className="px-2!">
+                  <ChevronDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    disabled={!canUpload}
+                    onClick={handleUpload}
+                  >
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload />}
+                    Upload to S3
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    disabled={busy}
+                    onSelect={() => {
+                      // Delay so the dropdown fully unmounts before the
+                      // AlertDialog mounts — avoids Radix focus-trap conflict
+                      // that causes pointer-events: none on <body>.
+                      setTimeout(() => setShowDeleteDialog(true), 0);
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 />
+                    Delete Photoset
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ButtonGroup>
+          <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete photoset?</AlertDialogTitle>
@@ -320,28 +357,6 @@ export function DraftView({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <ButtonGroup>
-            <Button disabled={!canSubmit} onClick={handleSave}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save Draft
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button disabled={busy} className="pl-2!">
-                  <ChevronDown />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  disabled={!canUpload}
-                  onClick={handleUpload}
-                >
-                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload />}
-                  Upload to S3
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </ButtonGroup>
         </div>
       </div>
 
