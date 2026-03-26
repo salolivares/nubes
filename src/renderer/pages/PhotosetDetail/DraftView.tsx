@@ -322,10 +322,7 @@ export function DraftView({
                 <DropdownMenuGroup>
                   <DropdownMenuItem
                     disabled={busy}
-                    onSelect={() => {
-                      // Delay so the dropdown fully unmounts before the
-                      // AlertDialog mounts — avoids Radix focus-trap conflict
-                      // that causes pointer-events: none on <body>.
+                    onClick={() => {
                       setTimeout(() => setShowDeleteDialog(true), 0);
                     }}
                     className="text-destructive focus:text-destructive"
