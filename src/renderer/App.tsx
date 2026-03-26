@@ -10,6 +10,7 @@ import superjson from 'superjson';
 import { AppErrorFallback } from './components/error-fallback';
 import { ThemeProvider } from './components/theme-provider';
 import { Toaster } from './components/ui/sonner';
+import { TooltipProvider } from './components/ui/tooltip';
 import { trpc } from './lib/trpc';
 import { router } from './routes';
 
@@ -34,8 +35,10 @@ export function App() {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <RouterProvider router={router} />
-            <Toaster />
+            <TooltipProvider>
+              <RouterProvider router={router} />
+              <Toaster />
+            </TooltipProvider>
           </ThemeProvider>
           <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>

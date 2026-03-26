@@ -1,4 +1,3 @@
-import { cn } from '@client/lib/utils';
 import { Home, Package2, Plus, Settings } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Link, Outlet, useLocation } from 'react-router-dom';
@@ -6,7 +5,21 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { DebugBar } from './debug-bar';
 import { RouteErrorFallback } from './error-fallback';
 import { ModeToggle } from './mode-toggle';
-import { buttonVariants } from './ui/button';
+import { Button } from './ui/button';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+} from './ui/sidebar';
 
 const navLinks = [
   { name: 'Photosets', href: '/', icon: Home },
@@ -17,77 +30,62 @@ export function BaseLayout() {
   const location = useLocation();
 
   return (
-    <div className="flex min-h-screen w-full">
-      {/* Fixed sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-72 flex-col overflow-hidden bg-muted/30 ring-1 ring-border">
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-2 border-b px-6">
-          <Package2 className="h-6 w-6" />
-          <span className="text-lg font-semibold">Nubes</span>
-        </div>
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="flex flex-row items-center gap-2 p-4">
+          <Package2 />
+          <span className="text-lg font-semibold group-data-[collapsible=icon]:hidden">Nubes</span>
+        </SidebarHeader>
 
-        {/* New Upload CTA */}
-        <div className="px-4 pt-4">
-          <Link to="/new" className={cn(buttonVariants(), "w-full gap-2")}>
-            <Plus className="h-4 w-4" />
-            New Upload
-          </Link>
-        </div>
+        <SidebarContent>
+          {/* New Upload CTA */}
+          <div className="px-4 pb-4">
+            <Button render={<Link to="/new" />} nativeButton={false} className="w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0">
+              <Plus data-icon="inline-start" />
+              <span className="group-data-[collapsible=icon]:hidden">New Upload</span>
+            </Button>
+          </div>
 
-        {/* Nav links */}
-        <nav className="flex-1 px-4 pt-4">
-          <ul className="-mx-2 space-y-1">
-            {navLinks.map(({ name, href, icon: Icon }) => {
-              const isActive =
-                href === '/'
-                  ? location.pathname === '/'
-                  : location.pathname.startsWith(href);
+          {/* Nav links */}
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navLinks.map(({ name, href, icon: Icon }) => {
+                  const isActive =
+                    href === '/' ? location.pathname === '/' : location.pathname.startsWith(href);
 
-              return (
-                <li key={href}>
-                  <Link
-                    to={href}
-                    className={cn(
-                      'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
-                      isActive
-                        ? 'bg-muted text-foreground'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        'size-6 shrink-0',
-                        isActive
-                          ? 'text-foreground'
-                          : 'text-muted-foreground group-hover:text-foreground'
-                      )}
-                    />
-                    {name}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+                  return (
+                    <SidebarMenuItem key={href}>
+                      <SidebarMenuButton
+                        render={<Link to={href} />}
+                        isActive={isActive}
+                        tooltip={name}
+                      >
+                        <Icon />
+                        <span>{name}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
 
-        {/* Bottom controls */}
-        <div className="-mx-6 mt-auto border-t px-6 py-3">
+        <SidebarFooter>
           <ModeToggle />
-        </div>
-      </aside>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
 
-      {/* Main content area */}
-      <div className="flex min-h-screen flex-1 flex-col pl-72">
-        <main className="flex flex-1 flex-col gap-4 bg-muted/40 p-6 md:p-10">
-          <ErrorBoundary
-            FallbackComponent={RouteErrorFallback}
-            resetKeys={[location.pathname]}
-          >
+      <SidebarInset className="max-h-svh overflow-hidden">
+        <main className="flex min-h-0 flex-1 flex-col gap-4 p-6 md:p-10">
+          <ErrorBoundary FallbackComponent={RouteErrorFallback} resetKeys={[location.pathname]}>
             <Outlet />
           </ErrorBoundary>
         </main>
         <DebugBar />
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
