@@ -156,10 +156,8 @@ export const S3Upload = () => {
             Save as Draft
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button disabled={!canSubmit} className="pl-2!">
-                <ChevronDown />
-              </Button>
+            <DropdownMenuTrigger render={<Button disabled={!canSubmit} className="pl-2!" />}>
+              <ChevronDown />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleUpload}>

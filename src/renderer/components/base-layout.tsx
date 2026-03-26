@@ -6,7 +6,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { DebugBar } from './debug-bar';
 import { RouteErrorFallback } from './error-fallback';
 import { ModeToggle } from './mode-toggle';
-import { Button } from './ui/button';
+import { buttonVariants } from './ui/button';
 
 const navLinks = [
   { name: 'Photosets', href: '/', icon: Home },
@@ -28,12 +28,10 @@ export function BaseLayout() {
 
         {/* New Upload CTA */}
         <div className="px-4 pt-4">
-          <Button asChild className="w-full gap-2">
-            <Link to="/new">
-              <Plus className="h-4 w-4" />
-              New Upload
-            </Link>
-          </Button>
+          <Link to="/new" className={cn(buttonVariants(), "w-full gap-2")}>
+            <Plus className="h-4 w-4" />
+            New Upload
+          </Link>
         </div>
 
         {/* Nav links */}

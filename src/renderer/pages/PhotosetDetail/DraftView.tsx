@@ -305,10 +305,8 @@ export function DraftView({
               Save Draft
             </Button>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button disabled={!canSubmit && !canUpload} className="px-2!">
-                  <ChevronDown />
-                </Button>
+              <DropdownMenuTrigger render={<Button disabled={!canSubmit && !canUpload} className="px-2!" />}>
+                <ChevronDown />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuGroup>
@@ -324,10 +322,7 @@ export function DraftView({
                 <DropdownMenuGroup>
                   <DropdownMenuItem
                     disabled={busy}
-                    onSelect={() => {
-                      // Delay so the dropdown fully unmounts before the
-                      // AlertDialog mounts — avoids Radix focus-trap conflict
-                      // that causes pointer-events: none on <body>.
+                    onClick={() => {
                       setTimeout(() => setShowDeleteDialog(true), 0);
                     }}
                     className="text-destructive focus:text-destructive"

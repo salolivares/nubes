@@ -1,4 +1,4 @@
-import { Button } from '@client/components/ui/button';
+import { Button, buttonVariants } from '@client/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,11 +75,9 @@ export const Home = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Photosets</h1>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <ArrowUpDown className="h-3.5 w-3.5" />
-              {sortLabels[sortBy]}
-            </Button>
+          <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="gap-2" />}>
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            {sortLabels[sortBy]}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {(Object.keys(sortLabels) as SortBy[]).map((key) => (
@@ -118,12 +116,10 @@ export const Home = () => {
               Start by uploading your first set of photos.
             </p>
           </div>
-          <Button asChild>
-            <Link to="/new" className="gap-2">
-              <Plus className="h-4 w-4" />
-              New Upload
-            </Link>
-          </Button>
+          <Link to="/new" className={cn(buttonVariants(), "gap-2")}>
+            <Plus className="h-4 w-4" />
+            New Upload
+          </Link>
         </div>
       ) : (
         <ul className="divide-y divide-border">
