@@ -1,5 +1,5 @@
 import { useAWSCredentials } from '@client/components/AWSCredentialsForm/useAWSCredentials';
-import { Button } from '@client/components/ui/button';
+import { buttonVariants } from '@client/components/ui/button';
 import {
   Card,
   CardContent,
@@ -77,9 +77,7 @@ export const NewUpload = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Button asChild>
-              <Link to="/settings">Go to Settings</Link>
-            </Button>
+            <Link to="/settings" className={buttonVariants()}>Go to Settings</Link>
           </CardContent>
         </Card>
       </div>

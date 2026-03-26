@@ -305,10 +305,8 @@ export function DraftView({
               Save Draft
             </Button>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button disabled={!canSubmit && !canUpload} className="px-2!">
-                  <ChevronDown />
-                </Button>
+              <DropdownMenuTrigger render={<Button disabled={!canSubmit && !canUpload} className="px-2!" />}>
+                <ChevronDown />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuGroup>

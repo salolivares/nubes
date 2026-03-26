@@ -84,30 +84,32 @@ export function CameraCombobox({ value, cameras, onSelect, onAdd }: CameraCombob
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'flex h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm',
-            'border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background',
-            'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            !value && 'text-muted-foreground'
-          )}
-        >
-          <span className="flex items-center gap-2 truncate">
-            {value ? (
-              value
-            ) : (
-              <>
-                <Camera className="h-4 w-4" />
-                Select camera
-              </>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              'flex h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm',
+              'border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background',
+              'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              !value && 'text-muted-foreground'
             )}
-          </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </button>
+          />
+        }
+      >
+        <span className="flex items-center gap-2 truncate">
+          {value ? (
+            value
+          ) : (
+            <>
+              <Camera className="h-4 w-4" />
+              Select camera
+            </>
+          )}
+        </span>
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
-      <PopoverContent className="p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
+      <PopoverContent className="p-0">
         <div className="p-2">
           <Input
             ref={inputRef}
