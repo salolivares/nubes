@@ -38,7 +38,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import { Form } from '../../components/ui/form';
 import { Input } from '../../components/ui/input';
 import { useCameras } from '../../hooks/useCameras';
 import { trpc } from '../../lib/trpc';
@@ -417,11 +416,7 @@ export function DraftView({
       </table>
 
       {/* Album form fields */}
-      <Form {...form}>
-        <form className="space-y-4">
-          <AlbumForm form={form} />
-        </form>
-      </Form>
+      <AlbumForm form={form} />
     </div>
   );
 }

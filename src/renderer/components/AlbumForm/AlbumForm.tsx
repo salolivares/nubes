@@ -1,10 +1,11 @@
 import type { FC } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
 
 import type { Album } from '@/common/types';
 
 import { Checkbox } from '../ui/checkbox';
-import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 
 interface Props {
@@ -13,62 +14,56 @@ interface Props {
 
 export const AlbumForm: FC<Props> = ({ form }) => {
   return (
-    <>
-      <FormField
+    <FieldGroup>
+      <Controller
         control={form.control}
         name="name"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Album name</FormLabel>
-            <FormControl>
-              <Input placeholder="My awesome album" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
+        render={({ field, fieldState }) => (
+          <Field data-invalid={fieldState.invalid}>
+            <FieldLabel htmlFor="name">Album name</FieldLabel>
+            <Input id="name" placeholder="My awesome album" {...field} />
+            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+          </Field>
         )}
       />
-      <FormField
+      <Controller
         control={form.control}
         name="location"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Location</FormLabel>
-            <FormControl>
-              <Input placeholder="Los Angeles, California" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
+        render={({ field, fieldState }) => (
+          <Field data-invalid={fieldState.invalid}>
+            <FieldLabel htmlFor="location">Location</FieldLabel>
+            <Input id="location" placeholder="Los Angeles, California" {...field} />
+            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+          </Field>
         )}
       />
-      <FormField
+      <Controller
         control={form.control}
         name="year"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Year</FormLabel>
-            <FormControl>
-              <Input type="number" placeholder="Year" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
+        render={({ field, fieldState }) => (
+          <Field data-invalid={fieldState.invalid}>
+            <FieldLabel htmlFor="year">Year</FieldLabel>
+            <Input id="year" type="number" placeholder="Year" {...field} />
+            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+          </Field>
         )}
       />
-      <FormField
+      <Controller
         control={form.control}
         name="published"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Published</FormLabel>
-            <FormControl>
-              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-            </FormControl>
-            <FormDescription>
-              Mark this album as published in the metadata.json for downstream consumers.
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
+        render={({ field, fieldState }) => (
+          <Field orientation="horizontal" data-invalid={fieldState.invalid}>
+            <Checkbox id="published" checked={field.value} onCheckedChange={field.onChange} />
+            <FieldLabel htmlFor="published" className="font-normal">
+              Published
+              <FieldDescription>
+                Mark this album as published in the metadata.json for downstream consumers.
+              </FieldDescription>
+            </FieldLabel>
+            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+          </Field>
         )}
       />
-    </>
+    </FieldGroup>
   );
 };
