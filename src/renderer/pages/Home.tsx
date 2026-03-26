@@ -5,6 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@client/components/ui/dropdown-menu';
+import { ScrollArea } from '@client/components/ui/scroll-area';
 import { cn } from '@client/lib/utils';
 import {
   ArrowUpDown,
@@ -70,9 +71,9 @@ export const Home = () => {
   };
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Photosets</h1>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="gap-2" />}>
@@ -122,70 +123,72 @@ export const Home = () => {
           </Link>
         </div>
       ) : (
-        <ul className="divide-y divide-border">
-          {photosets.map((photoset) => (
-            <li key={photoset.id} className="relative">
-            <Link
-              to={`/photoset/${photoset.id}`}
-              className="flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8"
-            >
-              {/* Upload status dot */}
-              <div
-                className={cn(
-                  'flex-none rounded-full p-1',
-                  photoset.uploadedAt
-                    ? 'text-green-500 bg-green-500/10'
-                    : 'text-gray-400 bg-gray-100 dark:bg-gray-400/10'
-                )}
+        <ScrollArea className="mt-4 min-h-0 flex-1">
+          <ul className="divide-y divide-border">
+            {photosets.map((photoset) => (
+              <li key={photoset.id} className="relative">
+              <Link
+                to={`/photoset/${photoset.id}`}
+                className="flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8"
               >
-                <div className="size-2 rounded-full bg-current" />
-              </div>
+                {/* Upload status dot */}
+                <div
+                  className={cn(
+                    'flex-none rounded-full p-1',
+                    photoset.uploadedAt
+                      ? 'text-green-500 bg-green-500/10'
+                      : 'text-gray-400 bg-gray-100 dark:bg-gray-400/10'
+                  )}
+                >
+                  <div className="size-2 rounded-full bg-current" />
+                </div>
 
-              {/* Name and details */}
-              <div className="min-w-0 flex-auto">
-                <div className="flex items-center gap-x-3">
-                  <h2 className="min-w-0 text-sm/6 font-semibold text-foreground">
-                    <span className="flex gap-x-2">
-                      <span className="truncate">{photoset.name}</span>
-                      <span className="text-muted-foreground">/</span>
-                      <span className="whitespace-nowrap text-muted-foreground">
-                        {photoset.bucketName}
+                {/* Name and details */}
+                <div className="min-w-0 flex-auto">
+                  <div className="flex items-center gap-x-3">
+                    <h2 className="min-w-0 text-sm/6 font-semibold text-foreground">
+                      <span className="flex gap-x-2">
+                        <span className="truncate">{photoset.name}</span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="whitespace-nowrap text-muted-foreground">
+                          {photoset.bucketName}
+                        </span>
                       </span>
-                    </span>
-                  </h2>
+                    </h2>
+                  </div>
+                  <div className="mt-3 flex items-center gap-x-2.5 text-xs/5 text-muted-foreground">
+                    <p className="truncate">
+                      {photoset.images.length}{' '}
+                      {photoset.images.length === 1 ? 'image' : 'images'}
+                    </p>
+                    <svg viewBox="0 0 2 2" className="size-0.5 flex-none fill-muted-foreground/50">
+                      <circle r={1} cx={1} cy={1} />
+                    </svg>
+                    <p className="whitespace-nowrap">
+                      Created {formatRelativeTime(photoset.createdAt)}
+                    </p>
+                  </div>
                 </div>
-                <div className="mt-3 flex items-center gap-x-2.5 text-xs/5 text-muted-foreground">
-                  <p className="truncate">
-                    {photoset.images.length}{' '}
-                    {photoset.images.length === 1 ? 'image' : 'images'}
-                  </p>
-                  <svg viewBox="0 0 2 2" className="size-0.5 flex-none fill-muted-foreground/50">
-                    <circle r={1} cx={1} cy={1} />
-                  </svg>
-                  <p className="whitespace-nowrap">
-                    Created {formatRelativeTime(photoset.createdAt)}
-                  </p>
+
+                {/* Upload status badge */}
+                <div
+                  className={cn(
+                    'flex-none rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset',
+                    photoset.uploadedAt
+                      ? 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-500/20'
+                      : 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20'
+                  )}
+                >
+                  {photoset.uploadedAt ? 'uploaded' : 'draft'}
                 </div>
-              </div>
 
-              {/* Upload status badge */}
-              <div
-                className={cn(
-                  'flex-none rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset',
-                  photoset.uploadedAt
-                    ? 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-500/20'
-                    : 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20'
-                )}
-              >
-                {photoset.uploadedAt ? 'uploaded' : 'draft'}
-              </div>
-
-              <ChevronRight className="size-5 flex-none text-muted-foreground" />
-            </Link>
-            </li>
-          ))}
-        </ul>
+                <ChevronRight className="size-5 flex-none text-muted-foreground" />
+              </Link>
+              </li>
+            ))}
+          </ul>
+        </ScrollArea>
       )}
-    </>
+    </div>
   );
 };

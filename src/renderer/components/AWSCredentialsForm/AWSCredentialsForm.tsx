@@ -108,7 +108,7 @@ export const AWSCredentialsForm: FC = () => {
         </CardDescription>
       </CardHeader>
       <form onSubmit={form.handleSubmit(onSubmit)}>
-        <CardContent>
+        <CardContent className="pb-6">
           <FieldGroup>
           <Controller
             control={form.control}
