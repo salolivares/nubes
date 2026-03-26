@@ -2,23 +2,22 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowLeft,
   ChevronDown,
-  ExternalLink,
-  HardDrive,
   ImageIcon,
+  ImagePlus,
   Loader2,
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import type { Album, ProcessedImage } from '@/common/types';
+import type { Album, InProgressEvent, ProcessedImage } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
-import { AlbumForm } from '../components/AlbumForm/AlbumForm';
-import { CameraCombobox } from '../components/CameraCombobox';
+import { AlbumForm } from '../../components/AlbumForm/AlbumForm';
+import { CameraCombobox } from '../../components/CameraCombobox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,152 +28,48 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '../components/ui/alert-dialog';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import { ButtonGroup } from '../components/ui/button-group';
+} from '../../components/ui/alert-dialog';
+import { Button } from '../../components/ui/button';
+import { ButtonGroup } from '../../components/ui/button-group';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
-import { Form } from '../components/ui/form';
-import { Input } from '../components/ui/input';
-import { useCameras } from '../hooks/useCameras';
-import { trpc } from '../lib/trpc';
+} from '../../components/ui/dropdown-menu';
+import { Form } from '../../components/ui/form';
+import { Input } from '../../components/ui/input';
+import { useCameras } from '../../hooks/useCameras';
+import { trpc } from '../../lib/trpc';
+import type { DbImage, PhotosetWithImages } from './utils';
+import { toProcessedImages } from './utils';
 
-type PhotosetWithImages = NonNullable<Awaited<ReturnType<Window['photosets']['get']>>>;
-type DbImage = PhotosetWithImages['images'][number];
+/** Counter for generating temporary negative IDs for newly processed images. */
+let nextTempId = -1;
 
-/** Convert DB images back to ProcessedImage[] for the tRPC upload mutation. */
-function toProcessedImages(images: DbImage[]): ProcessedImage[] {
-  return images.map((img) => ({
-    id: String(img.id),
+function processedImageToDbImage(img: ProcessedImage, sortOrder: number): DbImage {
+  const tempId = nextTempId--;
+  return {
+    id: tempId,
+    photosetId: 0, // placeholder, not used for save
     name: img.name,
-    camera: img.camera ?? undefined,
-    preview: img.preview ?? undefined,
-    imagePaths: img.outputs.map((o) => ({
-      imagePath: o.imagePath,
-      type: o.type,
-      resolution: o.resolution,
-      byteLength: o.byteLength,
+    camera: img.camera ?? null,
+    originalPath: img.imagePaths[0]?.imagePath ?? '',
+    preview: img.preview ?? null,
+    sortOrder,
+    createdAt: new Date().toISOString(),
+    outputs: img.imagePaths.map((p, i) => ({
+      id: nextTempId - i, // unique negative IDs
+      imageId: tempId,
+      imagePath: p.imagePath,
+      type: p.type,
+      resolution: p.resolution,
+      byteLength: p.byteLength,
     })),
-  }));
+  };
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Uploaded (read-only) view
-// ---------------------------------------------------------------------------
-
-function UploadedView({ photoset }: { photoset: PhotosetWithImages }) {
-  const navigate = useNavigate();
-
-  const totalFiles = photoset.images.reduce((sum, img) => sum + img.outputs.length, 0);
-  const totalBytes = photoset.images.reduce(
-    (sum, img) => sum + img.outputs.reduce((s, o) => s + o.byteLength, 0),
-    0,
-  );
-
-  const s3Prefix = `${photoset.year}-${(photoset.location ?? '').replace(/\s+/g, '-').toLowerCase()}`;
-  const s3ConsoleUrl = `https://s3.console.aws.amazon.com/s3/buckets/${photoset.bucketName}?prefix=${encodeURIComponent(s3Prefix)}/`;
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{photoset.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              {photoset.location} &middot; {photoset.year} &middot; {photoset.bucketName}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={photoset.status === 'published' ? 'default' : 'secondary'}>
-            {photoset.status}
-          </Badge>
-          <Badge variant="outline" className="gap-1">
-            <Upload className="h-3 w-3" />
-            Uploaded {formatDate(photoset.uploadedAt!)}
-          </Badge>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="flex gap-6 text-sm text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <ImageIcon className="h-4 w-4" />
-          {photoset.images.length} {photoset.images.length === 1 ? 'image' : 'images'}
-        </span>
-        <span className="flex items-center gap-1">
-          <HardDrive className="h-4 w-4" />
-          {totalFiles} files &middot; {formatBytes(totalBytes)}
-        </span>
-        <a
-          href={s3ConsoleUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-1 hover:text-foreground transition-colors"
-        >
-          <ExternalLink className="h-4 w-4" />
-          View in S3 Console
-        </a>
-      </div>
-
-      {/* Image grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {photoset.images.map((image) => (
-          <div key={image.id} className="space-y-1.5">
-            {image.preview ? (
-              <img
-                src={`data:image/jpeg;base64,${image.preview}`}
-                alt={image.name}
-                className="aspect-square w-full rounded-md object-cover"
-              />
-            ) : (
-              <div className="flex aspect-square w-full items-center justify-center rounded-md bg-muted">
-                <ImageIcon className="h-8 w-8 text-muted-foreground" />
-              </div>
-            )}
-            <p className="truncate text-sm font-medium">{image.name}</p>
-            {image.camera && (
-              <p className="truncate text-xs text-muted-foreground">{image.camera}</p>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Draft (editable) view
-// ---------------------------------------------------------------------------
-
-function DraftView({
+export function DraftView({
   photoset,
   onUpdate,
 }: {
@@ -186,6 +81,10 @@ function DraftView({
   const [images, setImages] = useState(photoset.images);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [processingTotal, setProcessingTotal] = useState(0);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
   const form = useForm<Album>({
     resolver: zodResolver(albumSchema),
     defaultValues: {
@@ -205,6 +104,60 @@ function DraftView({
   const hasOutputs = images.some((img) => img.outputs.length > 0);
 
   const [imagesDirty, setImagesDirty] = useState(false);
+
+  // Clean up event listeners on unmount
+  useEffect(() => {
+    return () => {
+      unsubscribeRef.current?.();
+    };
+  }, []);
+
+  const handleAddImages = async () => {
+    const files = await window.imagePicker.open();
+    if (files.length === 0) return;
+
+    const paths = files.map((f) => f.path);
+    setIsProcessing(true);
+    setProcessedCount(0);
+    setProcessingTotal(paths.length);
+
+    // Clean up any previous listeners
+    unsubscribeRef.current?.();
+
+    const unsubProgress = window.imageProcessor.onProgressChange(
+      (_: unknown, event: InProgressEvent) => {
+        setProcessedCount((prev) => Math.min(prev + 1, event.total));
+      },
+    );
+
+    const unsubComplete = window.imageProcessor.onComplete(
+      (_: unknown, result: { processedImages: ProcessedImage[] }) => {
+        const newImages = result.processedImages;
+        setImages((prev) => {
+          const startOrder = prev.length;
+          const converted = newImages.map((img, i) =>
+            processedImageToDbImage(img, startOrder + i),
+          );
+          return [...prev, ...converted];
+        });
+        setImagesDirty(true);
+        setIsProcessing(false);
+        toast.success(`Added ${newImages.length} image${newImages.length === 1 ? '' : 's'}`);
+
+        // Clean up listeners
+        unsubProgress();
+        unsubComplete();
+        unsubscribeRef.current = null;
+      },
+    );
+
+    unsubscribeRef.current = () => {
+      unsubProgress();
+      unsubComplete();
+    };
+
+    window.imageProcessor.resize(paths);
+  };
 
   const handleImageUpdate = (imageId: number, updates: Partial<Pick<DbImage, 'name' | 'camera'>>) => {
     setImages((prev) => prev.map((img) => (img.id === imageId ? { ...img, ...updates } : img)));
@@ -268,6 +221,24 @@ function DraftView({
               location: values.location,
               year: values.year,
             });
+            if (imagesDirty) {
+              await window.photosets.addImages({
+                photosetId: photoset.id,
+                images: images.map((img, i) => ({
+                  name: img.name,
+                  camera: img.camera ?? undefined,
+                  originalPath: img.originalPath,
+                  preview: img.preview ?? undefined,
+                  sortOrder: i,
+                  outputs: img.outputs.map((o) => ({
+                    imagePath: o.imagePath,
+                    type: o.type,
+                    resolution: o.resolution,
+                    byteLength: o.byteLength,
+                  })),
+                })),
+              });
+            }
             await window.photosets.markUploaded({ id: photoset.id });
             if (values.published) {
               await window.photosets.publish({ id: photoset.id });
@@ -294,7 +265,7 @@ function DraftView({
     }
   };
 
-  const busy = isSaving || isUploading || isDeleting;
+  const busy = isSaving || isUploading || isDeleting || isProcessing;
   const { isDirty, isValid } = form.formState;
   const canSubmit = (isDirty || imagesDirty) && isValid && !busy;
   const canUpload = isValid && !busy && hasOutputs;
@@ -313,6 +284,19 @@ function DraftView({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" disabled={busy} onClick={handleAddImages}>
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing {processedCount}/{processingTotal}
+              </>
+            ) : (
+              <>
+                <ImagePlus className="h-4 w-4" />
+                Add Images
+              </>
+            )}
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="icon" disabled={busy}>
@@ -431,61 +415,3 @@ function DraftView({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
-
-export const PhotosetDetail = () => {
-  const { photosetId } = useParams<{ photosetId: string }>();
-  const [photoset, setPhotoset] = useState<PhotosetWithImages | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadPhotoset = useCallback(async () => {
-    if (!photosetId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await window.photosets.get({ id: Number(photosetId) });
-      if (!data) {
-        setError('Photoset not found');
-      } else {
-        setPhotoset(data);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load photoset');
-    } finally {
-      setLoading(false);
-    }
-  }, [photosetId]);
-
-  useEffect(() => {
-    loadPhotoset();
-  }, [loadPhotoset]);
-
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Loading...
-      </div>
-    );
-  }
-
-  if (error || !photoset) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-        <p className="text-sm font-medium text-destructive">{error ?? 'Photoset not found'}</p>
-        <Button variant="outline" size="sm" onClick={loadPhotoset}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
-
-  if (photoset.uploadedAt) {
-    return <UploadedView photoset={photoset} />;
-  }
-
-  return <DraftView photoset={photoset} onUpdate={loadPhotoset} />;
-};
