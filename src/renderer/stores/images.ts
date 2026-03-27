@@ -161,15 +161,3 @@ export const useImageStore = create<State & Action>()((set) => ({
       return { photosetId: null, files: [], processingImages: [], processedImages: [], processed: false };
     }),
 }));
-
-export const useImageStoreSelectors = () => {
-  return useImageStore((state) => ({
-    files: state.files,
-    addFiles: state.addFiles,
-    addFilesFromPaths: state.addFilesFromPaths,
-    setFilePreview: state.setFilePreview,
-    removeFile: state.removeFile,
-    removeAllFiles: state.removeAllFiles,
-    unloadPreviews: state.unloadPreviews,
-  }));
-};
