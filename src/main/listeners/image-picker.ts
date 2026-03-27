@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { dialog, ipcMain } from 'electron';
 import sharp from 'sharp';
+import { z } from 'zod';
 
 import { IMAGE_PICKER_OPEN, IMAGE_PICKER_READ_THUMBNAIL } from '@/common';
 
@@ -24,7 +25,8 @@ export function addImagePickerEventListeners() {
     }));
   });
 
-  ipcMain.handle(IMAGE_PICKER_READ_THUMBNAIL, async (_, filePath: string) => {
+  ipcMain.handle(IMAGE_PICKER_READ_THUMBNAIL, async (_, rawFilePath) => {
+    const filePath = z.string().parse(rawFilePath);
     const buffer = await sharp(filePath)
       .resize({ width: THUMBNAIL_WIDTH })
       .jpeg({ quality: 80 })

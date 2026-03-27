@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { sql } from 'drizzle-orm';
 import { app, clipboard, ipcMain, shell } from 'electron';
+import { z } from 'zod';
 
 import {
   DB_FILENAME,
@@ -25,7 +26,8 @@ export function addDebugEventListeners() {
 
   setS3Provider(new MockS3());
 
-  ipcMain.handle(DEBUG_SET_MOCK_S3, (_, enabled: boolean) => {
+  ipcMain.handle(DEBUG_SET_MOCK_S3, (_, rawEnabled) => {
+    const enabled = z.boolean().parse(rawEnabled);
     if (enabled) {
       setS3Provider(new MockS3());
     } else {
@@ -51,7 +53,8 @@ export function addDebugEventListeners() {
     return path.join(app.getPath('userData'), DB_FILENAME);
   });
 
-  ipcMain.handle(DEBUG_COPY_TO_CLIPBOARD, (_, text: string) => {
+  ipcMain.handle(DEBUG_COPY_TO_CLIPBOARD, (_, rawText) => {
+    const text = z.string().parse(rawText);
     clipboard.writeText(text);
   });
 
