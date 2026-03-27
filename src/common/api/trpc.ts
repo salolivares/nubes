@@ -26,11 +26,11 @@ const createInnerTRPCContext = (): { s3: IS3Provider } => {
  *
  * @see https://trpc.io/docs/context
  */
-export const createTRPCContext = (_opts: CreateContextOptions) => {
+export const createTRPCContext = async (_opts: CreateContextOptions) => {
   return createInnerTRPCContext();
 };
 
-export type Context = ReturnType<typeof createTRPCContext>;
+export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
 
 /**
  * Initialization of tRPC backend

@@ -1,5 +1,6 @@
 import type { BrowserWindow } from 'electron';
 import { ipcMain } from 'electron';
+import { z } from 'zod';
 
 import {
   ACCESS_KEY_ID,
@@ -14,45 +15,22 @@ import {
 } from '../../common/constants';
 import { Storage } from '../drivers/storage';
 
-type ReadAction = typeof STORAGE_READ | typeof SECURE_STORAGE_READ;
-type WriteAction = typeof STORAGE_WRITE | typeof SECURE_STORAGE_WRITE;
+const readArgsSchema = z.object({
+  action: z.union([z.literal(STORAGE_READ), z.literal(SECURE_STORAGE_READ)]),
+  key: z.string(),
+});
 
-type ReadArgs = {
-  action: ReadAction;
-  key: string;
-};
+const writeArgsSchema = z.object({
+  action: z.union([z.literal(STORAGE_WRITE), z.literal(SECURE_STORAGE_WRITE)]),
+  key: z.string(),
+  value: z.string(),
+});
 
-type WriteArgs = {
-  action: WriteAction;
-  key: string;
-  value: string;
-};
-
-type Args = ReadArgs | WriteArgs;
-
-function validateArgs(args: unknown): asserts args is Args {
-  if (!args || typeof args !== 'object') {
-    throw new Error('Invalid arguments');
-  }
-
-  const { action, key, value } = args as Record<string, unknown>;
-
-  if (typeof action !== 'string' || typeof key !== 'string') {
-    throw new Error('Invalid arguments');
-  }
-
-  if ((action === SECURE_STORAGE_WRITE || action === STORAGE_WRITE) && typeof value !== 'string') {
-    throw new Error('Invalid arguments');
-  }
-
-  if ((action === SECURE_STORAGE_READ || action === STORAGE_READ) && value !== undefined) {
-    throw new Error('Invalid arguments');
-  }
-}
+const argsSchema = z.union([readArgsSchema, writeArgsSchema]);
 
 export function addStorageEventListeners(mainWindow: BrowserWindow) {
-  ipcMain.handle(STORAGE_CHANNEL, async (_, args) => {
-    validateArgs(args);
+  ipcMain.handle(STORAGE_CHANNEL, async (_, rawArgs) => {
+    const args = argsSchema.parse(rawArgs);
 
     const { action, key } = args;
 
