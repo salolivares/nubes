@@ -1,5 +1,4 @@
 import { eq } from 'drizzle-orm';
-import { ipcMain } from 'electron';
 import { z } from 'zod';
 
 import {
@@ -15,6 +14,7 @@ import {
 import { photosetImageOutputs, photosetImages, photosets } from '@/common/db/schema';
 import { outputImageSchema } from '@/common/types';
 import { Database } from '@/main/drivers/database';
+import { handle } from '@/main/ipc';
 
 const photosetStatusSchema = z.union([z.literal('draft'), z.literal('published')]);
 
@@ -53,7 +53,7 @@ const addImagesArgsSchema = z.object({
       preview: z.string().optional(),
       sortOrder: z.number().optional(),
       outputs: z.array(outputImageSchema),
-    })
+    }),
   ),
 });
 
@@ -62,8 +62,7 @@ function getDb() {
 }
 
 export function addPhotosetEventListeners() {
-  ipcMain.handle(PHOTOSET_LIST, (_, rawArgs) => {
-    const args = listArgsSchema.parse(rawArgs);
+  handle(PHOTOSET_LIST, listArgsSchema, (_, args) => {
     const db = getDb();
     return db.query.photosets.findMany({
       orderBy: (photosets, { asc, desc }) => {
@@ -80,8 +79,7 @@ export function addPhotosetEventListeners() {
     });
   });
 
-  ipcMain.handle(PHOTOSET_GET, (_, rawArgs) => {
-    const args = idArgsSchema.parse(rawArgs);
+  handle(PHOTOSET_GET, idArgsSchema, (_, args) => {
     const db = getDb();
     return db.query.photosets.findFirst({
       where: eq(photosets.id, args.id),
@@ -95,15 +93,13 @@ export function addPhotosetEventListeners() {
     });
   });
 
-  ipcMain.handle(PHOTOSET_CREATE, (_, rawArgs) => {
-    const args = createArgsSchema.parse(rawArgs);
+  handle(PHOTOSET_CREATE, createArgsSchema, (_, args) => {
     const db = getDb();
     const rows = db.insert(photosets).values(args).returning().all();
     return rows[0];
   });
 
-  ipcMain.handle(PHOTOSET_UPDATE, (_, rawArgs) => {
-    const args = updateArgsSchema.parse(rawArgs);
+  handle(PHOTOSET_UPDATE, updateArgsSchema, (_, args) => {
     const db = getDb();
     const { id, ...data } = args;
     const rows = db
@@ -115,51 +111,47 @@ export function addPhotosetEventListeners() {
     return rows[0];
   });
 
-  ipcMain.handle(PHOTOSET_DELETE, (_, rawArgs) => {
-    const args = idArgsSchema.parse(rawArgs);
+  handle(PHOTOSET_DELETE, idArgsSchema, (_, args) => {
     const db = getDb();
     db.delete(photosets).where(eq(photosets.id, args.id)).run();
   });
 
-  ipcMain.handle(PHOTOSET_ADD_IMAGES, (_, rawArgs) => {
-    const args = addImagesArgsSchema.parse(rawArgs);
+  handle(PHOTOSET_ADD_IMAGES, addImagesArgsSchema, (_, args) => {
     const db = getDb();
     return db.transaction((tx) => {
-        const insertedImages = [];
+      const insertedImages = [];
 
-        // Replace existing images so repeated saves are idempotent for a photoset.
-        tx.delete(photosetImages).where(eq(photosetImages.photosetId, args.photosetId)).run();
+      // Replace existing images so repeated saves are idempotent for a photoset.
+      tx.delete(photosetImages).where(eq(photosetImages.photosetId, args.photosetId)).run();
 
-        for (const image of args.images) {
-          const { outputs, ...imageData } = image;
-          const rows = tx
-            .insert(photosetImages)
-            .values({ ...imageData, photosetId: args.photosetId, sortOrder: image.sortOrder ?? 0 })
-            .returning()
-            .all();
-          const row = rows[0];
+      for (const image of args.images) {
+        const { outputs, ...imageData } = image;
+        const rows = tx
+          .insert(photosetImages)
+          .values({ ...imageData, photosetId: args.photosetId, sortOrder: image.sortOrder ?? 0 })
+          .returning()
+          .all();
+        const row = rows[0];
 
-          if (outputs.length > 0) {
-            tx.insert(photosetImageOutputs)
-              .values(outputs.map((o) => ({ ...o, imageId: row.id })))
-              .run();
-          }
-
-          insertedImages.push(row);
+        if (outputs.length > 0) {
+          tx.insert(photosetImageOutputs)
+            .values(outputs.map((o) => ({ ...o, imageId: row.id })))
+            .run();
         }
 
-        tx.update(photosets)
-          .set({ updatedAt: new Date().toISOString() })
-          .where(eq(photosets.id, args.photosetId))
-          .run();
+        insertedImages.push(row);
+      }
 
-        return insertedImages;
-      });
-    }
-  );
+      tx.update(photosets)
+        .set({ updatedAt: new Date().toISOString() })
+        .where(eq(photosets.id, args.photosetId))
+        .run();
 
-  ipcMain.handle(PHOTOSET_PUBLISH, (_, rawArgs) => {
-    const args = idArgsSchema.parse(rawArgs);
+      return insertedImages;
+    });
+  });
+
+  handle(PHOTOSET_PUBLISH, idArgsSchema, (_, args) => {
     const db = getDb();
     const now = new Date().toISOString();
     const rows = db
@@ -171,8 +163,7 @@ export function addPhotosetEventListeners() {
     return rows[0];
   });
 
-  ipcMain.handle(PHOTOSET_MARK_UPLOADED, (_, rawArgs) => {
-    const args = idArgsSchema.parse(rawArgs);
+  handle(PHOTOSET_MARK_UPLOADED, idArgsSchema, (_, args) => {
     const db = getDb();
     const now = new Date().toISOString();
     const rows = db

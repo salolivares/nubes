@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron';
-import { ipcMain } from 'electron';
 import { z } from 'zod';
+
+import { handle } from '@/main/ipc';
 
 import {
   ACCESS_KEY_ID,
@@ -29,9 +30,7 @@ const writeArgsSchema = z.object({
 const argsSchema = z.union([readArgsSchema, writeArgsSchema]);
 
 export function addStorageEventListeners(mainWindow: BrowserWindow) {
-  ipcMain.handle(STORAGE_CHANNEL, async (_, rawArgs) => {
-    const args = argsSchema.parse(rawArgs);
-
+  handle(STORAGE_CHANNEL, argsSchema, async (_, args) => {
     const { action, key } = args;
 
     if (action === SECURE_STORAGE_READ || action === STORAGE_READ) {

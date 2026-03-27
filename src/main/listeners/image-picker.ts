@@ -1,15 +1,16 @@
 import path from 'node:path';
 
-import { dialog, ipcMain } from 'electron';
+import { dialog } from 'electron';
 import sharp from 'sharp';
 import { z } from 'zod';
 
 import { IMAGE_PICKER_OPEN, IMAGE_PICKER_READ_THUMBNAIL } from '@/common';
+import { handle } from '@/main/ipc';
 
 const THUMBNAIL_WIDTH = 200;
 
 export function addImagePickerEventListeners() {
-  ipcMain.handle(IMAGE_PICKER_OPEN, async () => {
+  handle(IMAGE_PICKER_OPEN, async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png'] }],
@@ -25,8 +26,7 @@ export function addImagePickerEventListeners() {
     }));
   });
 
-  ipcMain.handle(IMAGE_PICKER_READ_THUMBNAIL, async (_, rawFilePath) => {
-    const filePath = z.string().parse(rawFilePath);
+  handle(IMAGE_PICKER_READ_THUMBNAIL, z.string(), async (_, filePath) => {
     const buffer = await sharp(filePath)
       .resize({ width: THUMBNAIL_WIDTH })
       .jpeg({ quality: 80 })

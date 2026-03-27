@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { BrowserWindow } from 'electron';
-import { app, ipcMain, MessageChannelMain, utilityProcess } from 'electron';
+import { app, MessageChannelMain, utilityProcess } from 'electron';
 import { z } from 'zod';
 
 import {
@@ -10,6 +10,7 @@ import {
   IMAGE_PROCESSOR_PROGRESS,
   IMAGE_PROCESSOR_RESIZE,
 } from '@/common';
+import { on } from '@/main/ipc';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -58,8 +59,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   imageProcessor.postMessage({ type: 'init' }, [port2]);
 
   // Pass along message to image worker process via port1
-  ipcMain.on(IMAGE_PROCESSOR_RESIZE, (_, rawArgs) => {
-    const args = argsSchema.parse(rawArgs);
+  on(IMAGE_PROCESSOR_RESIZE, argsSchema, (_, args) => {
     port1.postMessage({
       type: IMAGE_PROCESSOR_RESIZE,
       folderPaths: args.folderPaths,
