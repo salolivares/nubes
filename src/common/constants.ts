@@ -6,6 +6,9 @@ export const STORAGE_CHANNEL = 'storage';
 export const STORAGE_CHANGE = 'storage:change';
 
 export const CONFIG_FILE = 'config.json';
+export const DB_FILENAME = 'nubes.db';
+export const MIGRATIONS_FOLDER = 'migrations';
+export const MIGRATIONS_DEV_PATH = 'src/common/db/migrations';
 
 export const ACCESS_KEY_ID = 'accessKeyId';
 export const SECRET_ACCESS_KEY = 'secretAccessKey';

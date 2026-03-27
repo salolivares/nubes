@@ -2,17 +2,19 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import baseLog from 'electron-log/main';
 import sharp from 'sharp';
 
 import { IMAGE_PROCESSOR_COMPLETE, IMAGE_PROCESSOR_PROGRESS } from '@/common';
 import type { ProcessedImage } from '@/common/types';
 
+const log = baseLog.scope('ImageProcessor');
+
 async function processImage(
   imagePath: string,
   outputFolder: string,
-  dryRun = true
+  dryRun = true,
 ): Promise<ProcessedImage> {
-  console.log(`Processing ${imagePath}`);
   const name = path.basename(imagePath, path.extname(imagePath));
   const inputBuffer = fs.readFileSync(imagePath);
 
@@ -34,6 +36,10 @@ async function processImage(
   // Generate a stable ID
   const id = `${width}x${height}_${inputFormat}_${hash.substring(0, 16)}`;
 
+  log.info(
+    `"${name}": ${width}x${height} ${inputFormat}, ${(inputBuffer.byteLength / 1024).toFixed(1)} KB, id=${id}`,
+  );
+
   // Rename the original file with its format
   const originalOutputPath = path.join(outputFolder, `${name}_original.${inputFormat}`);
 
@@ -51,38 +57,40 @@ async function processImage(
       await image.resize(res).toFormat('jpg').toFile(jpgOutputFilename);
       await image.resize(res).toFormat('webp').toFile(webpOutputFilename);
 
+      const jpgSize = fs.readFileSync(jpgOutputFilename).byteLength;
+      const webpSize = fs.readFileSync(webpOutputFilename).byteLength;
+
       imagePaths.push({
         imagePath: jpgOutputFilename,
         type: 'jpg',
         resolution: res,
-        byteLength: fs.readFileSync(jpgOutputFilename).byteLength,
+        byteLength: jpgSize,
       });
 
       imagePaths.push({
         imagePath: webpOutputFilename,
         type: 'webp',
         resolution: res,
-        byteLength: fs.readFileSync(webpOutputFilename).byteLength,
+        byteLength: webpSize,
       });
     }
   }
 
   const preview = fs.readFileSync(path.join(outputFolder, `${name}_128.jpg`)).toString('base64');
 
-  const processedImage: ProcessedImage = {
-    id,
-    name,
-    imagePaths,
-    preview,
-  };
+  if (!dryRun) {
+    const totalBytes = imagePaths.reduce((sum, p) => sum + p.byteLength, 0);
+    log.debug(`"${name}": ${imagePaths.length} variants, ${(totalBytes / 1024).toFixed(1)} KB total`);
+  }
 
-  return processedImage;
+  return { id, name, imagePaths, preview };
 }
 
 // Receive the MessagePort once at init, then handle resize commands on it
 process.parentPort.once('message', (e) => {
   const [port] = e.ports;
   port.start();
+  log.info('ImageProcessor worker ready');
 
   port.on('message', async (msg) => {
     const { folderPaths, imagePaths, tempFolder, dryRun } = msg.data;
@@ -98,6 +106,10 @@ process.parentPort.once('message', (e) => {
         }
       }
     }
+
+    log.info(
+      `Batch started: ${imagePaths?.length ?? 0} image(s) from ${folderPaths?.length ?? 0} folder(s), dryRun=${dryRun}`,
+    );
 
     const processedImages: ProcessedImage[] = [];
     const erroredImagePaths: { error: string; path: string }[] = [];
@@ -118,7 +130,7 @@ process.parentPort.once('message', (e) => {
             path: imagePath,
           });
         } catch (error) {
-          console.error(`Error processing ${imagePath}: ${(error as Error).message}`);
+          log.error(`Error processing ${imagePath}: ${(error as Error).message}`);
           erroredImagePaths.push({
             error: (error as Error).message,
             path: imagePath,
@@ -126,6 +138,10 @@ process.parentPort.once('message', (e) => {
         }
       }
     }
+
+    log.info(
+      `Batch complete: ${processedImages.length} succeeded, ${erroredImagePaths.length} failed`,
+    );
 
     port.postMessage({
       type: IMAGE_PROCESSOR_COMPLETE,

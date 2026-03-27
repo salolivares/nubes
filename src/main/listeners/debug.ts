@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm';
 import { app, clipboard, ipcMain, shell } from 'electron';
 
 import {
+  DB_FILENAME,
   DEBUG_CLEAR_DB,
   DEBUG_COPY_TO_CLIPBOARD,
   DEBUG_GET_DB_PATH,
@@ -47,7 +48,7 @@ export function addDebugEventListeners() {
   });
 
   ipcMain.handle(DEBUG_GET_DB_PATH, () => {
-    return path.join(app.getPath('userData'), 'nubes.db');
+    return path.join(app.getPath('userData'), DB_FILENAME);
   });
 
   ipcMain.handle(DEBUG_COPY_TO_CLIPBOARD, (_, text: string) => {
