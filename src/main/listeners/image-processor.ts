@@ -71,7 +71,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   imageProcessor.postMessage({ type: 'init' }, [port2]);
 
   // Pass along message to image worker process via port1
-  ipcMain.handle(IMAGE_PROCESSOR_RESIZE, (_, args) => {
+  ipcMain.on(IMAGE_PROCESSOR_RESIZE, (_, args) => {
     validateArgs(args);
     port1.postMessage({
       type: IMAGE_PROCESSOR_RESIZE,
