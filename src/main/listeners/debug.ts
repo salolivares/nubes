@@ -14,6 +14,7 @@ import {
   DEBUG_IS_MOCK_S3,
   DEBUG_OPEN_MOCK_S3_PATH,
   DEBUG_SET_MOCK_S3,
+  PHOTOSETS_DIR,
 } from '@/common';
 import { handle } from '@/main/ipc';
 
@@ -63,7 +64,7 @@ export function addDebugEventListeners() {
     db.run(sql`DELETE FROM photoset_images`);
     db.run(sql`DELETE FROM photosets`);
 
-    const photosetsDir = path.join(app.getPath('userData'), 'photosets');
+    const photosetsDir = path.join(app.getPath('userData'), PHOTOSETS_DIR);
     await fsp.rm(photosetsDir, { recursive: true, force: true });
   });
 }
