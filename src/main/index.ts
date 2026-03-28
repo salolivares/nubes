@@ -53,9 +53,8 @@ app.on('activate', restoreOrCreateWindow);
 app
   .whenReady()
   .then(() => {
-    // Initialize singletons
-    void Storage.instance;
-    void Database.instance;
+    Storage.init();
+    Database.init();
     restoreOrCreateWindow();
   })
   .catch((e) => console.error('Failed create window:', e));

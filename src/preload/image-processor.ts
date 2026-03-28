@@ -7,8 +7,7 @@ import {
 } from '@/common';
 
 const resize = (imagePaths: string[]) => {
-  // TODO(sal): this should be .send but it's not working
-  ipcRenderer.invoke(IMAGE_PROCESSOR_RESIZE, { imagePaths });
+  ipcRenderer.send(IMAGE_PROCESSOR_RESIZE, { imagePaths });
 };
 
 const onProgressChange = (listener: (event: Electron.IpcRendererEvent, ...args: any[]) => void) => {

@@ -1,4 +1,6 @@
-import { ipcMain, nativeTheme } from 'electron';
+import { nativeTheme } from 'electron';
+
+import { handle } from '@/main/ipc';
 
 import {
   THEME_MODE_CURRENT_CHANNEL,
@@ -9,8 +11,8 @@ import {
 } from '../../common/constants';
 
 export function addThemeEventListeners() {
-  ipcMain.handle(THEME_MODE_CURRENT_CHANNEL, () => nativeTheme.themeSource);
-  ipcMain.handle(THEME_MODE_TOGGLE_CHANNEL, () => {
+  handle(THEME_MODE_CURRENT_CHANNEL, () => nativeTheme.themeSource);
+  handle(THEME_MODE_TOGGLE_CHANNEL, () => {
     if (nativeTheme.shouldUseDarkColors) {
       nativeTheme.themeSource = 'light';
     } else {
@@ -18,9 +20,9 @@ export function addThemeEventListeners() {
     }
     return nativeTheme.shouldUseDarkColors;
   });
-  ipcMain.handle(THEME_MODE_DARK_CHANNEL, () => (nativeTheme.themeSource = 'dark'));
-  ipcMain.handle(THEME_MODE_LIGHT_CHANNEL, () => (nativeTheme.themeSource = 'light'));
-  ipcMain.handle(THEME_MODE_SYSTEM_CHANNEL, () => {
+  handle(THEME_MODE_DARK_CHANNEL, () => (nativeTheme.themeSource = 'dark'));
+  handle(THEME_MODE_LIGHT_CHANNEL, () => (nativeTheme.themeSource = 'light'));
+  handle(THEME_MODE_SYSTEM_CHANNEL, () => {
     nativeTheme.themeSource = 'system';
     return nativeTheme.shouldUseDarkColors;
   });

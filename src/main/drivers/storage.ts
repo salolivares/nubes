@@ -25,18 +25,16 @@ export class Storage {
     }
   }
 
-  /**
-   * The static getter that controls access to the singleton instance.
-   *
-   * This implementation allows you to extend the Singleton class while
-   * keeping just one instance of each subclass around.
-   */
   public static get instance(): Storage {
     if (!Storage.#instance) {
       Storage.#instance = new Storage();
     }
 
     return Storage.#instance;
+  }
+
+  public static init(): void {
+    void Storage.instance;
   }
 
   public secureWrite(key: string, value: string): void {

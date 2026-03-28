@@ -2,13 +2,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { BrowserWindow } from 'electron';
-import { app, ipcMain, MessageChannelMain, utilityProcess } from 'electron';
+import { app, MessageChannelMain, utilityProcess } from 'electron';
+import { z } from 'zod';
 
 import {
   IMAGE_PROCESSOR_COMPLETE,
   IMAGE_PROCESSOR_PROGRESS,
   IMAGE_PROCESSOR_RESIZE,
 } from '@/common';
+import { on } from '@/main/ipc';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,24 +47,10 @@ function createImageProcessor() {
   };
 }
 
-type Args = {
-  imagePaths?: string[];
-  folderPaths?: string[];
-};
-
-function validateArgs(args: unknown): asserts args is Args {
-  if (!args || typeof args !== 'object') {
-    throw new Error('Invalid arguments');
-  }
-
-  if ('imagePaths' in args && !Array.isArray(args.imagePaths)) {
-    throw new Error('Invalid imagePaths');
-  }
-
-  if ('folderPaths' in args && !Array.isArray(args.folderPaths)) {
-    throw new Error('Invalid folderPaths');
-  }
-}
+const argsSchema = z.object({
+  imagePaths: z.array(z.string()).optional(),
+  folderPaths: z.array(z.string()).optional(),
+});
 
 export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   const { imageProcessor, port1, port2 } = createImageProcessor();
@@ -71,8 +59,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   imageProcessor.postMessage({ type: 'init' }, [port2]);
 
   // Pass along message to image worker process via port1
-  ipcMain.handle(IMAGE_PROCESSOR_RESIZE, (_, args) => {
-    validateArgs(args);
+  on(IMAGE_PROCESSOR_RESIZE, argsSchema, (_, args) => {
     port1.postMessage({
       type: IMAGE_PROCESSOR_RESIZE,
       folderPaths: args.folderPaths,

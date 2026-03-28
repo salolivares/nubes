@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { Button } from '../components/ui/button';
 import type { CustomFile } from '../stores/images';
-import { useImageStoreSelectors } from '../stores/images';
+import { useImageStore } from '../stores/images';
 
 // TODO: move icons to own component
 
@@ -50,8 +50,13 @@ function XIcon(props) {
 }
 
 export const ImagePicker = () => {
-  const { files, addFiles, addFilesFromPaths, setFilePreview, removeFile, removeAllFiles, unloadPreviews } =
-    useImageStoreSelectors();
+  const files = useImageStore((s) => s.files);
+  const addFiles = useImageStore((s) => s.addFiles);
+  const addFilesFromPaths = useImageStore((s) => s.addFilesFromPaths);
+  const setFilePreview = useImageStore((s) => s.setFilePreview);
+  const removeFile = useImageStore((s) => s.removeFile);
+  const removeAllFiles = useImageStore((s) => s.removeAllFiles);
+  const unloadPreviews = useImageStore((s) => s.unloadPreviews);
 
   const navigate = useNavigate();
 
