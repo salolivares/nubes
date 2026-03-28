@@ -3,7 +3,7 @@ interface StorageContext {
   secureWrite: (key: string, value: string) => Promise<void>;
   read: (key: string) => Promise<string>;
   write: (key: string, value: string) => Promise<void>;
-  onStorageChange: (listener: (event: IpcRendererEvent, ...args: any[]) => void) => () => void;
+  onStorageChange: (listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => () => void;
 }
 
 interface ThemeModeContext {
@@ -16,8 +16,8 @@ interface ThemeModeContext {
 
 interface ImageProcessorContext {
   resize: (imagePaths: string[]) => void;
-  onProgressChange: (listener: (event: IpcRendererEvent, ...args: any[]) => void) => () => void;
-  onComplete: (listener: (event: IpcRendererEvent, ...args: any[]) => void) => () => void;
+  onProgressChange: (listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => () => void;
+  onComplete: (listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => () => void;
 }
 
 interface ImagePickerFile {

@@ -10,16 +10,16 @@ const resize = (imagePaths: string[]) => {
   ipcRenderer.send(IMAGE_PROCESSOR_RESIZE, { imagePaths });
 };
 
-const onProgressChange = (listener: (event: Electron.IpcRendererEvent, ...args: any[]) => void) => {
-  const handler = (event: Electron.IpcRendererEvent, ...args: any[]) => {
+const onProgressChange = (listener: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void) => {
+  const handler = (event: Electron.IpcRendererEvent, ...args: unknown[]) => {
     listener(event, ...args);
   };
   ipcRenderer.on(IMAGE_PROCESSOR_PROGRESS, handler);
   return () => ipcRenderer.off(IMAGE_PROCESSOR_PROGRESS, handler);
 };
 
-const onComplete = (listener: (event: Electron.IpcRendererEvent, ...args: any[]) => void) => {
-  const handler = (event: Electron.IpcRendererEvent, ...args: any[]) => listener(event, ...args);
+const onComplete = (listener: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void) => {
+  const handler = (event: Electron.IpcRendererEvent, ...args: unknown[]) => listener(event, ...args);
   ipcRenderer.on(IMAGE_PROCESSOR_COMPLETE, handler);
   return () => ipcRenderer.off(IMAGE_PROCESSOR_COMPLETE, handler);
 };

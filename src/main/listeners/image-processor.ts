@@ -9,6 +9,7 @@ import {
   IMAGE_PROCESSOR_COMPLETE,
   IMAGE_PROCESSOR_PROGRESS,
   IMAGE_PROCESSOR_RESIZE,
+  PHOTOSETS_DIR,
 } from '@/common';
 import { on } from '@/main/ipc';
 
@@ -64,7 +65,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
       type: IMAGE_PROCESSOR_RESIZE,
       folderPaths: args.folderPaths,
       imagePaths: args.imagePaths,
-      tempFolder: path.join(app.getPath('userData'), 'photosets'),
+      tempFolder: path.join(app.getPath('userData'), PHOTOSETS_DIR),
       dryRun: false,
     });
   });

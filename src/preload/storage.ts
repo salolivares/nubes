@@ -18,8 +18,8 @@ const secureWrite = (key: string, value: string) => storageSend(SECURE_STORAGE_W
 const read = (key: string) => storageSend(STORAGE_READ, key);
 const write = (key: string, value: string) => storageSend(STORAGE_WRITE, key, value);
 
-const onStorageChange = (listener: (event: IpcRendererEvent, ...args: any[]) => void) => {
-  const handler = (event: IpcRendererEvent, ...args: any[]) => listener(event, ...args);
+const onStorageChange = (listener: (event: IpcRendererEvent, ...args: unknown[]) => void) => {
+  const handler = (event: IpcRendererEvent, ...args: unknown[]) => listener(event, ...args);
   ipcRenderer.on(STORAGE_CHANGE, handler);
   return () => ipcRenderer.off(STORAGE_CHANGE, handler);
 };
