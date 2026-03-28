@@ -1,5 +1,4 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
-
 import { cn } from "@client/lib/utils"
 
 function TooltipProvider({
@@ -61,4 +60,4 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export { Tooltip, TooltipContent, TooltipProvider,TooltipTrigger }
