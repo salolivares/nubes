@@ -157,7 +157,7 @@ export function DraftView({
       unsubComplete();
     };
 
-    window.imageProcessor.resize(paths);
+    window.imageProcessor.resize({ imagePaths: paths });
   };
 
   const handleImageUpdate = (imageId: number, updates: Partial<Pick<DbImage, 'name' | 'camera'>>) => {

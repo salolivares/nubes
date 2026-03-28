@@ -27,9 +27,9 @@ export const ImageProcessing = () => {
 
   useEffect(() => {
     if (!uploadRan.current) {
-      window.imageProcessor.resize(
-        files.filter((file) => file.path !== undefined).map((file) => file.path as string)
-      );
+      window.imageProcessor.resize({
+        imagePaths: files.filter((file) => file.path !== undefined).map((file) => file.path as string),
+      });
     }
 
     return () => {
