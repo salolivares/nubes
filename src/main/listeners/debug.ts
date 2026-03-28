@@ -57,10 +57,13 @@ export function addDebugEventListeners() {
     clipboard.writeText(text);
   });
 
-  handle(DEBUG_CLEAR_DB, () => {
+  handle(DEBUG_CLEAR_DB, async () => {
     const { db } = Database.instance;
     db.run(sql`DELETE FROM photoset_image_outputs`);
     db.run(sql`DELETE FROM photoset_images`);
     db.run(sql`DELETE FROM photosets`);
+
+    const photosetsDir = path.join(app.getPath('userData'), 'photosets');
+    await fsp.rm(photosetsDir, { recursive: true, force: true });
   });
 }
