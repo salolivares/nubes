@@ -83,7 +83,7 @@ export function BaseLayout() {
         <header className="flex h-12 items-center gap-2 border-b px-4 md:hidden">
           <SidebarTrigger />
         </header>
-        <main className="flex flex-1 flex-col gap-4 overflow-auto p-6 md:p-10">
+        <main className="flex min-h-0 flex-1 flex-col overflow-auto">
           <ErrorBoundary FallbackComponent={RouteErrorFallback} resetKeys={[location.pathname]}>
             <Outlet />
           </ErrorBoundary>

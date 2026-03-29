@@ -145,7 +145,7 @@ export const S3Upload = () => {
   });
 
   return (
-    <div>
+    <div className="p-6 md:p-10">
       {/* Header with split button */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Review & Upload</h1>

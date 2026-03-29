@@ -57,7 +57,7 @@ export const S3Summary = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-6 md:p-10">
       <div className="flex items-center gap-3">
         <CheckCircle2 className="h-8 w-8 text-green-500" />
         <h1 className="text-2xl font-bold">Album Uploaded</h1>

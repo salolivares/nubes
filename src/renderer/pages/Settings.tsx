@@ -10,7 +10,7 @@ export const Settings = () => {
   const location = useLocation();
 
   return (
-    <>
+    <div className="flex flex-col gap-4 p-6 md:p-10">
       <div className="mx-auto grid w-full max-w-6xl gap-2">
         <h1>Settings</h1>
       </div>
@@ -28,6 +28,6 @@ export const Settings = () => {
         </nav>
         <Outlet />
       </div>
-    </>
+    </div>
   );
 };
