@@ -1,5 +1,4 @@
 import { eq } from 'drizzle-orm';
-import { z } from 'zod';
 
 import {
   PHOTOSET_ADD_IMAGES,
@@ -12,57 +11,22 @@ import {
   PHOTOSET_UPDATE,
 } from '@/common/constants';
 import { photosetImageOutputs, photosetImages, photosets } from '@/common/db/schema';
-import { outputImageSchema } from '@/common/types';
+import {
+  photosetAddImagesArgsSchema,
+  photosetCreateArgsSchema,
+  photosetIdArgsSchema,
+  photosetListArgsSchema,
+  photosetUpdateArgsSchema,
+} from '@/common/types';
 import { Database } from '@/main/drivers/database';
 import { handle } from '@/main/ipc';
-
-const photosetStatusSchema = z.union([z.literal('draft'), z.literal('published')]);
-
-const idArgsSchema = z.object({ id: z.number() });
-
-const listArgsSchema = z
-  .object({
-    sortBy: z.string().optional(),
-    sortOrder: z.string().optional(),
-    status: photosetStatusSchema.optional(),
-  })
-  .optional();
-
-const createArgsSchema = z.object({
-  name: z.string(),
-  bucketName: z.string(),
-  location: z.string().optional(),
-  year: z.number().optional(),
-});
-
-const updateArgsSchema = z.object({
-  id: z.number(),
-  name: z.string().optional(),
-  location: z.string().optional(),
-  year: z.number().optional(),
-  status: photosetStatusSchema.optional(),
-});
-
-const addImagesArgsSchema = z.object({
-  photosetId: z.number(),
-  images: z.array(
-    z.object({
-      name: z.string(),
-      camera: z.string().optional(),
-      originalPath: z.string(),
-      preview: z.string().optional(),
-      sortOrder: z.number().optional(),
-      outputs: z.array(outputImageSchema),
-    }),
-  ),
-});
 
 function getDb() {
   return Database.instance.db;
 }
 
 export function addPhotosetEventListeners() {
-  handle(PHOTOSET_LIST, listArgsSchema, (_, args) => {
+  handle(PHOTOSET_LIST, photosetListArgsSchema, (_, args) => {
     const db = getDb();
     return db.query.photosets.findMany({
       orderBy: (photosets, { asc, desc }) => {
@@ -79,7 +43,7 @@ export function addPhotosetEventListeners() {
     });
   });
 
-  handle(PHOTOSET_GET, idArgsSchema, (_, args) => {
+  handle(PHOTOSET_GET, photosetIdArgsSchema, (_, args) => {
     const db = getDb();
     return db.query.photosets.findFirst({
       where: eq(photosets.id, args.id),
@@ -93,13 +57,13 @@ export function addPhotosetEventListeners() {
     });
   });
 
-  handle(PHOTOSET_CREATE, createArgsSchema, (_, args) => {
+  handle(PHOTOSET_CREATE, photosetCreateArgsSchema, (_, args) => {
     const db = getDb();
     const rows = db.insert(photosets).values(args).returning().all();
     return rows[0];
   });
 
-  handle(PHOTOSET_UPDATE, updateArgsSchema, (_, args) => {
+  handle(PHOTOSET_UPDATE, photosetUpdateArgsSchema, (_, args) => {
     const db = getDb();
     const { id, ...data } = args;
     const rows = db
@@ -111,12 +75,12 @@ export function addPhotosetEventListeners() {
     return rows[0];
   });
 
-  handle(PHOTOSET_DELETE, idArgsSchema, (_, args) => {
+  handle(PHOTOSET_DELETE, photosetIdArgsSchema, (_, args) => {
     const db = getDb();
     db.delete(photosets).where(eq(photosets.id, args.id)).run();
   });
 
-  handle(PHOTOSET_ADD_IMAGES, addImagesArgsSchema, (_, args) => {
+  handle(PHOTOSET_ADD_IMAGES, photosetAddImagesArgsSchema, (_, args) => {
     const db = getDb();
     return db.transaction((tx) => {
       const insertedImages = [];
@@ -151,7 +115,7 @@ export function addPhotosetEventListeners() {
     });
   });
 
-  handle(PHOTOSET_PUBLISH, idArgsSchema, (_, args) => {
+  handle(PHOTOSET_PUBLISH, photosetIdArgsSchema, (_, args) => {
     const db = getDb();
     const now = new Date().toISOString();
     const rows = db
@@ -163,7 +127,7 @@ export function addPhotosetEventListeners() {
     return rows[0];
   });
 
-  handle(PHOTOSET_MARK_UPLOADED, idArgsSchema, (_, args) => {
+  handle(PHOTOSET_MARK_UPLOADED, photosetIdArgsSchema, (_, args) => {
     const db = getDb();
     const now = new Date().toISOString();
     const rows = db

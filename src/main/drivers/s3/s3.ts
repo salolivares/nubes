@@ -112,7 +112,7 @@ export class S3 implements IS3Provider {
       );
 
       for (const batchResult of batchResults) {
-        if (batchResult.error) {
+        if ('error' in batchResult) {
           errors.push(batchResult.error);
         } else {
           results.push(batchResult.result);

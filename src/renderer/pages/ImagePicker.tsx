@@ -8,7 +8,7 @@ import { useImageStore } from '../stores/images';
 
 // TODO: move icons to own component
 
-function UploadIcon(props) {
+function UploadIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}
@@ -29,7 +29,7 @@ function UploadIcon(props) {
   );
 }
 
-function XIcon(props) {
+function XIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}

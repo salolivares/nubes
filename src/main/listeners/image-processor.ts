@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url';
 
 import type { BrowserWindow } from 'electron';
 import { app, MessageChannelMain, utilityProcess } from 'electron';
-import { z } from 'zod';
 
 import {
   IMAGE_PROCESSOR_COMPLETE,
@@ -11,6 +10,7 @@ import {
   IMAGE_PROCESSOR_RESIZE,
   PHOTOSETS_DIR,
 } from '@/common';
+import { imageProcessorResizeArgsSchema } from '@/common/types';
 import { on } from '@/main/ipc';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,11 +48,6 @@ function createImageProcessor() {
   };
 }
 
-const argsSchema = z.object({
-  imagePaths: z.array(z.string()).optional(),
-  folderPaths: z.array(z.string()).optional(),
-});
-
 export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   const { imageProcessor, port1, port2 } = createImageProcessor();
 
@@ -60,10 +55,9 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   imageProcessor.postMessage({ type: 'init' }, [port2]);
 
   // Pass along message to image worker process via port1
-  on(IMAGE_PROCESSOR_RESIZE, argsSchema, (_, args) => {
+  on(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, (_, args) => {
     port1.postMessage({
       type: IMAGE_PROCESSOR_RESIZE,
-      folderPaths: args.folderPaths,
       imagePaths: args.imagePaths,
       tempFolder: path.join(app.getPath('userData'), PHOTOSETS_DIR),
       dryRun: false,
