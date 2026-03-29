@@ -1,5 +1,6 @@
 import type {
   ImageProcessorResizeArgs,
+  InProgressEvent,
   Photoset,
   PhotosetAddImagesArgs,
   PhotosetCreateArgs,
@@ -7,6 +8,7 @@ import type {
   PhotosetImageOutput,
   PhotosetListArgs,
   PhotosetUpdateArgs,
+  ProcessedImage,
 } from '../src/common/types';
 
 declare global {
@@ -16,7 +18,7 @@ declare global {
     read: (key: string) => Promise<string>;
     write: (key: string, value: string) => Promise<void>;
     onStorageChange: (
-      listener: (event: IpcRendererEvent, ...args: unknown[]) => void,
+      listener: (event: IpcRendererEvent, args: { key: string; newValue: string; oldValue: string }) => void,
     ) => () => void;
   }
 
@@ -31,10 +33,10 @@ declare global {
   interface ImageProcessorContext {
     resize: (args: ImageProcessorResizeArgs) => void;
     onProgressChange: (
-      listener: (event: IpcRendererEvent, ...args: unknown[]) => void,
+      listener: (event: IpcRendererEvent, progress: InProgressEvent) => void,
     ) => () => void;
     onComplete: (
-      listener: (event: IpcRendererEvent, ...args: unknown[]) => void,
+      listener: (event: IpcRendererEvent, result: { processedImages: ProcessedImage[]; erroredImagePaths: string[] }) => void,
     ) => () => void;
   }
 

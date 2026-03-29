@@ -7,14 +7,14 @@ const log = baseLog.scope('Storage');
 export class Storage {
   static #instance: Storage;
   private isEncryptionAvailable: boolean;
-  public store: Store;
+  public store: Store<Record<string, string>>;
 
   /**
    * The Singleton's constructor should always be private to prevent direct
    * construction calls with the `new` operator.
    */
   private constructor() {
-    this.store = new Store();
+    this.store = new Store<Record<string, string>>();
 
     if (safeStorage.isEncryptionAvailable()) {
       log.info('Safe Storage is available');

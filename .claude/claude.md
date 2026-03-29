@@ -141,8 +141,16 @@ window.imageProcessor
 
 - `types/forge.env.d.ts` — Forge/Vite magic constants, ViteDevServer
   augmentation
-- `types/api.d.ts` — `window.storage`, `window.themeMode`,
-  `window.imageProcessor` interfaces
+- `types/api.d.ts` — Global ambient interfaces for preload APIs
+  (`StorageContext`, `ImageProcessorContext`, `PhotosetContext`, etc.)
+  and the `Window` augmentation. Uses `import type` from
+  `src/common/types` + `declare global` to keep interfaces ambient.
+- `src/common/types.ts` — Single source of truth for shared Zod
+  schemas and inferred TS types. Row types (`Photoset`,
+  `PhotosetImage`, `PhotosetImageOutput`), IPC arg schemas
+  (`photosetCreateArgsSchema`, `imageProcessorResizeArgsSchema`, etc.),
+  and image processing types all live here. Main-process listeners and
+  `api.d.ts` both consume these — never duplicate shapes elsewhere.
 
 ## Path Aliases
 
@@ -165,11 +173,5 @@ Defined in `tsconfig.json` and duplicated in each Vite config's
 - When modifying `src/main/drivers/s3/s3.ts` (real S3 driver), always
   check whether `src/main/drivers/s3/mock-s3.ts` needs a matching
   update. They both implement `IS3Provider` and should stay in sync.
-
-## Known TODOs
-
-- `S3Summary` page is a stub (returns null)
-- Image processor should output to a temp directory and clean up
-- File dialog doesn't work in ImagePicker (react-dropzone config)
-- Fallback encryption is just base64 (no real encryption)
-- Icons are inline SVGs, should be extracted to components
+- When needing to validate arguments across IPC boundries, use Zod
+  for validation

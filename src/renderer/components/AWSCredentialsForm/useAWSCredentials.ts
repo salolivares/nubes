@@ -1,23 +1,12 @@
 import { ACCESS_KEY_ID, AWS_REGION, DEFAULT_AWS_REGION, SECRET_ACCESS_KEY } from '@common';
 import { useEffect, useState } from 'react';
+import { z } from 'zod';
 
-type StorageChangeArgs = {
-  key: typeof ACCESS_KEY_ID | typeof SECRET_ACCESS_KEY | typeof AWS_REGION;
-  newValue: string;
-  oldValue: string;
-};
-
-function validateArgs(args: unknown): asserts args is StorageChangeArgs {
-  if (!args || typeof args !== 'object') {
-    throw new Error('Invalid arguments');
-  }
-
-  const { key, newValue, oldValue } = args as Record<string, unknown>;
-
-  if (typeof key !== 'string' || typeof newValue !== 'string' || typeof oldValue !== 'string') {
-    throw new Error('Invalid arguments');
-  }
-}
+const storageChangeArgsSchema = z.object({
+  key: z.string(),
+  newValue: z.string(),
+  oldValue: z.string(),
+});
 
 export const useAWSCredentials = () => {
   const [accessKeyId, setAccessKeyId] = useState<string>('');
@@ -36,16 +25,16 @@ export const useAWSCredentials = () => {
 
     fetchAWSCredentials();
 
-    const unsubscribe = window.storage.onStorageChange((_, args: StorageChangeArgs) => {
-      validateArgs(args);
-      if (args.key === ACCESS_KEY_ID) {
-        setAccessKeyId(args.newValue);
+    const unsubscribe = window.storage.onStorageChange((_, args) => {
+      const { key, newValue } = storageChangeArgsSchema.parse(args);
+      if (key === ACCESS_KEY_ID) {
+        setAccessKeyId(newValue);
       }
-      if (args.key === SECRET_ACCESS_KEY) {
-        setSecretAccessKey(args.newValue);
+      if (key === SECRET_ACCESS_KEY) {
+        setSecretAccessKey(newValue);
       }
-      if (args.key === AWS_REGION) {
-        setAwsRegion(args.newValue || DEFAULT_AWS_REGION);
+      if (key === AWS_REGION) {
+        setAwsRegion(newValue || DEFAULT_AWS_REGION);
       }
     });
 

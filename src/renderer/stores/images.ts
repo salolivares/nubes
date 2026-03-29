@@ -1,5 +1,3 @@
-import type { File } from 'node:buffer';
-
 import { create } from 'zustand';
 
 import type { ProcessedImage } from '@/common/types';

@@ -53,7 +53,8 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
     throw new Error('Invalid action');
   });
 
-  Storage.instance.store.onDidChange(ACCESS_KEY_ID, (newValue: string, oldValue?: string) => {
+  Storage.instance.store.onDidChange(ACCESS_KEY_ID, (newValue, oldValue) => {
+    if (!newValue) return;
     try {
       mainWindow.webContents.send(STORAGE_CHANGE, {
         key: ACCESS_KEY_ID,
@@ -65,7 +66,8 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
     }
   });
 
-  Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, (newValue: string, oldValue?: string) => {
+  Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, (newValue, oldValue) => {
+    if (!newValue) return;
     try {
       mainWindow.webContents.send(STORAGE_CHANGE, {
         key: SECRET_ACCESS_KEY,
@@ -77,7 +79,7 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
     }
   });
 
-  Storage.instance.store.onDidChange(AWS_REGION, (newValue: string, oldValue?: string) => {
+  Storage.instance.store.onDidChange(AWS_REGION, (newValue, oldValue) => {
     mainWindow.webContents.send(STORAGE_CHANGE, {
       key: AWS_REGION,
       newValue: newValue ?? '',
