@@ -93,7 +93,7 @@ export const ImagePicker = () => {
   }, []);
 
   return (
-    <>
+    <div className="flex flex-col gap-4 p-6 md:p-10">
       <h1>Upload</h1>
       <div
         {...getRootProps()}
@@ -143,6 +143,6 @@ export const ImagePicker = () => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };

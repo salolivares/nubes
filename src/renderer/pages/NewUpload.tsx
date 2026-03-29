@@ -85,7 +85,7 @@ export const NewUpload = () => {
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-4 p-6 md:p-10">
       <h1 className="text-2xl font-semibold tracking-tight">
         Select a bucket to begin
       </h1>
@@ -105,6 +105,6 @@ export const NewUpload = () => {
           </button>
         ))}
       </div>
-    </>
+    </div>
   );
 };

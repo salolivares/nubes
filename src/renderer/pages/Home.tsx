@@ -73,7 +73,7 @@ export const Home = () => {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between px-6 pt-6 md:px-10 md:pt-10">
         <h1 className="text-2xl font-semibold tracking-tight">Photosets</h1>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="gap-2" />}>
