@@ -9,13 +9,14 @@ import { Database } from './drivers/database';
 import { Storage } from './drivers/storage';
 import { restoreOrCreateWindow } from './mainWindow';
 
-const require = createRequire(import.meta.url);
-
 /**
  * Handle creating/removing shortcuts on Windows when installing/uninstalling.
  */
-if (require('electron-squirrel-startup')) {
-  app.quit();
+if (platform === 'win32') {
+  const require = createRequire(import.meta.url);
+  if (require('electron-squirrel-startup')) {
+    app.quit();
+  }
 }
 
 /**
