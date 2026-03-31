@@ -1,6 +1,7 @@
 import './securityRestrictions';
 
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { platform } from 'node:process';
 
 import { app } from 'electron';
@@ -8,6 +9,17 @@ import { app } from 'electron';
 import { Database } from './drivers/database';
 import { Storage } from './drivers/storage';
 import { restoreOrCreateWindow } from './mainWindow';
+
+/**
+ * In development, use a separate userData directory to avoid
+ * polluting production data (database, config, photosets).
+ *
+ * IMPORTANT: This must run before anything that reads userData
+ * (Storage, Database, etc.). Do not move this below other init code.
+ */
+if (!app.isPackaged) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'nubes-dev'));
+}
 
 /**
  * Handle creating/removing shortcuts on Windows when installing/uninstalling.
