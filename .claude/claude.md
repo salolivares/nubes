@@ -175,3 +175,8 @@ Defined in `tsconfig.json` and duplicated in each Vite config's
   update. They both implement `IS3Provider` and should stay in sync.
 - When needing to validate arguments across IPC boundries, use Zod
   for validation
+- **Dev/prod data isolation** — `src/main/index.ts` overrides
+  `userData` to `nubes-dev/` in dev mode. This `app.setPath()` call
+  must stay as the first executable code after imports — nothing that
+  reads `app.getPath('userData')` (Storage, Database, etc.) can run
+  before it.
