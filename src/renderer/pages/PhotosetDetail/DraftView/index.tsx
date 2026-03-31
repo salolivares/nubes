@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import type { Album, InProgressEvent, ProcessedImage } from '@/common/types';
+import type { InProgressEvent, ProcessedImage } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
 import { AlbumForm } from '../../../components/AlbumForm/AlbumForm';
@@ -87,7 +87,7 @@ export function DraftView({
   const [processedCount, setProcessedCount] = useState(0);
   const [processingTotal, setProcessingTotal] = useState(0);
   const unsubscribeRef = useRef<(() => void) | null>(null);
-  const form = useForm<Album>({
+  const form = useForm({
     resolver: zodResolver(albumSchema),
     mode: 'onChange',
     defaultValues: {

@@ -63,7 +63,7 @@ const awsCredentialsSchema = z.object({
 export const AWSCredentialsForm: FC = () => {
   const { accessKeyId, secretAccessKey, awsRegion } = useAWSCredentials();
 
-  const form = useForm<z.infer<typeof awsCredentialsSchema>>({
+  const form = useForm({
     resolver: zodResolver(awsCredentialsSchema),
     defaultValues: {
       accessKeyId,
