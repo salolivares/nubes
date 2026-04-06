@@ -7,10 +7,7 @@ import pkg from './package.json';
 
 export const builtins = ['electron', ...builtinModules.map((m) => [m, `node:${m}`]).flat()];
 
-export const external = [
-  ...builtins,
-  ...Object.keys('dependencies' in pkg ? (pkg.dependencies as Record<string, unknown>) : {}),
-];
+export const external = [...builtins, 'sharp'];
 
 export const esmodule = pkg.type === 'module';
 

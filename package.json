@@ -51,7 +51,8 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.57.1",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "vite-plugin-native": "^2.2.2"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.620.0",

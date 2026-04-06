@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
@@ -10,10 +13,38 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/*.{node,dll,dylib,so}',
+    },
     extraResource: ['./src/common/db/migrations'],
   },
   rebuildConfig: {},
+  hooks: {
+    packageAfterCopy: async (_forgeConfig, buildPath) => {
+      const sharpDeps = ['sharp', '@img', 'detect-libc', 'semver'];
+      const srcModules = path.resolve(__dirname, 'node_modules');
+      const destModules = path.join(buildPath, 'node_modules');
+
+      for (const mod of sharpDeps) {
+        const src = path.join(srcModules, mod);
+        if (!fs.existsSync(src)) continue;
+
+        if (mod.startsWith('@')) {
+          for (const sub of fs.readdirSync(src)) {
+            fs.cpSync(path.join(src, sub), path.join(destModules, mod, sub), {
+              recursive: true,
+              dereference: true,
+            });
+          }
+        } else {
+          fs.cpSync(src, path.join(destModules, mod), {
+            recursive: true,
+            dereference: true,
+          });
+        }
+      }
+    },
+  },
   makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
   plugins: [
     new AutoUnpackNativesPlugin({}),
