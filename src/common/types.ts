@@ -46,7 +46,7 @@ export const albumSchema = z.object({
     .string()
     .min(1, 'Location is required')
     .max(50, 'Location must be 50 characters or less'),
-  year: z.coerce
+  year: z
     .number()
     .int()
     .min(1900, 'Year must be 1900 or later')

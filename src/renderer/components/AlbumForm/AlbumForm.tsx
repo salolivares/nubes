@@ -21,7 +21,7 @@ export const AlbumForm: FC<Props> = ({ form }) => {
         render={({ field, fieldState }) => (
           <Field data-invalid={fieldState.invalid}>
             <FieldLabel htmlFor="name">Album name</FieldLabel>
-            <Input id="name" placeholder="My awesome album" {...field} />
+            <Input id="name" placeholder="My awesome album" {...field} value={field.value ?? ''} />
             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
           </Field>
         )}
@@ -32,7 +32,7 @@ export const AlbumForm: FC<Props> = ({ form }) => {
         render={({ field, fieldState }) => (
           <Field data-invalid={fieldState.invalid}>
             <FieldLabel htmlFor="location">Location</FieldLabel>
-            <Input id="location" placeholder="Los Angeles, California" {...field} />
+            <Input id="location" placeholder="Los Angeles, California" {...field} value={field.value ?? ''} />
             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
           </Field>
         )}
@@ -43,7 +43,14 @@ export const AlbumForm: FC<Props> = ({ form }) => {
         render={({ field, fieldState }) => (
           <Field data-invalid={fieldState.invalid}>
             <FieldLabel htmlFor="year">Year</FieldLabel>
-            <Input id="year" type="number" placeholder="Year" {...field} />
+            <Input
+              id="year"
+              type="number"
+              placeholder="Year"
+              {...field}
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.valueAsNumber)}
+            />
             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
           </Field>
         )}
