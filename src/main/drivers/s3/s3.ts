@@ -168,7 +168,8 @@ export class S3 implements IS3Provider {
       throw new Error('S3 client not configured');
     }
 
-    const key = `${album.year}-${album.location.replace(/\s+/g, '-').toLowerCase()}/metadata.json`;
+    const slug = album.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
+    const key = `${album.year}-${album.location.replace(/\s+/g, '-').toLowerCase()}/${slug}.json`;
     // Create the metadata object that matches the JSON structure
     const metadata = {
       title: album.name,
