@@ -7,9 +7,7 @@ import pkg from './package.json';
 
 export const builtins = ['electron', ...builtinModules.map((m) => [m, `node:${m}`]).flat()];
 
-const nativeModules = ['better-sqlite3', 'sharp'];
-
-export const external = [...builtins, ...nativeModules];
+export const external = [...builtins, 'sharp'];
 
 export const esmodule = pkg.type === 'module';
 

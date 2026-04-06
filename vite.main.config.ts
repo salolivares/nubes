@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import type { ConfigEnv, UserConfig } from 'vite';
 import { defineConfig, mergeConfig } from 'vite';
+import native from 'vite-plugin-native';
 
 import {
   esmodule,
@@ -33,7 +34,7 @@ export default defineConfig((env) => {
         },
       },
     },
-    plugins: [pluginHotRestart('restart')],
+    plugins: [native({ webpack: {} }), pluginHotRestart('restart')],
     define,
     resolve: {
       // Load the Node.js entry.

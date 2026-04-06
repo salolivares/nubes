@@ -66,6 +66,21 @@ Electron Forge's `VitePlugin` orchestrates all of these via
 `forge.config.cts`. It injects dev server URLs as compile-time
 constants (`MAIN_WINDOW_VITE_DEV_SERVER_URL`, `MAIN_WINDOW_VITE_NAME`).
 
+### Native Module Packaging
+
+Two strategies coexist because sharp's dynamic `require()` loop over
+platform-specific `@img/sharp-*` packages can't be statically traced:
+
+- **better-sqlite3** — handled by `vite-plugin-native` in
+  `vite.main.config.ts`. The plugin bundles the `.node` file into
+  `.vite/build/node_natives/` automatically.
+- **sharp** — externalized in `vite.base.config.ts` and copied via a
+  `packageAfterCopy` hook in `forge.config.cts` (along with `@img`,
+  `detect-libc`, `semver`).
+
+Both paths rely on `asar.unpack: '**/*.{node,dll,dylib,so}'` so
+`dlopen` can read the binaries outside the asar archive.
+
 ## Communication Patterns
 
 Two IPC patterns coexist:

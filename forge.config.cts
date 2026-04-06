@@ -11,16 +11,6 @@ import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
-const nativeModules = [
-  'better-sqlite3',
-  'bindings',
-  'file-uri-to-path',
-  'sharp',
-  '@img',
-  'detect-libc',
-  'semver',
-];
-
 const config: ForgeConfig = {
   packagerConfig: {
     asar: {
@@ -31,26 +21,26 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   hooks: {
     packageAfterCopy: async (_forgeConfig, buildPath) => {
+      const sharpDeps = ['sharp', '@img', 'detect-libc', 'semver'];
       const srcModules = path.resolve(__dirname, 'node_modules');
       const destModules = path.join(buildPath, 'node_modules');
 
-      for (const mod of nativeModules) {
+      for (const mod of sharpDeps) {
         const src = path.join(srcModules, mod);
         if (!fs.existsSync(src)) continue;
 
-        const stat = fs.statSync(src);
-        if (stat.isDirectory()) {
-          // For scoped packages like @img, copy all sub-packages
-          if (mod.startsWith('@')) {
-            for (const sub of fs.readdirSync(src)) {
-              const subSrc = path.join(src, sub);
-              const subDest = path.join(destModules, mod, sub);
-              fs.cpSync(subSrc, subDest, { recursive: true, dereference: true });
-            }
-          } else {
-            const dest = path.join(destModules, mod);
-            fs.cpSync(src, dest, { recursive: true, dereference: true });
+        if (mod.startsWith('@')) {
+          for (const sub of fs.readdirSync(src)) {
+            fs.cpSync(path.join(src, sub), path.join(destModules, mod, sub), {
+              recursive: true,
+              dereference: true,
+            });
           }
+        } else {
+          fs.cpSync(src, path.join(destModules, mod), {
+            recursive: true,
+            dereference: true,
+          });
         }
       }
     },
