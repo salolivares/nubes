@@ -19,12 +19,12 @@ const MOCK_IMAGES: Record<string, string[]> = {
     '2024-yosemite/sunset_1920.jpg',
     '2024-yosemite/half-dome_1920.jpg',
     '2024-yosemite/el-capitan_1920.webp',
-    '2024-yosemite/metadata.json',
+    '2024-yosemite/yosemite.json',
   ],
   'mock-travel-bucket': [
     '2025-tokyo/shibuya_1920.jpg',
     '2025-tokyo/temple_1920.jpg',
-    '2025-tokyo/metadata.json',
+    '2025-tokyo/tokyo.json',
   ],
   'mock-portfolio-bucket': [],
 };
@@ -77,7 +77,8 @@ export class MockS3 implements IS3Provider {
       })),
     };
 
-    await fsp.writeFile(path.join(albumDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
+    const slug = album.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
+    await fsp.writeFile(path.join(albumDir, `${slug}.json`), JSON.stringify(metadata, null, 2));
 
     console.log(`[MockS3] Album written to: ${albumDir}`);
     return { success: true };

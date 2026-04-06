@@ -57,7 +57,7 @@ export const AlbumForm: FC<Props> = ({ form }) => {
             <FieldLabel htmlFor="published" className="font-normal">
               Published
               <FieldDescription>
-                Mark this album as published in the metadata.json for downstream consumers.
+                Mark this album as published in the album metadata for downstream consumers.
               </FieldDescription>
             </FieldLabel>
             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
