@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
@@ -8,12 +11,50 @@ import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
+const nativeModules = [
+  'better-sqlite3',
+  'bindings',
+  'file-uri-to-path',
+  'sharp',
+  '@img',
+  'detect-libc',
+  'semver',
+];
+
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/*.{node,dll,dylib,so}',
+    },
     extraResource: ['./src/common/db/migrations'],
   },
   rebuildConfig: {},
+  hooks: {
+    packageAfterCopy: async (_forgeConfig, buildPath) => {
+      const srcModules = path.resolve(__dirname, 'node_modules');
+      const destModules = path.join(buildPath, 'node_modules');
+
+      for (const mod of nativeModules) {
+        const src = path.join(srcModules, mod);
+        if (!fs.existsSync(src)) continue;
+
+        const stat = fs.statSync(src);
+        if (stat.isDirectory()) {
+          // For scoped packages like @img, copy all sub-packages
+          if (mod.startsWith('@')) {
+            for (const sub of fs.readdirSync(src)) {
+              const subSrc = path.join(src, sub);
+              const subDest = path.join(destModules, mod, sub);
+              fs.cpSync(subSrc, subDest, { recursive: true, dereference: true });
+            }
+          } else {
+            const dest = path.join(destModules, mod);
+            fs.cpSync(src, dest, { recursive: true, dereference: true });
+          }
+        }
+      }
+    },
+  },
   makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
   plugins: [
     new AutoUnpackNativesPlugin({}),
