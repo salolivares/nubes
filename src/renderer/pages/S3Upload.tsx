@@ -47,9 +47,11 @@ export const S3Upload = () => {
   const { processedImages, setProcessedImage } = useProcessedImages();
   const { cameras, addCamera, touchCamera } = useCameras();
   const [isSaving, setIsSaving] = useState(false);
+  const [imagesDirty, setImagesDirty] = useState(false);
 
   const form = useForm<Album>({
     resolver: zodResolver(albumSchema),
+    mode: 'onChange',
     defaultValues: {
       name: '',
       location: '',
@@ -66,11 +68,12 @@ export const S3Upload = () => {
 
   const { isDirty, isValid } = form.formState;
   const busy = isUploading || isSaving;
-  const canSubmit = isDirty && isValid && !busy;
+  const canSubmit = (isDirty || imagesDirty) && isValid && !busy;
 
   const handleCameraSelect = (imageId: string, cameraName: string) => {
     setProcessedImage(imageId, { camera: cameraName });
     touchCamera(cameraName);
+    setImagesDirty(true);
   };
 
   const handleCameraAdd = async (name: string) => {
@@ -193,10 +196,14 @@ export const S3Upload = () => {
                 <Input
                   type="text"
                   defaultValue={image.name}
-                  onBlur={(e) => setProcessedImage(image.id, { name: e.target.value })}
+                  onBlur={(e) => {
+                    setProcessedImage(image.id, { name: e.target.value });
+                    setImagesDirty(true);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       setProcessedImage(image.id, { name: (e.target as HTMLInputElement).value });
+                      setImagesDirty(true);
                       (e.target as HTMLInputElement).blur();
                     }
                   }}

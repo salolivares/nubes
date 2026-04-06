@@ -88,6 +88,7 @@ export function DraftView({
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const form = useForm<Album>({
     resolver: zodResolver(albumSchema),
+    mode: 'onChange',
     defaultValues: {
       name: photoset.name,
       location: photoset.location ?? '',
