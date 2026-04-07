@@ -1,6 +1,25 @@
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ChevronDown, Loader2, Upload } from 'lucide-react';
-import { useState } from 'react';
+import type { ColumnDef, Row } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { ChevronDown, GripVertical, Loader2, Upload } from 'lucide-react';
+import { createContext, type CSSProperties, useContext, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -12,6 +31,7 @@ import { AlbumForm } from '../components/AlbumForm/AlbumForm';
 import { CameraCombobox } from '../components/CameraCombobox';
 import { Button } from '../components/ui/button';
 import { ButtonGroup } from '../components/ui/button-group';
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +39,11 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import { Input } from '../components/ui/input';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { useCameras } from '../hooks/useCameras';
 import { useProcessedImages } from '../hooks/useProcessedImages';
 import { trpc } from '../lib/trpc';
+import { cn } from '../lib/utils';
 import { useImageStore } from '../stores/images';
 
 function toPhotosetImages(processedImages: ProcessedImage[]) {
@@ -40,14 +62,74 @@ function toPhotosetImages(processedImages: ProcessedImage[]) {
   }));
 }
 
+// ── Sortable row context ─────────────────────────────────────────────
+
+type SortableRowCtx = {
+  attributes: ReturnType<typeof useSortable>['attributes'];
+  listeners: ReturnType<typeof useSortable>['listeners'];
+};
+
+const SortableRowContext = createContext<SortableRowCtx | null>(null);
+
+function RowDragHandleCell() {
+  const ctx = useContext(SortableRowContext);
+  if (!ctx) return null;
+  return (
+    <button type="button" className="cursor-grab touch-none" {...ctx.attributes} {...ctx.listeners}>
+      <GripVertical className="text-muted-foreground" />
+    </button>
+  );
+}
+
+// ── Sortable row wrapper ─────────────────────────────────────────────
+
+function DraggableRow({ row }: { row: Row<ProcessedImage> }) {
+  const { transform, transition, setNodeRef, isDragging, attributes, listeners } = useSortable({
+    id: row.original.id,
+  });
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 1 : 0,
+    position: 'relative',
+  };
+
+  return (
+    <SortableRowContext.Provider value={{ attributes, listeners }}>
+      <tr
+        ref={setNodeRef}
+        data-slot="table-row"
+        className={cn('border-b transition-colors hover:bg-muted/50', isDragging && 'bg-muted')}
+        style={style}
+      >
+        {row.getVisibleCells().map((cell) => (
+          <td
+            key={cell.id}
+            data-slot="table-cell"
+            className="p-2 align-middle whitespace-nowrap"
+            style={{ width: cell.column.getSize() }}
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </td>
+        ))}
+      </tr>
+    </SortableRowContext.Provider>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────
+
 export const S3Upload = () => {
   const { bucketName } = useParams();
   const navigate = useNavigate();
   const photosetId = useImageStore((s) => s.photosetId);
-  const { processedImages, setProcessedImage } = useProcessedImages();
+  const { processedImages, setProcessedImage, setProcessedImages } = useProcessedImages();
   const { cameras, addCamera, touchCamera } = useCameras();
   const [isSaving, setIsSaving] = useState(false);
   const [imagesDirty, setImagesDirty] = useState(false);
+  const [previewImage, setPreviewImage] = useState<ProcessedImage | null>(null);
 
   const form = useForm<Album>({
     resolver: zodResolver(albumSchema),
@@ -79,6 +161,107 @@ export const S3Upload = () => {
   const handleCameraAdd = async (name: string) => {
     await addCamera(name);
   };
+
+  // ── Column definitions ───────────────────────────────────────────
+
+  const columns = useMemo<ColumnDef<ProcessedImage>[]>(
+    () => [
+      {
+        id: 'drag-handle',
+        header: () => null,
+        size: 40,
+        cell: () => <RowDragHandleCell />,
+      },
+      {
+        id: 'thumbnail',
+        header: 'Image',
+        size: 80,
+        cell: ({ row }) => (
+          <button
+            type="button"
+            className="cursor-pointer"
+            onClick={() => setPreviewImage(row.original)}
+          >
+            <img
+              src={`data:image/jpeg;base64,${row.original.preview}`}
+              alt={row.original.name}
+              width={64}
+              height={64}
+              className="aspect-square object-cover rounded-md"
+            />
+          </button>
+        ),
+      },
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <Input
+            type="text"
+            defaultValue={row.original.name}
+            onBlur={(e) => {
+              setProcessedImage(row.original.id, { name: e.target.value });
+              setImagesDirty(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setProcessedImage(row.original.id, {
+                  name: (e.target as HTMLInputElement).value,
+                });
+                setImagesDirty(true);
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background"
+          />
+        ),
+      },
+      {
+        accessorKey: 'camera',
+        header: 'Camera',
+        cell: ({ row }) => (
+          <CameraCombobox
+            value={row.original.camera ?? ''}
+            cameras={cameras}
+            onSelect={(name) => handleCameraSelect(row.original.id, name)}
+            onAdd={handleCameraAdd}
+          />
+        ),
+      },
+    ],
+    [cameras, handleCameraAdd, handleCameraSelect, setProcessedImage],
+  );
+
+  // ── TanStack Table ───────────────────────────────────────────────
+
+  const table = useReactTable({
+    data: processedImages,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
+  });
+
+  const dataIds = useMemo(() => processedImages.map((img) => img.id), [processedImages]);
+
+  // ── DnD sensors ──────────────────────────────────────────────────
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, {}),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = dataIds.indexOf(active.id as string);
+      const newIndex = dataIds.indexOf(over.id as string);
+      const reordered = arrayMove(processedImages, oldIndex, newIndex);
+      setProcessedImages(reordered);
+      setImagesDirty(true);
+    }
+  };
+
+  // ── Submit handlers ──────────────────────────────────────────────
 
   const handleUpload = form.handleSubmit((values) => {
     if (!bucketName) {
@@ -171,57 +354,71 @@ export const S3Upload = () => {
         </ButtonGroup>
       </div>
 
-      {/* Image table */}
-      <table className="w-full">
-        <thead>
-          <tr className="bg-muted">
-            <th className="px-4 py-2 text-left">Image</th>
-            <th className="px-4 py-2 text-left">Name</th>
-            <th className="px-4 py-2 text-left">Camera</th>
-          </tr>
-        </thead>
-        <tbody>
-          {processedImages.map((image) => (
-            <tr key={image.id} className="border-b hover:bg-muted/50 transition-colors">
-              <td className="px-4 py-3 text-left">
-                <img
-                  src={`data:image/jpeg;base64,${image.preview}`}
-                  alt={image.name}
-                  width={64}
-                  height={64}
-                  className="aspect-square object-cover rounded-md"
-                />
-              </td>
-              <td className="px-4 py-3 text-left">
-                <Input
-                  type="text"
-                  defaultValue={image.name}
-                  onBlur={(e) => {
-                    setProcessedImage(image.id, { name: e.target.value });
-                    setImagesDirty(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      setProcessedImage(image.id, { name: (e.target as HTMLInputElement).value });
-                      setImagesDirty(true);
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
-                  className="border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background"
-                />
-              </td>
-              <td className="px-4 py-3 text-left">
-                <CameraCombobox
-                  value={image.camera ?? ''}
-                  cameras={cameras}
-                  onSelect={(name) => handleCameraSelect(image.id, name)}
-                  onAdd={handleCameraAdd}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Mass-apply camera toolbar */}
+      {processedImages.length > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Apply to all:</span>
+          <div className="w-56">
+            <CameraCombobox
+              value=""
+              cameras={cameras}
+              onSelect={(name) => {
+                for (const img of processedImages) {
+                  setProcessedImage(img.id, { camera: name });
+                }
+                touchCamera(name);
+                setImagesDirty(true);
+              }}
+              onAdd={handleCameraAdd}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Image table with drag-and-drop reordering */}
+      <DndContext
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis]}
+        sensors={sensors}
+        onDragEnd={handleDragEnd}
+      >
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} style={{ width: header.getSize() }}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            <SortableContext items={dataIds} strategy={verticalListSortingStrategy}>
+              {table.getRowModel().rows.map((row) => (
+                <DraggableRow key={row.id} row={row} />
+              ))}
+            </SortableContext>
+          </TableBody>
+        </Table>
+      </DndContext>
+
+      {/* Image preview dialog */}
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="sm:max-w-2xl p-2">
+          <DialogTitle className="sr-only">{previewImage?.name ?? 'Image preview'}</DialogTitle>
+          {previewImage && (
+            <img
+              src={`data:image/jpeg;base64,${previewImage.preview}`}
+              alt={previewImage.name}
+              className="w-full rounded-lg object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Album form fields */}
       <div className="mt-6">

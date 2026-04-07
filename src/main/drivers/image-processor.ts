@@ -34,7 +34,7 @@ async function processImage(
   const hash = crypto.createHash('sha256').update(inputBuffer).digest('hex');
 
   // Generate a stable ID
-  const id = `${width}x${height}_${inputFormat}_${hash.substring(0, 16)}`;
+  const id = `${name}_${width}x${height}_${inputFormat}_${hash.substring(0, 16)}`;
 
   log.info(
     `"${name}": ${width}x${height} ${inputFormat}, ${(inputBuffer.byteLength / 1024).toFixed(1)} KB, id=${id}`,
