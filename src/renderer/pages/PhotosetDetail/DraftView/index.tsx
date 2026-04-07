@@ -1,42 +1,9 @@
-import {
-  closestCenter,
-  DndContext,
-  type DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { ColumnDef, Row } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import {
-  ArrowLeft,
-  ChevronDown,
-  GripVertical,
-  ImageIcon,
-  ImagePlus,
-  Loader2,
-  Trash2,
-  Upload,
-} from 'lucide-react';
-import {
-  createContext,
-  type CSSProperties,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { ArrowLeft, ChevronDown, ImagePlus, Loader2, Trash2, Upload } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -44,8 +11,10 @@ import { toast } from 'sonner';
 import type { Album, InProgressEvent, ProcessedImage } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
-import { AlbumForm } from '../../components/AlbumForm/AlbumForm';
-import { CameraCombobox } from '../../components/CameraCombobox';
+import { AlbumForm } from '../../../components/AlbumForm/AlbumForm';
+import { CameraCombobox } from '../../../components/CameraCombobox';
+import { ImagePreviewDialog } from '../../../components/ImagePreviewDialog';
+import { SortableTable } from '../../../components/SortableTable';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,10 +24,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog';
-import { Button } from '../../components/ui/button';
-import { ButtonGroup } from '../../components/ui/button-group';
-import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog';
+} from '../../../components/ui/alert-dialog';
+import { Button } from '../../../components/ui/button';
+import { ButtonGroup } from '../../../components/ui/button-group';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,71 +34,12 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
-import { Input } from '../../components/ui/input';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { useCameras } from '../../hooks/useCameras';
-import { trpc } from '../../lib/trpc';
-import { cn } from '../../lib/utils';
-import type { DbImage, PhotosetWithImages } from './utils';
-import { toProcessedImages } from './utils';
-
-// ── Sortable row context ─────────────────────────────────────────────
-
-type SortableRowCtx = {
-  attributes: ReturnType<typeof useSortable>['attributes'];
-  listeners: ReturnType<typeof useSortable>['listeners'];
-};
-
-const SortableRowContext = createContext<SortableRowCtx | null>(null);
-
-function RowDragHandleCell() {
-  const ctx = useContext(SortableRowContext);
-  if (!ctx) return null;
-  return (
-    <button type="button" className="cursor-grab touch-none" {...ctx.attributes} {...ctx.listeners}>
-      <GripVertical className="text-muted-foreground" />
-    </button>
-  );
-}
-
-// ── Sortable row wrapper ─────────────────────────────────────────────
-
-function DraggableRow({ row }: { row: Row<DbImage> }) {
-  const { transform, transition, setNodeRef, isDragging, attributes, listeners } = useSortable({
-    id: String(row.original.id),
-  });
-
-  const style: CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.8 : 1,
-    zIndex: isDragging ? 1 : 0,
-    position: 'relative',
-  };
-
-  return (
-    <SortableRowContext.Provider value={{ attributes, listeners }}>
-      <tr
-        ref={setNodeRef}
-        data-slot="table-row"
-        className={cn('border-b transition-colors hover:bg-muted/50', isDragging && 'bg-muted')}
-        style={style}
-      >
-        {row.getVisibleCells().map((cell) => (
-          <td
-            key={cell.id}
-            data-slot="table-cell"
-            className="p-2 align-middle whitespace-nowrap"
-            style={{ width: cell.column.getSize() }}
-          >
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </td>
-        ))}
-      </tr>
-    </SortableRowContext.Provider>
-  );
-}
+} from '../../../components/ui/dropdown-menu';
+import { useCameras } from '../../../hooks/useCameras';
+import { trpc } from '../../../lib/trpc';
+import type { DbImage, PhotosetWithImages } from '../utils';
+import { toProcessedImages } from '../utils';
+import { useImageColumns } from './columns';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -158,6 +67,8 @@ function processedImageToDbImage(img: ProcessedImage, sortOrder: number): DbImag
     })),
   };
 }
+
+// ── Component ────────────────────────────────────────────────────────
 
 export function DraftView({
   photoset,
@@ -187,7 +98,7 @@ export function DraftView({
     },
   });
 
-  const { mutate: uploadMutate, isLoading: isUploading } = trpc.bucket.createAlbum.useMutation({
+  const { mutate: uploadMutate, isPending: isUploading } = trpc.bucket.createAlbum.useMutation({
     onError: (error) => {
       toast.error(error.message);
     },
@@ -263,76 +174,13 @@ export function DraftView({
     touchCamera(cameraName);
   };
 
-  // ── Column definitions ───────────────────────────────────────────
-
-  const columns = useMemo<ColumnDef<DbImage>[]>(
-    () => [
-      {
-        id: 'drag-handle',
-        header: () => null,
-        size: 40,
-        cell: () => <RowDragHandleCell />,
-      },
-      {
-        id: 'thumbnail',
-        header: 'Image',
-        size: 80,
-        cell: ({ row }) =>
-          row.original.preview ? (
-            <button
-              type="button"
-              className="cursor-pointer"
-              onClick={() => setPreviewImage(row.original)}
-            >
-              <img
-                src={`data:image/jpeg;base64,${row.original.preview}`}
-                alt={row.original.name}
-                width={64}
-                height={64}
-                className="aspect-square object-cover rounded-md"
-              />
-            </button>
-          ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
-              <ImageIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-          ),
-      },
-      {
-        accessorKey: 'name',
-        header: 'Name',
-        cell: ({ row }) => (
-          <Input
-            type="text"
-            defaultValue={row.original.name}
-            onBlur={(e) => handleImageUpdate(row.original.id, { name: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleImageUpdate(row.original.id, { name: (e.target as HTMLInputElement).value });
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            className="border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background"
-          />
-        ),
-      },
-      {
-        accessorKey: 'camera',
-        header: 'Camera',
-        cell: ({ row }) => (
-          <CameraCombobox
-            value={row.original.camera ?? ''}
-            cameras={cameras}
-            onSelect={(name) => handleCameraSelect(row.original.id, name)}
-            onAdd={async (name) => addCamera(name)}
-          />
-        ),
-      },
-    ],
-    [cameras, addCamera, handleCameraSelect, handleImageUpdate],
-  );
-
-  // ── TanStack Table ───────────────────────────────────────────────
+  const columns = useImageColumns({
+    cameras,
+    onCameraSelect: handleCameraSelect,
+    onCameraAdd: async (name) => addCamera(name),
+    onNameChange: (imageId, name) => handleImageUpdate(imageId, { name }),
+    onPreview: setPreviewImage,
+  });
 
   const table = useReactTable({
     data: images,
@@ -342,13 +190,6 @@ export function DraftView({
   });
 
   const dataIds = useMemo(() => images.map((img) => String(img.id)), [images]);
-
-  // ── DnD sensors ──────────────────────────────────────────────────
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, {}),
-  );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -572,49 +413,10 @@ export function DraftView({
       )}
 
       {/* Image table with drag-and-drop reordering */}
-      <DndContext
-        collisionDetection={closestCenter}
-        modifiers={[restrictToVerticalAxis]}
-        sensors={sensors}
-        onDragEnd={handleDragEnd}
-      >
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} style={{ width: header.getSize() }}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            <SortableContext items={dataIds} strategy={verticalListSortingStrategy}>
-              {table.getRowModel().rows.map((row) => (
-                <DraggableRow key={row.id} row={row} />
-              ))}
-            </SortableContext>
-          </TableBody>
-        </Table>
-      </DndContext>
+      <SortableTable table={table} dataIds={dataIds} onDragEnd={handleDragEnd} />
 
       {/* Image preview dialog */}
-      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
-        <DialogContent className="sm:max-w-2xl p-2">
-          <DialogTitle className="sr-only">{previewImage?.name ?? 'Image preview'}</DialogTitle>
-          {previewImage?.preview && (
-            <img
-              src={`data:image/jpeg;base64,${previewImage.preview}`}
-              alt={previewImage.name}
-              className="w-full rounded-lg object-contain"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <ImagePreviewDialog image={previewImage} onClose={() => setPreviewImage(null)} />
 
       {/* Album form fields */}
       <AlbumForm form={form} />
