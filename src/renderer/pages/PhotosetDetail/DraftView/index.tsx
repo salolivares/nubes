@@ -1,14 +1,9 @@
+import type { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  ArrowLeft,
-  ChevronDown,
-  ImageIcon,
-  ImagePlus,
-  Loader2,
-  Trash2,
-  Upload,
-} from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { ArrowLeft, ChevronDown, ImagePlus, Loader2, Trash2, Upload } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -16,8 +11,10 @@ import { toast } from 'sonner';
 import type { Album, InProgressEvent, ProcessedImage } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
-import { AlbumForm } from '../../components/AlbumForm/AlbumForm';
-import { CameraCombobox } from '../../components/CameraCombobox';
+import { AlbumForm } from '../../../components/AlbumForm/AlbumForm';
+import { CameraCombobox } from '../../../components/CameraCombobox';
+import { ImagePreviewDialog } from '../../../components/ImagePreviewDialog';
+import { SortableTable } from '../../../components/SortableTable';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,9 +24,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog';
-import { Button } from '../../components/ui/button';
-import { ButtonGroup } from '../../components/ui/button-group';
+} from '../../../components/ui/alert-dialog';
+import { Button } from '../../../components/ui/button';
+import { ButtonGroup } from '../../../components/ui/button-group';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,12 +34,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
-import { Input } from '../../components/ui/input';
-import { useCameras } from '../../hooks/useCameras';
-import { trpc } from '../../lib/trpc';
-import type { DbImage, PhotosetWithImages } from './utils';
-import { toProcessedImages } from './utils';
+} from '../../../components/ui/dropdown-menu';
+import { useCameras } from '../../../hooks/useCameras';
+import { trpc } from '../../../lib/trpc';
+import type { DbImage, PhotosetWithImages } from '../utils';
+import { toProcessedImages } from '../utils';
+import { useImageColumns } from './columns';
+
+// ── Helpers ──────────────────────────────────────────────────────────
 
 /** Counter for generating temporary negative IDs for newly processed images. */
 let nextTempId = -1;
@@ -68,6 +67,8 @@ function processedImageToDbImage(img: ProcessedImage, sortOrder: number): DbImag
     })),
   };
 }
+
+// ── Component ────────────────────────────────────────────────────────
 
 export function DraftView({
   photoset,
@@ -97,7 +98,7 @@ export function DraftView({
     },
   });
 
-  const { mutate: uploadMutate, isLoading: isUploading } = trpc.bucket.createAlbum.useMutation({
+  const { mutate: uploadMutate, isPending: isUploading } = trpc.bucket.createAlbum.useMutation({
     onError: (error) => {
       toast.error(error.message);
     },
@@ -106,6 +107,7 @@ export function DraftView({
   const hasOutputs = images.some((img) => img.outputs.length > 0);
 
   const [imagesDirty, setImagesDirty] = useState(false);
+  const [previewImage, setPreviewImage] = useState<DbImage | null>(null);
 
   // Clean up event listeners on unmount
   useEffect(() => {
@@ -137,9 +139,7 @@ export function DraftView({
         const newImages = result.processedImages;
         setImages((prev) => {
           const startOrder = prev.length;
-          const converted = newImages.map((img, i) =>
-            processedImageToDbImage(img, startOrder + i),
-          );
+          const converted = newImages.map((img, i) => processedImageToDbImage(img, startOrder + i));
           return [...prev, ...converted];
         });
         setImagesDirty(true);
@@ -161,7 +161,10 @@ export function DraftView({
     window.imageProcessor.resize({ imagePaths: paths });
   };
 
-  const handleImageUpdate = (imageId: number, updates: Partial<Pick<DbImage, 'name' | 'camera'>>) => {
+  const handleImageUpdate = (
+    imageId: number,
+    updates: Partial<Pick<DbImage, 'name' | 'camera'>>,
+  ) => {
     setImages((prev) => prev.map((img) => (img.id === imageId ? { ...img, ...updates } : img)));
     setImagesDirty(true);
   };
@@ -170,6 +173,35 @@ export function DraftView({
     handleImageUpdate(imageId, { camera: cameraName });
     touchCamera(cameraName);
   };
+
+  const columns = useImageColumns({
+    cameras,
+    onCameraSelect: handleCameraSelect,
+    onCameraAdd: async (name) => addCamera(name),
+    onNameChange: (imageId, name) => handleImageUpdate(imageId, { name }),
+    onPreview: setPreviewImage,
+  });
+
+  const table = useReactTable({
+    data: images,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => String(row.id),
+  });
+
+  const dataIds = useMemo(() => images.map((img) => String(img.id)), [images]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = dataIds.indexOf(String(active.id));
+      const newIndex = dataIds.indexOf(String(over.id));
+      setImages((prev) => arrayMove(prev, oldIndex, newIndex));
+      setImagesDirty(true);
+    }
+  };
+
+  // ── Submit handlers ──────────────────────────────────────────────
 
   const handleSave = form.handleSubmit(async (values) => {
     setIsSaving(true);
@@ -305,15 +337,14 @@ export function DraftView({
               Save Draft
             </Button>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button disabled={!canSubmit && !canUpload} className="px-2!" />}>
+              <DropdownMenuTrigger
+                render={<Button disabled={!canSubmit && !canUpload} className="px-2!" />}
+              >
                 <ChevronDown />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    disabled={!canUpload}
-                    onClick={handleUpload}
-                  >
+                  <DropdownMenuItem disabled={!canUpload} onClick={handleUpload}>
                     {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload />}
                     Upload to S3
                   </DropdownMenuItem>
@@ -357,64 +388,35 @@ export function DraftView({
 
       {!hasOutputs && images.length > 0 && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          No processed image outputs found. You can still edit metadata and save,
-          but uploading to S3 is disabled. Re-process the images to enable upload.
+          No processed image outputs found. You can still edit metadata and save, but uploading to
+          S3 is disabled. Re-process the images to enable upload.
         </div>
       )}
 
-      {/* Image table */}
-      <table className="w-full">
-        <thead>
-          <tr className="bg-muted">
-            <th className="px-4 py-2 text-left">Image</th>
-            <th className="px-4 py-2 text-left">Name</th>
-            <th className="px-4 py-2 text-left">Camera</th>
-          </tr>
-        </thead>
-        <tbody>
-          {images.map((image) => (
-            <tr key={image.id} className="border-b hover:bg-muted/50 transition-colors">
-              <td className="px-4 py-3 text-left">
-                {image.preview ? (
-                  <img
-                    src={`data:image/jpeg;base64,${image.preview}`}
-                    alt={image.name}
-                    width={64}
-                    height={64}
-                    className="aspect-square object-cover rounded-md"
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
-                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                )}
-              </td>
-              <td className="px-4 py-3 text-left">
-                <Input
-                  type="text"
-                  defaultValue={image.name}
-                  onBlur={(e) => handleImageUpdate(image.id, { name: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleImageUpdate(image.id, { name: (e.target as HTMLInputElement).value });
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
-                  className="border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background"
-                />
-              </td>
-              <td className="px-4 py-3 text-left">
-                <CameraCombobox
-                  value={image.camera ?? ''}
-                  cameras={cameras}
-                  onSelect={(name) => handleCameraSelect(image.id, name)}
-                  onAdd={async (name) => addCamera(name)}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Mass-apply camera toolbar */}
+      {images.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Apply to all:</span>
+          <div className="w-56">
+            <CameraCombobox
+              value=""
+              cameras={cameras}
+              onSelect={(name) => {
+                setImages((prev) => prev.map((img) => ({ ...img, camera: name })));
+                touchCamera(name);
+                setImagesDirty(true);
+              }}
+              onAdd={async (name) => addCamera(name)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Image table with drag-and-drop reordering */}
+      <SortableTable table={table} dataIds={dataIds} onDragEnd={handleDragEnd} />
+
+      {/* Image preview dialog */}
+      <ImagePreviewDialog image={previewImage} onClose={() => setPreviewImage(null)} />
 
       {/* Album form fields */}
       <AlbumForm form={form} />

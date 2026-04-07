@@ -1,6 +1,9 @@
+import type { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ChevronDown, Loader2, Upload } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -8,21 +11,23 @@ import { toast } from 'sonner';
 import type { Album, ProcessedImage } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
-import { AlbumForm } from '../components/AlbumForm/AlbumForm';
-import { CameraCombobox } from '../components/CameraCombobox';
-import { Button } from '../components/ui/button';
-import { ButtonGroup } from '../components/ui/button-group';
+import { AlbumForm } from '../../components/AlbumForm/AlbumForm';
+import { CameraCombobox } from '../../components/CameraCombobox';
+import { ImagePreviewDialog } from '../../components/ImagePreviewDialog';
+import { SortableTable } from '../../components/SortableTable';
+import { Button } from '../../components/ui/button';
+import { ButtonGroup } from '../../components/ui/button-group';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
-import { Input } from '../components/ui/input';
-import { useCameras } from '../hooks/useCameras';
-import { useProcessedImages } from '../hooks/useProcessedImages';
-import { trpc } from '../lib/trpc';
-import { useImageStore } from '../stores/images';
+} from '../../components/ui/dropdown-menu';
+import { useCameras } from '../../hooks/useCameras';
+import { useProcessedImages } from '../../hooks/useProcessedImages';
+import { trpc } from '../../lib/trpc';
+import { useImageStore } from '../../stores/images';
+import { useImageColumns } from './columns';
 
 function toPhotosetImages(processedImages: ProcessedImage[]) {
   return processedImages.map((img, i) => ({
@@ -44,10 +49,11 @@ export const S3Upload = () => {
   const { bucketName } = useParams();
   const navigate = useNavigate();
   const photosetId = useImageStore((s) => s.photosetId);
-  const { processedImages, setProcessedImage } = useProcessedImages();
+  const { processedImages, setProcessedImage, setProcessedImages } = useProcessedImages();
   const { cameras, addCamera, touchCamera } = useCameras();
   const [isSaving, setIsSaving] = useState(false);
   const [imagesDirty, setImagesDirty] = useState(false);
+  const [previewImage, setPreviewImage] = useState<ProcessedImage | null>(null);
 
   const form = useForm<Album>({
     resolver: zodResolver(albumSchema),
@@ -79,6 +85,41 @@ export const S3Upload = () => {
   const handleCameraAdd = async (name: string) => {
     await addCamera(name);
   };
+
+  const handleNameChange = (imageId: string, name: string) => {
+    setProcessedImage(imageId, { name });
+    setImagesDirty(true);
+  };
+
+  const columns = useImageColumns({
+    cameras,
+    onCameraSelect: handleCameraSelect,
+    onCameraAdd: handleCameraAdd,
+    onNameChange: handleNameChange,
+    onPreview: setPreviewImage,
+  });
+
+  const table = useReactTable({
+    data: processedImages,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
+  });
+
+  const dataIds = useMemo(() => processedImages.map((img) => img.id), [processedImages]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = dataIds.indexOf(active.id as string);
+      const newIndex = dataIds.indexOf(over.id as string);
+      const reordered = arrayMove(processedImages, oldIndex, newIndex);
+      setProcessedImages(reordered);
+      setImagesDirty(true);
+    }
+  };
+
+  // ── Submit handlers ──────────────────────────────────────────────
 
   const handleUpload = form.handleSubmit((values) => {
     if (!bucketName) {
@@ -171,57 +212,32 @@ export const S3Upload = () => {
         </ButtonGroup>
       </div>
 
-      {/* Image table */}
-      <table className="w-full">
-        <thead>
-          <tr className="bg-muted">
-            <th className="px-4 py-2 text-left">Image</th>
-            <th className="px-4 py-2 text-left">Name</th>
-            <th className="px-4 py-2 text-left">Camera</th>
-          </tr>
-        </thead>
-        <tbody>
-          {processedImages.map((image) => (
-            <tr key={image.id} className="border-b hover:bg-muted/50 transition-colors">
-              <td className="px-4 py-3 text-left">
-                <img
-                  src={`data:image/jpeg;base64,${image.preview}`}
-                  alt={image.name}
-                  width={64}
-                  height={64}
-                  className="aspect-square object-cover rounded-md"
-                />
-              </td>
-              <td className="px-4 py-3 text-left">
-                <Input
-                  type="text"
-                  defaultValue={image.name}
-                  onBlur={(e) => {
-                    setProcessedImage(image.id, { name: e.target.value });
-                    setImagesDirty(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      setProcessedImage(image.id, { name: (e.target as HTMLInputElement).value });
-                      setImagesDirty(true);
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
-                  className="border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background"
-                />
-              </td>
-              <td className="px-4 py-3 text-left">
-                <CameraCombobox
-                  value={image.camera ?? ''}
-                  cameras={cameras}
-                  onSelect={(name) => handleCameraSelect(image.id, name)}
-                  onAdd={handleCameraAdd}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Mass-apply camera toolbar */}
+      {processedImages.length > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Apply to all:</span>
+          <div className="w-56">
+            <CameraCombobox
+              value=""
+              cameras={cameras}
+              onSelect={(name) => {
+                for (const img of processedImages) {
+                  setProcessedImage(img.id, { camera: name });
+                }
+                touchCamera(name);
+                setImagesDirty(true);
+              }}
+              onAdd={handleCameraAdd}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Image table with drag-and-drop reordering */}
+      <SortableTable table={table} dataIds={dataIds} onDragEnd={handleDragEnd} />
+
+      {/* Image preview dialog */}
+      <ImagePreviewDialog image={previewImage} onClose={() => setPreviewImage(null)} />
 
       {/* Album form fields */}
       <div className="mt-6">
