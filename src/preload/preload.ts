@@ -15,7 +15,9 @@ contextBridge.exposeInMainWorld('themeMode', theme);
 contextBridge.exposeInMainWorld('imagePicker', imagePicker);
 contextBridge.exposeInMainWorld('imageProcessor', imageProcessor);
 contextBridge.exposeInMainWorld('photosets', photosets);
-contextBridge.exposeInMainWorld('debug', debug);
+if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+  contextBridge.exposeInMainWorld('debug', debug);
+}
 
 (async () => {
   exposeElectronTRPC();

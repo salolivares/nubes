@@ -31,7 +31,10 @@ const ALLOWED_ORIGINS_AND_PERMISSIONS = new Map<string, Set<Permission>>(
  *   href="https://github.com/"
  * >
  */
-const ALLOWED_EXTERNAL_ORIGINS = new Set<`https://${string}`>(['https://github.com']);
+const ALLOWED_EXTERNAL_ORIGINS = new Set<`https://${string}`>([
+  'https://github.com',
+  'https://s3.console.aws.amazon.com',
+]);
 
 app.on('web-contents-created', (_, contents) => {
   /**
