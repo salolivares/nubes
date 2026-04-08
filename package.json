@@ -18,10 +18,10 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "test": "vitest run --config vitest.config.main.ts && vitest run --config vitest.config.renderer.ts --passWithNoTests",
-    "test:main": "vitest run --config vitest.config.main.ts",
+    "test": "pnpm test:main && pnpm test:renderer",
+    "test:main": "ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron ./node_modules/vitest/vitest.mjs run --config vitest.config.main.ts",
     "test:renderer": "vitest run --config vitest.config.renderer.ts --passWithNoTests",
-    "test:watch": "vitest --config vitest.config.main.ts",
+    "test:watch": "ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron ./node_modules/vitest/vitest.mjs --config vitest.config.main.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
