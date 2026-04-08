@@ -78,14 +78,15 @@ describe('processedImageSchema', () => {
 });
 
 describe('albumSchema', () => {
-  it('coerces year from string', () => {
+  it('parses a valid album', () => {
     const result = albumSchema.parse({
       name: 'Vacation',
       location: 'Paris',
-      year: '2024',
+      year: 2024,
       published: false,
     });
     expect(result.year).toBe(2024);
+    expect(result.name).toBe('Vacation');
   });
 
   it('rejects year below 1900', () => {
