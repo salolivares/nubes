@@ -12,6 +12,7 @@ import { PhotosetDetail } from './pages/PhotosetDetail';
 import { S3Summary } from './pages/S3Summary';
 import { S3Upload } from './pages/S3Upload';
 import { Settings } from './pages/Settings';
+import { StorageSettings } from './pages/StorageSettings';
 
 export const router = createHashRouter(
   createRoutesFromElements(
@@ -27,6 +28,7 @@ export const router = createHashRouter(
       <Route path="settings" element={<Settings />}>
         <Route index element={<GeneralSettings />} />
         <Route path="cameras" element={<CameraSettings />} />
+        <Route path="storage" element={<StorageSettings />} />
       </Route>
     </Route>
   )

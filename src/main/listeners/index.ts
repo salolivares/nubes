@@ -1,5 +1,6 @@
 import type { BrowserWindow } from 'electron';
 
+import { addCacheEventListeners } from './cache';
 import { addDebugEventListeners } from './debug';
 import { addImagePickerEventListeners } from './image-picker';
 import { addImageProcessorEventListeners } from './image-processor';
@@ -10,6 +11,7 @@ import { addTrpcEventListeners } from './trpc';
 
 export function registerListeners(mainWindow: BrowserWindow) {
   // Register listeners here
+  addCacheEventListeners();
   addDebugEventListeners();
   addImagePickerEventListeners();
   addPhotosetEventListeners();

@@ -40,13 +40,6 @@ async function processImage(
     `"${name}": ${width}x${height} ${inputFormat}, ${(inputBuffer.byteLength / 1024).toFixed(1)} KB, id=${id}`,
   );
 
-  // Rename the original file with its format
-  const originalOutputPath = path.join(outputFolder, `${name}_original.${inputFormat}`);
-
-  if (!dryRun) {
-    fs.copyFileSync(imagePath, originalOutputPath);
-  }
-
   const imagePaths: ProcessedImage['imagePaths'] = [];
 
   for (const res of [128, 640, 1280, 2880]) {

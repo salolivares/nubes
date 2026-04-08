@@ -49,6 +49,9 @@ export const PHOTOSET_MARK_UPLOADED = `${PHOTOSET_CHANNEL}:markUploaded`;
 
 export const PHOTOSETS_DIR = 'photosets';
 
+export const CACHE_CHANNEL = 'cache';
+export const CACHE_GET_USAGE = `${CACHE_CHANNEL}:getUsage`;
+
 export const IMAGE_PROCESSOR_CHANNEL = 'image-processor';
 export const IMAGE_PROCESSOR_RESIZE = `${IMAGE_PROCESSOR_CHANNEL}:resize`;
 export const IMAGE_PROCESSOR_PROGRESS = `${IMAGE_PROCESSOR_CHANNEL}:progress`;

@@ -1,3 +1,8 @@
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import { eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -5,6 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type * as schema from '@/common/db/schema';
 import { photosetImageOutputs, photosetImages, photosets } from '@/common/db/schema';
 import { createTestDb } from '@/main/__test-utils__/db';
+import { deleteFiles, getPhotosetFilePaths } from '@/main/listeners/photoset';
 
 let db: BetterSQLite3Database<typeof schema>;
 let close: () => void;
@@ -263,5 +269,84 @@ describe('publish and markUploaded', () => {
       .all();
 
     expect(rows[0].uploadedAt).toBeTruthy();
+  });
+});
+
+describe('delete cleans up files', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nubes-test-'));
+  });
+
+  function createTempFile(name: string, size: number): string {
+    const filePath = path.join(tmpDir, name);
+    fs.writeFileSync(filePath, Buffer.alloc(size, 'x'));
+    return filePath;
+  }
+
+  it('collects original + output paths for a photoset', () => {
+    const origPath = createTempFile('orig.jpg', 100);
+    const outPath = createTempFile('out_640.jpg', 50);
+
+    const ps = createPhotoset();
+    addImages(ps.id, [
+      {
+        name: 'photo.jpg',
+        originalPath: origPath,
+        outputs: [
+          { imagePath: outPath, type: 'jpg', resolution: 640, byteLength: 50 },
+        ],
+      },
+    ]);
+
+    const paths = getPhotosetFilePaths(db, ps.id);
+    expect(paths).toContain(origPath);
+    expect(paths).toContain(outPath);
+    expect(paths).toHaveLength(2);
+  });
+
+  it('deletes image files from disk', async () => {
+    const origPath = createTempFile('orig.jpg', 100);
+    const outPath = createTempFile('out_640.jpg', 50);
+
+    expect(fs.existsSync(origPath)).toBe(true);
+    expect(fs.existsSync(outPath)).toBe(true);
+
+    await deleteFiles([origPath, outPath]);
+
+    expect(fs.existsSync(origPath)).toBe(false);
+    expect(fs.existsSync(outPath)).toBe(false);
+  });
+
+  it('ignores missing files gracefully', async () => {
+    const missingPath = path.join(tmpDir, 'does-not-exist.jpg');
+    await expect(deleteFiles([missingPath])).resolves.toBeUndefined();
+  });
+
+  it('only deletes files for the targeted photoset', async () => {
+    const file1 = createTempFile('ps1_orig.jpg', 100);
+    const file2 = createTempFile('ps2_orig.jpg', 100);
+
+    const ps1 = createPhotoset({ name: 'Set 1' });
+    addImages(ps1.id, [
+      { name: 'a.jpg', originalPath: file1, outputs: [] },
+    ]);
+
+    const ps2 = createPhotoset({ name: 'Set 2' });
+    addImages(ps2.id, [
+      { name: 'b.jpg', originalPath: file2, outputs: [] },
+    ]);
+
+    // Delete only ps1's files
+    const paths = getPhotosetFilePaths(db, ps1.id);
+    await deleteFiles(paths);
+    db.delete(photosets).where(eq(photosets.id, ps1.id)).run();
+
+    expect(fs.existsSync(file1)).toBe(false);
+    expect(fs.existsSync(file2)).toBe(true);
+
+    // Cleanup
+    await fsp.rm(tmpDir, { recursive: true, force: true });
   });
 });
