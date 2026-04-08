@@ -4,6 +4,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 const links = [
   { name: 'General', href: '/settings' },
   { name: 'Cameras', href: '/settings/cameras' },
+  { name: 'Storage', href: '/settings/storage' },
 ];
 
 export const Settings = () => {

@@ -1,4 +1,6 @@
-import { eq } from 'drizzle-orm';
+import fsp from 'node:fs/promises';
+
+import { eq, inArray } from 'drizzle-orm';
 
 import {
   PHOTOSET_ADD_IMAGES,
@@ -23,6 +25,52 @@ import { handle } from '@/main/ipc';
 
 function getDb() {
   return Database.instance.db;
+}
+
+/** Collect all file paths (originals + outputs) for a photoset. */
+export function getPhotosetFilePaths(
+  db: ReturnType<typeof getDb>,
+  photosetId: number,
+): string[] {
+  const images = db
+    .select({ originalPath: photosetImages.originalPath })
+    .from(photosetImages)
+    .where(eq(photosetImages.photosetId, photosetId))
+    .all();
+
+  const imageIds = images.length > 0
+    ? db
+        .select({ id: photosetImages.id })
+        .from(photosetImages)
+        .where(eq(photosetImages.photosetId, photosetId))
+        .all()
+        .map((r) => r.id)
+    : [];
+
+  const outputs =
+    imageIds.length > 0
+      ? db
+          .select({ imagePath: photosetImageOutputs.imagePath })
+          .from(photosetImageOutputs)
+          .where(inArray(photosetImageOutputs.imageId, imageIds))
+          .all()
+      : [];
+
+  return [
+    ...images.map((r) => r.originalPath),
+    ...outputs.map((r) => r.imagePath),
+  ];
+}
+
+/** Delete files from disk, ignoring ENOENT for already-missing files. */
+export async function deleteFiles(filePaths: string[]): Promise<void> {
+  await Promise.all(
+    filePaths.map((p) =>
+      fsp.unlink(p).catch((err: NodeJS.ErrnoException) => {
+        if (err.code !== 'ENOENT') throw err;
+      }),
+    ),
+  );
 }
 
 export function addPhotosetEventListeners() {
@@ -75,8 +123,10 @@ export function addPhotosetEventListeners() {
     return rows[0];
   });
 
-  handle(PHOTOSET_DELETE, photosetIdArgsSchema, (_, args) => {
+  handle(PHOTOSET_DELETE, photosetIdArgsSchema, async (_, args) => {
     const db = getDb();
+    const filePaths = getPhotosetFilePaths(db, args.id);
+    await deleteFiles(filePaths);
     db.delete(photosets).where(eq(photosets.id, args.id)).run();
   });
 

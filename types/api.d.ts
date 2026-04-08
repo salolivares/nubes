@@ -69,6 +69,10 @@ declare global {
     markUploaded: (args: { id: number }) => Promise<Photoset>;
   }
 
+  interface CacheContext {
+    getUsage: () => Promise<{ totalBytes: number; fileCount: number }>;
+  }
+
   interface DebugContext {
     setMockS3: (enabled: boolean) => Promise<void>;
     isMockS3: () => Promise<boolean>;
@@ -85,6 +89,7 @@ declare global {
     imagePicker: ImagePickerContext;
     imageProcessor: ImageProcessorContext;
     photosets: PhotosetContext;
+    cache: CacheContext;
     debug?: DebugContext;
   }
 }
