@@ -48,6 +48,7 @@ declare global {
   interface ImagePickerContext {
     open: () => Promise<ImagePickerFile[]>;
     readThumbnail: (path: string) => Promise<string>;
+    readPreview: (path: string) => Promise<string>;
   }
 
   interface PhotosetContext {

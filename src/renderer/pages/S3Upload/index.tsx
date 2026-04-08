@@ -13,7 +13,7 @@ import { albumSchema } from '@/common/types';
 
 import { AlbumForm } from '../../components/AlbumForm/AlbumForm';
 import { CameraCombobox } from '../../components/CameraCombobox';
-import { ImagePreviewDialog } from '../../components/ImagePreviewDialog';
+import { ImagePreviewDialog, pickPreviewPath } from '../../components/ImagePreviewDialog';
 import { SortableTable } from '../../components/SortableTable';
 import { Button } from '../../components/ui/button';
 import { ButtonGroup } from '../../components/ui/button-group';
@@ -237,7 +237,11 @@ export const S3Upload = () => {
       <SortableTable table={table} dataIds={dataIds} onDragEnd={handleDragEnd} />
 
       {/* Image preview dialog */}
-      <ImagePreviewDialog image={previewImage} onClose={() => setPreviewImage(null)} />
+      <ImagePreviewDialog
+        image={previewImage}
+        previewPath={previewImage ? pickPreviewPath(previewImage.imagePaths) : undefined}
+        onClose={() => setPreviewImage(null)}
+      />
 
       {/* Album form fields */}
       <div className="mt-6">

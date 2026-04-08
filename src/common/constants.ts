@@ -33,6 +33,7 @@ export const DEBUG_COPY_TO_CLIPBOARD = `${DEBUG_CHANNEL}:copyToClipboard`;
 export const IMAGE_PICKER_CHANNEL = 'image-picker';
 export const IMAGE_PICKER_OPEN = `${IMAGE_PICKER_CHANNEL}:open`;
 export const IMAGE_PICKER_READ_THUMBNAIL = `${IMAGE_PICKER_CHANNEL}:read-thumbnail`;
+export const IMAGE_PICKER_READ_PREVIEW = `${IMAGE_PICKER_CHANNEL}:read-preview`;
 
 export const CAMERAS_STORAGE_KEY = 'cameras';
 export const CAMERA_SORT_MODE_KEY = 'cameraSortMode';

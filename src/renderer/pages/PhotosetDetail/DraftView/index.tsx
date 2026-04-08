@@ -13,7 +13,7 @@ import { albumSchema } from '@/common/types';
 
 import { AlbumForm } from '../../../components/AlbumForm/AlbumForm';
 import { CameraCombobox } from '../../../components/CameraCombobox';
-import { ImagePreviewDialog } from '../../../components/ImagePreviewDialog';
+import { ImagePreviewDialog, pickPreviewPath } from '../../../components/ImagePreviewDialog';
 import { SortableTable } from '../../../components/SortableTable';
 import {
   AlertDialog,
@@ -416,7 +416,11 @@ export function DraftView({
       <SortableTable table={table} dataIds={dataIds} onDragEnd={handleDragEnd} />
 
       {/* Image preview dialog */}
-      <ImagePreviewDialog image={previewImage} onClose={() => setPreviewImage(null)} />
+      <ImagePreviewDialog
+        image={previewImage}
+        previewPath={previewImage ? pickPreviewPath(previewImage.outputs) : undefined}
+        onClose={() => setPreviewImage(null)}
+      />
 
       {/* Album form fields */}
       <AlbumForm form={form} />
