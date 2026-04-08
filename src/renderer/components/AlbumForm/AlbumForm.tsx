@@ -3,13 +3,15 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 
 import type { Album } from '@/common/types';
+import type { albumSchema } from '@/common/types';
+import type { z } from 'zod';
 
 import { Checkbox } from '../ui/checkbox';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 
 interface Props {
-  form: UseFormReturn<Album>;
+  form: UseFormReturn<z.input<typeof albumSchema>, unknown, Album>;
 }
 
 export const AlbumForm: FC<Props> = ({ form }) => {

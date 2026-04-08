@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 
 import type { Album, ProcessedImage } from '@/common/types';
+import { batchPromises } from '@/common/utils';
 
 import { ACCESS_KEY_ID, AWS_REGION, DEFAULT_AWS_REGION, SECRET_ACCESS_KEY } from '../../../common/constants';
 import { Storage } from '../storage';
@@ -92,37 +93,6 @@ export class S3 implements IS3Provider {
     return fsp.readFile(imagePath);
   }
 
-  private async batchPromises<T, R>(
-    items: T[],
-    operation: (item: T) => Promise<R>,
-    batchSize = 5,
-  ): Promise<{ results: R[]; errors: Error[] }> {
-    const results: R[] = [];
-    const errors: Error[] = [];
-
-    for (let i = 0; i < items.length; i += batchSize) {
-      const batch = items.slice(i, i + batchSize);
-      const batchResults = await Promise.all(
-        batch.map((item) =>
-          operation(item).then(
-            (result) => ({ result }),
-            (error) => ({ error }),
-          ),
-        ),
-      );
-
-      for (const batchResult of batchResults) {
-        if ('error' in batchResult) {
-          errors.push(batchResult.error);
-        } else {
-          results.push(batchResult.result);
-        }
-      }
-    }
-
-    return { results, errors };
-  }
-
   private async createAlbumImages(bucketName: string, album: Album, images: ProcessedImage[]) {
     const operations: Array<() => Promise<PutObjectCommandOutput>> = [];
 
@@ -157,7 +127,7 @@ export class S3 implements IS3Provider {
       }
     }
 
-    return this.batchPromises(operations, (operation) => operation());
+    return batchPromises(operations, (operation) => operation());
   }
 
   /**

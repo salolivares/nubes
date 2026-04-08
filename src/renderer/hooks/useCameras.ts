@@ -8,7 +8,7 @@ export interface CameraEntry {
   lastUsed: string; // ISO date
 }
 
-function sortCameras(cameras: CameraEntry[], mode: CameraSortMode): CameraEntry[] {
+export function sortCameras(cameras: CameraEntry[], mode: CameraSortMode): CameraEntry[] {
   if (mode === 'lastUsed') {
     return [...cameras].sort((a, b) => b.lastUsed.localeCompare(a.lastUsed));
   }

@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import type { Album, ProcessedImage } from '@/common/types';
+import type { ProcessedImage } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
 import { AlbumForm } from '../../components/AlbumForm/AlbumForm';
@@ -55,7 +55,7 @@ export const S3Upload = () => {
   const [imagesDirty, setImagesDirty] = useState(false);
   const [previewImage, setPreviewImage] = useState<ProcessedImage | null>(null);
 
-  const form = useForm<Album>({
+  const form = useForm({
     resolver: zodResolver(albumSchema),
     mode: 'onChange',
     defaultValues: {
