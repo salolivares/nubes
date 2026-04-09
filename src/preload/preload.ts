@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('themeMode', theme);
 contextBridge.exposeInMainWorld('imagePicker', imagePicker);
 contextBridge.exposeInMainWorld('imageProcessor', imageProcessor);
 contextBridge.exposeInMainWorld('photosets', photosets);
-if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+if (process.env.NODE_ENV === 'development') {
   contextBridge.exposeInMainWorld('debug', debug);
 }
 
