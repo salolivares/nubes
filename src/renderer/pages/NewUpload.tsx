@@ -48,6 +48,8 @@ export const NewUpload = () => {
         const photoset = await window.photosets.create({
           name: `Upload ${new Date().toLocaleDateString()}`,
           bucketName,
+          location: '',
+          year: new Date().getFullYear(),
         });
         setPhotosetId(photoset.id);
         navigate(`/bucket/${bucketName}/picker`);

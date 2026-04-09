@@ -9,7 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 
 import type { Album, ProcessedImage } from '@/common/types';
-import { batchPromises } from '@/common/utils';
+import { batchPromises, metadataFilename, slugify } from '@/common/utils';
 
 import { ACCESS_KEY_ID, AWS_REGION, DEFAULT_AWS_REGION, SECRET_ACCESS_KEY } from '../../../common/constants';
 import { Storage } from '../storage';
@@ -100,9 +100,8 @@ export class S3 implements IS3Provider {
       for (const outputImage of image.imagePaths) {
         const { imagePath, type, resolution } = outputImage;
 
-        const key = `${album.year}-${album.location.replace(/\s+/g, '-').toLowerCase()}/${image.name
-          .replace(/\s+/g, '-')
-          .toLowerCase()}_${resolution}.${type}`;
+        const prefix = `${album.year}-${slugify(album.location)}`;
+        const key = `${prefix}/${slugify(image.name)}_${resolution}.${type}`;
         const imageData = await this.getImageData(imagePath);
 
         const uploadCommand = new PutObjectCommand({
@@ -138,8 +137,8 @@ export class S3 implements IS3Provider {
       throw new Error('S3 client not configured');
     }
 
-    const slug = album.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
-    const key = `${album.year}-${album.location.replace(/\s+/g, '-').toLowerCase()}/${slug}.json`;
+    const prefix = `${album.year}-${slugify(album.location)}`;
+    const key = `${prefix}/${metadataFilename(album.year, album.name)}`;
     // Create the metadata object that matches the JSON structure
     const metadata = {
       title: album.name,
@@ -147,7 +146,7 @@ export class S3 implements IS3Provider {
       year: album.year,
       published: album.published,
       images: images.map((image) => ({
-        id: image.name.replace(/\s+/g, '-').toLowerCase(),
+        id: slugify(image.name),
         name: image.name,
         camera: image.camera,
       })),

@@ -92,8 +92,8 @@ export function DraftView({
     mode: 'onChange',
     defaultValues: {
       name: photoset.name,
-      location: photoset.location ?? '',
-      year: photoset.year ?? new Date().getFullYear(),
+      location: photoset.location,
+      year: photoset.year,
       published: photoset.status === 'published',
     },
   });

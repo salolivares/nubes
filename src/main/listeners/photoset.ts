@@ -1,15 +1,19 @@
 import fsp from 'node:fs/promises';
+import path from 'node:path';
 
 import { eq, inArray } from 'drizzle-orm';
+import { app, shell } from 'electron';
 
 import {
   PHOTOSET_ADD_IMAGES,
   PHOTOSET_CREATE,
   PHOTOSET_DELETE,
+  PHOTOSET_EXPORT_METADATA,
   PHOTOSET_GET,
   PHOTOSET_LIST,
   PHOTOSET_MARK_UPLOADED,
   PHOTOSET_PUBLISH,
+  PHOTOSET_SHOW_IN_FOLDER,
   PHOTOSET_UPDATE,
 } from '@/common/constants';
 import { photosetImageOutputs, photosetImages, photosets } from '@/common/db/schema';
@@ -20,6 +24,7 @@ import {
   photosetListArgsSchema,
   photosetUpdateArgsSchema,
 } from '@/common/types';
+import { metadataFilename, slugify } from '@/common/utils';
 import { Database } from '@/main/drivers/database';
 import { handle } from '@/main/ipc';
 
@@ -28,24 +33,22 @@ function getDb() {
 }
 
 /** Collect all file paths (originals + outputs) for a photoset. */
-export function getPhotosetFilePaths(
-  db: ReturnType<typeof getDb>,
-  photosetId: number,
-): string[] {
+export function getPhotosetFilePaths(db: ReturnType<typeof getDb>, photosetId: number): string[] {
   const images = db
     .select({ originalPath: photosetImages.originalPath })
     .from(photosetImages)
     .where(eq(photosetImages.photosetId, photosetId))
     .all();
 
-  const imageIds = images.length > 0
-    ? db
-        .select({ id: photosetImages.id })
-        .from(photosetImages)
-        .where(eq(photosetImages.photosetId, photosetId))
-        .all()
-        .map((r) => r.id)
-    : [];
+  const imageIds =
+    images.length > 0
+      ? db
+          .select({ id: photosetImages.id })
+          .from(photosetImages)
+          .where(eq(photosetImages.photosetId, photosetId))
+          .all()
+          .map((r) => r.id)
+      : [];
 
   const outputs =
     imageIds.length > 0
@@ -56,10 +59,7 @@ export function getPhotosetFilePaths(
           .all()
       : [];
 
-  return [
-    ...images.map((r) => r.originalPath),
-    ...outputs.map((r) => r.imagePath),
-  ];
+  return [...images.map((r) => r.originalPath), ...outputs.map((r) => r.imagePath)];
 }
 
 /** Delete files from disk, ignoring ENOENT for already-missing files. */
@@ -187,5 +187,41 @@ export function addPhotosetEventListeners() {
       .returning()
       .all();
     return rows[0];
+  });
+
+  handle(PHOTOSET_EXPORT_METADATA, photosetIdArgsSchema, async (_, args) => {
+    const db = getDb();
+    const photoset = await db.query.photosets.findFirst({
+      where: eq(photosets.id, args.id),
+      with: {
+        images: {
+          columns: { name: true, camera: true },
+        },
+      },
+    });
+
+    if (!photoset) throw new Error(`Photoset ${args.id} not found`);
+
+    const metadata = {
+      title: photoset.name,
+      location: photoset.location,
+      year: photoset.year,
+      published: photoset.status === 'published',
+      images: photoset.images.map((img) => ({
+        id: slugify(img.name),
+        name: img.name,
+        camera: img.camera,
+      })),
+    };
+
+    const filename = metadataFilename(photoset.year, photoset.name);
+    const filePath = path.join(app.getPath('downloads'), filename);
+    await fsp.writeFile(filePath, JSON.stringify(metadata, null, 2), 'utf-8');
+
+    return { filePath };
+  });
+
+  handle(PHOTOSET_SHOW_IN_FOLDER, (_, args) => {
+    shell.showItemInFolder((args as { filePath: string }).filePath);
   });
 }

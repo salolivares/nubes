@@ -1,6 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
-import { batchPromises } from '../utils';
+import { batchPromises, metadataFilename, slugify } from '../utils';
+
+describe('slugify', () => {
+  it('lowercases and replaces spaces with hyphens', () => {
+    expect(slugify('Golden Hour Shots')).toBe('golden-hour-shots');
+  });
+
+  it('strips non-alphanumeric characters', () => {
+    expect(slugify("Bob's Café & Grill!")).toBe('bobs-caf-grill');
+  });
+
+  it('collapses consecutive hyphens', () => {
+    expect(slugify('foo  --  bar')).toBe('foo-bar');
+  });
+
+  it('handles empty string', () => {
+    expect(slugify('')).toBe('');
+  });
+});
+
+describe('metadataFilename', () => {
+  it('produces {year}-{slug}.json', () => {
+    expect(metadataFilename(2024, 'Summer Vibes')).toBe('2024-summer-vibes.json');
+  });
+
+  it('handles names with special characters', () => {
+    expect(metadataFilename(2023, "Bob's Trip!")).toBe("2023-bobs-trip.json");
+  });
+});
 
 describe('batchPromises', () => {
   it('returns empty results for empty array', async () => {

@@ -18,7 +18,10 @@ declare global {
     read: (key: string) => Promise<string>;
     write: (key: string, value: string) => Promise<void>;
     onStorageChange: (
-      listener: (event: IpcRendererEvent, args: { key: string; newValue: string; oldValue: string }) => void,
+      listener: (
+        event: IpcRendererEvent,
+        args: { key: string; newValue: string; oldValue: string },
+      ) => void,
     ) => () => void;
   }
 
@@ -36,7 +39,10 @@ declare global {
       listener: (event: IpcRendererEvent, progress: InProgressEvent) => void,
     ) => () => void;
     onComplete: (
-      listener: (event: IpcRendererEvent, result: { processedImages: ProcessedImage[]; erroredImagePaths: string[] }) => void,
+      listener: (
+        event: IpcRendererEvent,
+        result: { processedImages: ProcessedImage[]; erroredImagePaths: string[] },
+      ) => void,
     ) => () => void;
   }
 
@@ -52,9 +58,7 @@ declare global {
   }
 
   interface PhotosetContext {
-    list: (
-      args?: PhotosetListArgs,
-    ) => Promise<(Photoset & { images: { id: number }[] })[]>;
+    list: (args?: PhotosetListArgs) => Promise<(Photoset & { images: { id: number }[] })[]>;
     get: (args: { id: number }) => Promise<
       | (Photoset & {
           images: (PhotosetImage & { outputs: PhotosetImageOutput[] })[];
@@ -67,6 +71,8 @@ declare global {
     addImages: (args: PhotosetAddImagesArgs) => Promise<PhotosetImage[]>;
     publish: (args: { id: number }) => Promise<Photoset>;
     markUploaded: (args: { id: number }) => Promise<Photoset>;
+    exportMetadata: (args: { id: number }) => Promise<{ filePath: string }>;
+    showInFolder: (args: { filePath: string }) => Promise<void>;
   }
 
   interface CacheContext {

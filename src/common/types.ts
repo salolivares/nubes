@@ -65,8 +65,8 @@ export type PhotosetStatus = z.infer<typeof photosetStatusSchema>;
 export const photosetSchema = z.object({
   id: z.number(),
   name: z.string(),
-  location: z.string().nullable(),
-  year: z.number().nullable(),
+  location: z.string(),
+  year: z.number(),
   bucketName: z.string(),
   status: photosetStatusSchema,
   createdAt: z.string(),
@@ -118,8 +118,8 @@ export type PhotosetListArgs = z.infer<typeof photosetListArgsSchema>;
 export const photosetCreateArgsSchema = z.object({
   name: z.string(),
   bucketName: z.string(),
-  location: z.string().optional(),
-  year: z.number().optional(),
+  location: z.string(),
+  year: z.number(),
 });
 
 export type PhotosetCreateArgs = z.infer<typeof photosetCreateArgsSchema>;

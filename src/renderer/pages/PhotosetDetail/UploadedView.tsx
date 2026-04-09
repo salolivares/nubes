@@ -1,5 +1,7 @@
-import { ArrowLeft, ExternalLink, HardDrive, ImageIcon, Upload } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, HardDrive, ImageIcon, Upload } from 'lucide-react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -9,13 +11,30 @@ import { formatBytes, formatDate } from './utils';
 export function UploadedView({ photoset }: { photoset: PhotosetWithImages }) {
   const navigate = useNavigate();
 
+  const handleExportJson = useCallback(async () => {
+    try {
+      const { filePath } = await window.photosets.exportMetadata({ id: photoset.id });
+      toast.success('Metadata exported', {
+        description: filePath,
+        action: {
+          label: 'Reveal file',
+          onClick: () => window.photosets.showInFolder({ filePath }),
+        },
+      });
+    } catch (err) {
+      toast.error('Failed to export metadata', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    }
+  }, [photoset.id]);
+
   const totalFiles = photoset.images.reduce((sum, img) => sum + img.outputs.length, 0);
   const totalBytes = photoset.images.reduce(
     (sum, img) => sum + img.outputs.reduce((s, o) => s + o.byteLength, 0),
     0,
   );
 
-  const s3Prefix = `${photoset.year}-${(photoset.location ?? '').replace(/\s+/g, '-').toLowerCase()}`;
+  const s3Prefix = `${photoset.year}-${photoset.location.replace(/\s+/g, '-').toLowerCase()}`;
   const s3ConsoleUrl = `https://s3.console.aws.amazon.com/s3/buckets/${photoset.bucketName}?prefix=${encodeURIComponent(s3Prefix)}/`;
 
   return (
@@ -58,6 +77,14 @@ export function UploadedView({ photoset }: { photoset: PhotosetWithImages }) {
           <ExternalLink className="h-4 w-4" />
           View in S3 Console
         </a>
+        <button
+          type="button"
+          onClick={handleExportJson}
+          className="flex items-center gap-1 hover:text-foreground transition-colors"
+        >
+          <Download className="h-4 w-4" />
+          Export JSON
+        </button>
       </div>
 
       {/* Image grid */}

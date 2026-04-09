@@ -4,8 +4,8 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 export const photosets = sqliteTable('photosets', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
-  location: text('location'),
-  year: integer('year'),
+  location: text('location').notNull(),
+  year: integer('year').notNull(),
   bucketName: text('bucket_name').notNull(),
   status: text('status', { enum: ['draft', 'published'] })
     .notNull()
