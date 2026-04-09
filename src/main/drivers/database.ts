@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import { sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
@@ -25,7 +26,12 @@ export class Database {
       ? path.join(process.resourcesPath, MIGRATIONS_FOLDER)
       : path.join(app.getAppPath(), MIGRATIONS_DEV_PATH);
     log.info(`Running migrations from ${migrationsFolder}`);
+    // Disable FK enforcement before migrations so table-rebuild migrations
+    // (DROP + RENAME) don't trigger ON DELETE CASCADE. The pragma must be
+    // set outside the transaction — SQLite ignores it mid-transaction.
+    this.db.run(sql`PRAGMA foreign_keys = OFF`);
     migrate(this.db, { migrationsFolder });
+    this.db.run(sql`PRAGMA foreign_keys = ON`);
     log.info('Database ready');
   }
 
