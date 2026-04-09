@@ -154,16 +154,22 @@ describe('photosetSchema', () => {
     expect(() => photosetSchema.parse({ ...validPhotoset, status: 'archived' })).toThrow();
   });
 
-  it('allows nullable location, year, publishedAt, uploadedAt', () => {
+  it('allows nullable publishedAt, uploadedAt', () => {
     const result = photosetSchema.parse({
       ...validPhotoset,
-      location: null,
-      year: null,
       publishedAt: null,
       uploadedAt: null,
     });
-    expect(result.location).toBeNull();
-    expect(result.year).toBeNull();
+    expect(result.publishedAt).toBeNull();
+    expect(result.uploadedAt).toBeNull();
+  });
+
+  it('rejects null location', () => {
+    expect(() => photosetSchema.parse({ ...validPhotoset, location: null })).toThrow();
+  });
+
+  it('rejects null year', () => {
+    expect(() => photosetSchema.parse({ ...validPhotoset, year: null })).toThrow();
   });
 });
 
@@ -230,9 +236,10 @@ describe('IPC arg schemas', () => {
     expect(() => photosetListArgsSchema.parse({ sortBy: 'invalid' })).toThrow();
   });
 
-  it('photosetCreateArgsSchema requires name and bucketName', () => {
+  it('photosetCreateArgsSchema requires name, bucketName, location, and year', () => {
     expect(() => photosetCreateArgsSchema.parse({})).toThrow();
-    const result = photosetCreateArgsSchema.parse({ name: 'Test', bucketName: 'bucket' });
+    expect(() => photosetCreateArgsSchema.parse({ name: 'Test', bucketName: 'bucket' })).toThrow();
+    const result = photosetCreateArgsSchema.parse({ name: 'Test', bucketName: 'bucket', location: 'Paris', year: 2024 });
     expect(result.name).toBe('Test');
   });
 
