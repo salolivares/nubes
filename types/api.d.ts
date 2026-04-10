@@ -7,6 +7,7 @@ import type {
   PhotosetImage,
   PhotosetImageOutput,
   PhotosetListArgs,
+  PhotosetRemoveFilesArgs,
   PhotosetUpdateArgs,
   ProcessedImage,
 } from '../src/common/types';
@@ -72,6 +73,7 @@ declare global {
     publish: (args: { id: number }) => Promise<Photoset>;
     markUploaded: (args: { id: number }) => Promise<Photoset>;
     exportMetadata: (args: { id: number }) => Promise<{ filePath: string }>;
+    removeFiles: (args: PhotosetRemoveFilesArgs) => Promise<void>;
     showInFolder: (args: { filePath: string }) => Promise<void>;
   }
 

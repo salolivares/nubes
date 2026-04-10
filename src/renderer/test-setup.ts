@@ -29,6 +29,7 @@ window.imageProcessor = {
 window.imagePicker = {
   open: vi.fn().mockResolvedValue([]),
   readThumbnail: vi.fn().mockResolvedValue(''),
+  readPreview: vi.fn().mockResolvedValue(''),
 };
 
 window.photosets = {
@@ -40,6 +41,9 @@ window.photosets = {
   addImages: vi.fn().mockResolvedValue([]),
   publish: vi.fn().mockResolvedValue({}),
   markUploaded: vi.fn().mockResolvedValue({}),
+  exportMetadata: vi.fn().mockResolvedValue({ filePath: '' }),
+  removeFiles: vi.fn().mockResolvedValue(undefined),
+  showInFolder: vi.fn().mockResolvedValue(undefined),
 };
 
 // Stub scrollIntoView not available in jsdom

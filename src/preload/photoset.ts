@@ -7,6 +7,7 @@ import {
   PHOTOSET_LIST,
   PHOTOSET_MARK_UPLOADED,
   PHOTOSET_PUBLISH,
+  PHOTOSET_REMOVE_FILES,
   PHOTOSET_SHOW_IN_FOLDER,
   PHOTOSET_UPDATE,
 } from '@common';
@@ -22,5 +23,6 @@ export const photosets: PhotosetContext = {
   publish: (args) => ipcRenderer.invoke(PHOTOSET_PUBLISH, args),
   markUploaded: (args) => ipcRenderer.invoke(PHOTOSET_MARK_UPLOADED, args),
   exportMetadata: (args) => ipcRenderer.invoke(PHOTOSET_EXPORT_METADATA, args),
+  removeFiles: (args) => ipcRenderer.invoke(PHOTOSET_REMOVE_FILES, args),
   showInFolder: (args) => ipcRenderer.invoke(PHOTOSET_SHOW_IN_FOLDER, args),
 };
