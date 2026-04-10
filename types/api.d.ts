@@ -75,12 +75,6 @@ declare global {
     exportMetadata: (args: { id: number }) => Promise<{ filePath: string }>;
     removeFiles: (args: PhotosetRemoveFilesArgs) => Promise<void>;
     showInFolder: (args: { filePath: string }) => Promise<void>;
-    onUploadProgress: (
-      listener: (
-        event: IpcRendererEvent,
-        progress: { current: number; total: number },
-      ) => void,
-    ) => () => void;
   }
 
   interface CacheContext {

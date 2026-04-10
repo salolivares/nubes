@@ -6,7 +6,7 @@ import { app } from 'electron';
 
 import type { Album, ProcessedImage } from '@/common/types';
 
-import type { IS3Provider, UploadProgressCallback } from './s3-provider';
+import type { IS3Provider } from './s3-provider';
 
 const MOCK_BUCKETS: Bucket[] = [
   { Name: 'mock-photos-bucket', CreationDate: new Date('2024-01-15') },
@@ -51,15 +51,10 @@ export class MockS3 implements IS3Provider {
     bucketName: string,
     album: Album,
     images: ProcessedImage[],
-    onProgress?: UploadProgressCallback,
   ): Promise<{ success: boolean }> {
     const basePath = getMockBasePath();
     const albumDir = path.join(basePath, bucketName, albumDirName(album));
     await fsp.mkdir(albumDir, { recursive: true });
-
-    const totalFiles = images.reduce((sum, img) => sum + img.imagePaths.length, 0);
-    let completed = 0;
-    onProgress?.(0, totalFiles);
 
     for (const image of images) {
       for (const outputImage of image.imagePaths) {
@@ -67,8 +62,6 @@ export class MockS3 implements IS3Provider {
         const destName = `${image.name.replace(/\s+/g, '-').toLowerCase()}_${resolution}.${type}`;
         const destPath = path.join(albumDir, destName);
         await fsp.copyFile(imagePath, destPath);
-        completed++;
-        onProgress?.(completed, totalFiles);
       }
     }
 

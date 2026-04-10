@@ -44,7 +44,6 @@ window.photosets = {
   exportMetadata: vi.fn().mockResolvedValue({ filePath: '' }),
   removeFiles: vi.fn().mockResolvedValue(undefined),
   showInFolder: vi.fn().mockResolvedValue(undefined),
-  onUploadProgress: vi.fn().mockReturnValue(() => {}),
 };
 
 // Stub scrollIntoView not available in jsdom

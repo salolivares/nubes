@@ -4,8 +4,6 @@ import type { Album, ProcessedImage } from '@/common/types';
 
 import { S3 } from './s3';
 
-export type UploadProgressCallback = (current: number, total: number) => void;
-
 export interface IS3Provider {
   listBuckets(): Promise<Bucket[]>;
   listImagesInBucket(bucketName: string): Promise<string[]>;
@@ -13,7 +11,6 @@ export interface IS3Provider {
     bucketName: string,
     album: Album,
     images: ProcessedImage[],
-    onProgress?: UploadProgressCallback,
   ): Promise<{ success: boolean }>;
 }
 

@@ -13,7 +13,7 @@ import { batchPromises, metadataFilename, slugify } from '@/common/utils';
 
 import { ACCESS_KEY_ID, AWS_REGION, DEFAULT_AWS_REGION, SECRET_ACCESS_KEY } from '../../../common/constants';
 import { Storage } from '../storage';
-import type { IS3Provider, UploadProgressCallback } from './s3-provider';
+import type { IS3Provider } from './s3-provider';
 
 export class S3 implements IS3Provider {
   static #instance: S3;
@@ -93,12 +93,7 @@ export class S3 implements IS3Provider {
     return fsp.readFile(imagePath);
   }
 
-  private async createAlbumImages(
-    bucketName: string,
-    album: Album,
-    images: ProcessedImage[],
-    onProgress?: UploadProgressCallback,
-  ) {
+  private async createAlbumImages(bucketName: string, album: Album, images: ProcessedImage[]) {
     const operations: Array<() => Promise<PutObjectCommandOutput>> = [];
 
     for (const image of images) {
@@ -131,16 +126,7 @@ export class S3 implements IS3Provider {
       }
     }
 
-    const total = operations.length;
-    let completed = 0;
-    onProgress?.(0, total);
-
-    return batchPromises(operations, async (operation) => {
-      const result = await operation();
-      completed++;
-      onProgress?.(completed, total);
-      return result;
-    });
+    return batchPromises(operations, (operation) => operation());
   }
 
   /**
@@ -184,13 +170,8 @@ export class S3 implements IS3Provider {
     }
   }
 
-  public async createAlbum(
-    bucketName: string,
-    album: Album,
-    images: ProcessedImage[],
-    onProgress?: UploadProgressCallback,
-  ) {
-    const imageUploadResults = await this.createAlbumImages(bucketName, album, images, onProgress);
+  public async createAlbum(bucketName: string, album: Album, images: ProcessedImage[]) {
+    const imageUploadResults = await this.createAlbumImages(bucketName, album, images);
 
     try {
       await this.createAlbumMetadata(bucketName, album, images);

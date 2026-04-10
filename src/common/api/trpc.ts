@@ -3,7 +3,7 @@ import type { CreateContextOptions } from 'electron-trpc/main';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
 
-import type { IS3Provider, UploadProgressCallback } from '@/main/drivers/s3';
+import type { IS3Provider } from '@/main/drivers/s3';
 import { getS3Provider } from '@/main/drivers/s3';
 
 /**
@@ -14,10 +14,7 @@ import { getS3Provider } from '@/main/drivers/s3';
  * - testing, so we don't have to mock Next.js' req/res
  *
  */
-const createInnerTRPCContext = (): {
-  s3: IS3Provider;
-  onUploadProgress?: UploadProgressCallback;
-} => {
+const createInnerTRPCContext = (): { s3: IS3Provider } => {
   return {
     s3: getS3Provider(),
   };
