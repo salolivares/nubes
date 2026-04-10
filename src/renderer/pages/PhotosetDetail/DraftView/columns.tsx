@@ -16,8 +16,9 @@ export function useImageColumns(opts: {
   onNameChange: (imageId: number, name: string) => void;
   onPreview: (image: DbImage) => void;
   onRemove: (image: DbImage) => void;
+  disabled?: boolean;
 }): ColumnDef<DbImage>[] {
-  const { cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove } = opts;
+  const { cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove, disabled } = opts;
 
   return useMemo<ColumnDef<DbImage>[]>(
     () => [
@@ -90,6 +91,7 @@ export function useImageColumns(opts: {
           <Button
             variant="ghost"
             size="icon"
+            disabled={disabled}
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={() => onRemove(row.original)}
           >
@@ -98,6 +100,6 @@ export function useImageColumns(opts: {
         ),
       },
     ],
-    [cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove],
+    [cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove, disabled],
   );
 }

@@ -108,6 +108,7 @@ export function DraftView({
 
   const [imagesDirty, setImagesDirty] = useState(false);
   const [previewImage, setPreviewImage] = useState<DbImage | null>(null);
+  const [pendingFileDeletes, setPendingFileDeletes] = useState<string[]>([]);
 
   // Clean up event listeners on unmount
   useEffect(() => {
@@ -174,18 +175,16 @@ export function DraftView({
     touchCamera(cameraName);
   };
 
-  const handleRemoveImage = async (image: DbImage) => {
+  const busy = isSaving || isUploading || isDeleting || isProcessing;
+
+  const handleRemoveImage = (image: DbImage) => {
     setImages((prev) => prev.filter((img) => img.id !== image.id));
     setImagesDirty(true);
 
-    // Delete processed output files from disk
+    // Queue output files for deletion on next save
     const filePaths = image.outputs.map((o) => o.imagePath);
     if (filePaths.length > 0) {
-      try {
-        await window.photosets.removeFiles({ filePaths });
-      } catch {
-        // Non-fatal: files may already be gone
-      }
+      setPendingFileDeletes((prev) => [...prev, ...filePaths]);
     }
   };
 
@@ -196,6 +195,7 @@ export function DraftView({
     onNameChange: (imageId, name) => handleImageUpdate(imageId, { name }),
     onPreview: setPreviewImage,
     onRemove: handleRemoveImage,
+    disabled: busy,
   });
 
   const table = useReactTable({
@@ -215,6 +215,16 @@ export function DraftView({
       setImages((prev) => arrayMove(prev, oldIndex, newIndex));
       setImagesDirty(true);
     }
+  };
+
+  const flushPendingDeletes = async () => {
+    if (pendingFileDeletes.length === 0) return;
+    try {
+      await window.photosets.removeFiles({ filePaths: pendingFileDeletes });
+    } catch {
+      // Non-fatal: files may already be gone
+    }
+    setPendingFileDeletes([]);
   };
 
   // ── Submit handlers ──────────────────────────────────────────────
@@ -248,6 +258,7 @@ export function DraftView({
         });
         setImagesDirty(false);
       }
+      await flushPendingDeletes();
       toast.success('Draft saved');
       onUpdate();
     } catch (err) {
@@ -296,6 +307,7 @@ export function DraftView({
           } catch {
             // Non-fatal
           }
+          await flushPendingDeletes();
           toast.success('Album uploaded to S3');
           onUpdate();
         },
@@ -315,7 +327,6 @@ export function DraftView({
     }
   };
 
-  const busy = isSaving || isUploading || isDeleting || isProcessing;
   const { isDirty, isValid } = form.formState;
   const canSubmit = (isDirty || imagesDirty) && isValid && !busy;
   const canUpload = isValid && !busy && hasOutputs;
