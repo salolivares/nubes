@@ -17,6 +17,6 @@ export const bucketRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.s3.createAlbum(input.bucketName, input.album, input.images);
+      return ctx.s3.createAlbum(input.bucketName, input.album, input.images, ctx.onUploadProgress);
     }),
 });

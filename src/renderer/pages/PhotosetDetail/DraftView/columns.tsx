@@ -1,9 +1,10 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, X } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { CameraCombobox } from '../../../components/CameraCombobox';
 import { RowDragHandleCell } from '../../../components/SortableTable';
+import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import type { CameraEntry } from '../../../hooks/useCameras';
 import type { DbImage } from '../utils';
@@ -14,8 +15,9 @@ export function useImageColumns(opts: {
   onCameraAdd: (name: string) => Promise<void>;
   onNameChange: (imageId: number, name: string) => void;
   onPreview: (image: DbImage) => void;
+  onRemove: (image: DbImage) => void;
 }): ColumnDef<DbImage>[] {
-  const { cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview } = opts;
+  const { cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove } = opts;
 
   return useMemo<ColumnDef<DbImage>[]>(
     () => [
@@ -80,7 +82,22 @@ export function useImageColumns(opts: {
           />
         ),
       },
+      {
+        id: 'remove',
+        header: () => null,
+        size: 40,
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={() => onRemove(row.original)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        ),
+      },
     ],
-    [cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview],
+    [cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove],
   );
 }

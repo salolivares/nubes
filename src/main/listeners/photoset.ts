@@ -13,8 +13,10 @@ import {
   PHOTOSET_LIST,
   PHOTOSET_MARK_UPLOADED,
   PHOTOSET_PUBLISH,
+  PHOTOSET_REMOVE_FILES,
   PHOTOSET_SHOW_IN_FOLDER,
   PHOTOSET_UPDATE,
+  PHOTOSETS_DIR,
 } from '@/common/constants';
 import { photosetImageOutputs, photosetImages, photosets } from '@/common/db/schema';
 import {
@@ -22,6 +24,7 @@ import {
   photosetCreateArgsSchema,
   photosetIdArgsSchema,
   photosetListArgsSchema,
+  photosetRemoveFilesArgsSchema,
   photosetUpdateArgsSchema,
 } from '@/common/types';
 import { metadataFilename, slugify } from '@/common/utils';
@@ -219,6 +222,15 @@ export function addPhotosetEventListeners() {
     await fsp.writeFile(filePath, JSON.stringify(metadata, null, 2), 'utf-8');
 
     return { filePath };
+  });
+
+  handle(PHOTOSET_REMOVE_FILES, photosetRemoveFilesArgsSchema, async (_, args) => {
+    const allowedDir = path.join(app.getPath('userData'), PHOTOSETS_DIR);
+    const safePaths = args.filePaths.filter((p) => {
+      const resolved = path.resolve(p);
+      return resolved.startsWith(allowedDir + path.sep);
+    });
+    await deleteFiles(safePaths);
   });
 
   handle(PHOTOSET_SHOW_IN_FOLDER, (_, args) => {

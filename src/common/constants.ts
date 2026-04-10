@@ -49,8 +49,12 @@ export const PHOTOSET_PUBLISH = `${PHOTOSET_CHANNEL}:publish`;
 export const PHOTOSET_MARK_UPLOADED = `${PHOTOSET_CHANNEL}:markUploaded`;
 export const PHOTOSET_EXPORT_METADATA = `${PHOTOSET_CHANNEL}:exportMetadata`;
 export const PHOTOSET_SHOW_IN_FOLDER = `${PHOTOSET_CHANNEL}:showInFolder`;
+export const PHOTOSET_REMOVE_FILES = `${PHOTOSET_CHANNEL}:removeFiles`;
 
 export const PHOTOSETS_DIR = 'photosets';
+
+export const S3_UPLOAD_CHANNEL = 's3-upload';
+export const S3_UPLOAD_PROGRESS = `${S3_UPLOAD_CHANNEL}:progress`;
 
 export const CACHE_CHANNEL = 'cache';
 export const CACHE_GET_USAGE = `${CACHE_CHANNEL}:getUsage`;

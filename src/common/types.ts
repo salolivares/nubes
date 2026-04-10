@@ -149,3 +149,9 @@ export const photosetAddImagesArgsSchema = z.object({
 });
 
 export type PhotosetAddImagesArgs = z.infer<typeof photosetAddImagesArgsSchema>;
+
+export const photosetRemoveFilesArgsSchema = z.object({
+  filePaths: z.array(z.string()),
+});
+
+export type PhotosetRemoveFilesArgs = z.infer<typeof photosetRemoveFilesArgsSchema>;

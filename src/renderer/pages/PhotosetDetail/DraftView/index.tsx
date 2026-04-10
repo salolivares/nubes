@@ -35,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
+import { Progress } from '../../../components/ui/progress';
 import { useCameras } from '../../../hooks/useCameras';
 import { trpc } from '../../../lib/trpc';
 import type { DbImage, PhotosetWithImages } from '../utils';
@@ -108,12 +109,29 @@ export function DraftView({
 
   const [imagesDirty, setImagesDirty] = useState(false);
   const [previewImage, setPreviewImage] = useState<DbImage | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(
+    null,
+  );
 
   // Clean up event listeners on unmount
   useEffect(() => {
     return () => {
       unsubscribeRef.current?.();
     };
+  }, []);
+
+  // Listen for S3 upload progress events
+  useEffect(() => {
+    const unsub = window.photosets.onUploadProgress(
+      (_: unknown, progress: { current: number; total: number }) => {
+        setUploadProgress(progress);
+        if (progress.current >= progress.total) {
+          // Clear after a short delay so the user sees 100%
+          setTimeout(() => setUploadProgress(null), 500);
+        }
+      },
+    );
+    return unsub;
   }, []);
 
   const handleAddImages = async () => {
@@ -174,12 +192,28 @@ export function DraftView({
     touchCamera(cameraName);
   };
 
+  const handleRemoveImage = async (image: DbImage) => {
+    setImages((prev) => prev.filter((img) => img.id !== image.id));
+    setImagesDirty(true);
+
+    // Delete processed output files from disk
+    const filePaths = image.outputs.map((o) => o.imagePath);
+    if (filePaths.length > 0) {
+      try {
+        await window.photosets.removeFiles({ filePaths });
+      } catch {
+        // Non-fatal: files may already be gone
+      }
+    }
+  };
+
   const columns = useImageColumns({
     cameras,
     onCameraSelect: handleCameraSelect,
     onCameraAdd: async (name) => addCamera(name),
     onNameChange: (imageId, name) => handleImageUpdate(imageId, { name }),
     onPreview: setPreviewImage,
+    onRemove: handleRemoveImage,
   });
 
   const table = useReactTable({
@@ -391,6 +425,16 @@ export function DraftView({
           No processed image outputs found. You can still edit metadata and save, but uploading to
           S3 is disabled. Re-process the images to enable upload.
         </div>
+      )}
+
+      {isUploading && uploadProgress && (
+        <Progress
+          value={uploadProgress.total > 0 ? (uploadProgress.current / uploadProgress.total) * 100 : 0}
+        >
+          <span className="text-sm text-muted-foreground">
+            Uploading {uploadProgress.current}/{uploadProgress.total} files
+          </span>
+        </Progress>
       )}
 
       {/* Mass-apply camera toolbar */}
