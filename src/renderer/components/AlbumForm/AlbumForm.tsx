@@ -1,10 +1,9 @@
 import type { FC } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-
-import type { Album } from '@/common/types';
-import type { albumSchema } from '@/common/types';
 import type { z } from 'zod';
+
+import type { Album, albumSchema } from '@/common/types';
 
 import { Checkbox } from '../ui/checkbox';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '../ui/field';

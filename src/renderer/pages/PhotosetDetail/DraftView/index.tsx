@@ -1,6 +1,7 @@
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowLeft, ChevronDown, ImagePlus, Loader2, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -36,7 +37,6 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import { useCameras } from '../../../hooks/useCameras';
-import { trpc } from '../../../lib/trpc';
 import type { DbImage, PhotosetWithImages } from '../utils';
 import { toProcessedImages } from '../utils';
 import { useImageColumns } from './columns';
@@ -98,9 +98,10 @@ export function DraftView({
     },
   });
 
-  const { mutate: uploadMutate, isPending: isUploading } = trpc.bucket.createAlbum.useMutation({
+  const { mutate: uploadMutate, isLoading: isUploading } = useMutation({
+    mutationFn: window.s3.createAlbum,
     onError: (error) => {
-      toast.error(error.message);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload album');
     },
   });
 

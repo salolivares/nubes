@@ -56,6 +56,16 @@ export const albumSchema = z.object({
 
 export type Album = z.infer<typeof albumSchema>;
 
+// ── S3 IPC arg schemas ──────────────────────────────────────────────
+
+export const s3CreateAlbumArgsSchema = z.object({
+  bucketName: z.string(),
+  album: albumSchema,
+  images: z.array(processedImageSchema),
+});
+
+export type S3CreateAlbumArgs = z.infer<typeof s3CreateAlbumArgsSchema>;
+
 // ── Photoset row types ──────────────────────────────────────────────
 
 export const photosetStatusSchema = z.union([z.literal('draft'), z.literal('published')]);

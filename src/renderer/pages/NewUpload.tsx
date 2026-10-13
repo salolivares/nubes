@@ -7,8 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@client/components/ui/card';
-import { trpc } from '@client/lib/trpc';
 import { useImageStore } from '@client/stores/images';
+import { useQuery } from '@tanstack/react-query';
 import { Folder, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -16,7 +16,9 @@ import { toast } from 'sonner';
 
 export const NewUpload = () => {
   const { isSet } = useAWSCredentials();
-  const { data, error } = trpc.bucket.list.useQuery(undefined, {
+  const { data, error } = useQuery({
+    queryKey: ['s3', 'buckets'],
+    queryFn: window.s3.listBuckets,
     enabled: !!isSet,
   });
   const navigate = useNavigate();
@@ -33,7 +35,7 @@ export const NewUpload = () => {
   useEffect(() => {
     if (error) {
       toast.error('Failed to load buckets', {
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }, [error]);
@@ -62,7 +64,7 @@ export const NewUpload = () => {
         setCreatingBucket(null);
       }
     },
-    [navigate, setPhotosetId]
+    [navigate, setPhotosetId],
   );
 
   if (!isSet) {
@@ -79,7 +81,9 @@ export const NewUpload = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Link to="/settings" className={buttonVariants()}>Go to Settings</Link>
+            <Link to="/settings" className={buttonVariants()}>
+              Go to Settings
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -88,9 +92,7 @@ export const NewUpload = () => {
 
   return (
     <div className="flex flex-col gap-4 p-6 md:p-10">
-      <h1 className="text-2xl font-semibold tracking-tight">
-        Select a bucket to begin
-      </h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Select a bucket to begin</h1>
       <div className="space-y-3">
         {data?.map((bucket) => (
           <button

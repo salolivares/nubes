@@ -7,8 +7,11 @@ import { platform } from 'node:process';
 import { app } from 'electron';
 
 import { Database } from './drivers/database';
+import { MockS3, setS3Provider } from './drivers/s3';
 import { Storage } from './drivers/storage';
 import { restoreOrCreateWindow } from './mainWindow';
+
+const isE2E = !app.isPackaged && process.env.NUBES_E2E === '1';
 
 /**
  * In development, use a separate userData directory to avoid
@@ -18,7 +21,16 @@ import { restoreOrCreateWindow } from './mainWindow';
  * (Storage, Database, etc.). Do not move this below other init code.
  */
 if (!app.isPackaged) {
-  app.setPath('userData', path.join(app.getPath('appData'), 'nubes-dev'));
+  app.setPath(
+    'userData',
+    isE2E && process.env.NUBES_E2E_USER_DATA
+      ? process.env.NUBES_E2E_USER_DATA
+      : path.join(app.getPath('appData'), 'nubes-dev'),
+  );
+}
+
+if (isE2E) {
+  setS3Provider(new MockS3());
 }
 
 /**

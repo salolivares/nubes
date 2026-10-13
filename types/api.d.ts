@@ -1,3 +1,5 @@
+import type { Bucket } from '@aws-sdk/client-s3';
+
 import type {
   ImageProcessorResizeArgs,
   InProgressEvent,
@@ -10,6 +12,7 @@ import type {
   PhotosetRemoveFilesArgs,
   PhotosetUpdateArgs,
   ProcessedImage,
+  S3CreateAlbumArgs,
 } from '../src/common/types';
 
 declare global {
@@ -81,6 +84,11 @@ declare global {
     getUsage: () => Promise<{ totalBytes: number; fileCount: number }>;
   }
 
+  interface S3Context {
+    listBuckets: () => Promise<Bucket[]>;
+    createAlbum: (args: S3CreateAlbumArgs) => Promise<{ success: boolean }>;
+  }
+
   interface DebugContext {
     setMockS3: (enabled: boolean) => Promise<void>;
     isMockS3: () => Promise<boolean>;
@@ -98,6 +106,7 @@ declare global {
     imageProcessor: ImageProcessorContext;
     photosets: PhotosetContext;
     cache: CacheContext;
+    s3: S3Context;
     debug?: DebugContext;
   }
 }
