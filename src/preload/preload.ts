@@ -1,11 +1,11 @@
 import { contextBridge } from 'electron';
-import { exposeElectronTRPC } from 'electron-trpc/main';
 
 import { cache } from './cache';
 import { debug } from './debug';
 import { imagePicker } from './image-picker';
 import { imageProcessor } from './image-processor';
 import { photosets } from './photoset';
+import { s3 } from './s3';
 import { storage } from './storage';
 import { theme } from './theme';
 
@@ -15,10 +15,7 @@ contextBridge.exposeInMainWorld('themeMode', theme);
 contextBridge.exposeInMainWorld('imagePicker', imagePicker);
 contextBridge.exposeInMainWorld('imageProcessor', imageProcessor);
 contextBridge.exposeInMainWorld('photosets', photosets);
+contextBridge.exposeInMainWorld('s3', s3);
 if (process.env.NODE_ENV === 'development') {
   contextBridge.exposeInMainWorld('debug', debug);
 }
-
-(async () => {
-  exposeElectronTRPC();
-})();

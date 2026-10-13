@@ -33,7 +33,13 @@ beforeEach(() => {
 function createPhotoset(overrides: Partial<typeof photosets.$inferInsert> = {}) {
   const rows = db
     .insert(photosets)
-    .values({ name: 'Test Set', bucketName: 'test-bucket', ...overrides })
+    .values({
+      name: 'Test Set',
+      location: 'Test Location',
+      year: 2026,
+      bucketName: 'test-bucket',
+      ...overrides,
+    })
     .returning()
     .all();
   return rows[0];

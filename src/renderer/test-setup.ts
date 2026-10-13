@@ -46,6 +46,11 @@ window.photosets = {
   showInFolder: vi.fn().mockResolvedValue(undefined),
 };
 
+window.s3 = {
+  listBuckets: vi.fn().mockResolvedValue([]),
+  createAlbum: vi.fn().mockResolvedValue({ success: true }),
+};
+
 // Stub scrollIntoView not available in jsdom
 Element.prototype.scrollIntoView = vi.fn();
 

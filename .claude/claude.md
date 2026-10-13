@@ -23,7 +23,7 @@ src/
 │   │   └── image-processor.ts # Worker: sharp-based batch image conversion
 │   └── listeners/
 │       ├── index.ts          # Registers all IPC listeners on window
-│       ├── trpc.ts           # electron-trpc IPC handler
+│       ├── s3.ts             # S3 IPC handlers with Zod validation
 │       ├── storage.ts        # Raw IPC for secure/plain storage
 │       ├── theme.ts          # Raw IPC for native theme control
 │       └── image-processor.ts # Spawns utilityProcess worker, MessageChannel bridge
@@ -32,12 +32,12 @@ src/
 │   ├── preload.ts          # Exposes APIs to renderer via contextBridge
 │   ├── storage.ts          # window.storage API
 │   ├── theme.ts            # window.themeMode API
+│   ├── s3.ts               # window.s3 API
 │   └── image-processor.ts  # window.imageProcessor API
 │
 ├── renderer/      # React frontend (browser context)
-│   ├── main.tsx / App.tsx  # Entry, provider setup (tRPC, React Query, theme)
+│   ├── main.tsx / App.tsx  # Entry, provider setup (React Query, theme)
 │   ├── routes.tsx          # Hash router: wizard flow through bucket/images/upload
-│   ├── lib/trpc.ts         # tRPC React client (createTRPCReact)
 │   ├── stores/images.ts    # Zustand store for image upload state
 │   ├── hooks/              # useProcessingImages, useProcessedImages
 │   ├── pages/              # Home, ImagePicker, ImageProcessing, S3Upload, S3Summary
@@ -45,22 +45,17 @@ src/
 │
 └── common/        # Shared between main + renderer
     ├── constants.ts        # IPC channel names
-    ├── types.ts            # Zod schemas + TS types (ProcessedImage, Album, etc.)
-    └── api/
-        ├── trpc.ts         # tRPC init, context (injects S3 singleton)
-        ├── root.ts         # Root appRouter
-        └── routers/
-            └── bucket.ts   # bucket.list, bucket.createAlbum
+    └── types.ts            # Zod schemas + TS types (ProcessedImage, Album, etc.)
 ```
 
 ## Vite Configs
 
-| Config                  | Target                     | Why separate?                                |
-|-------------------------|----------------------------|----------------------------------------------|
-| `vite.base.config.ts`   | Shared utilities           | Externals list, build helpers, HMR plugins   |
-| `vite.main.config.ts`   | Main process + worker      | Node.js target, builds image-processor too   |
-| `vite.preload.config.ts`| Preload scripts            | Must be single chunk, no code splitting      |
-| `vite.renderer.config.ts`| React UI                  | Browser target, React plugin, dev server     |
+| Config                    | Target                | Why separate?                              |
+| ------------------------- | --------------------- | ------------------------------------------ |
+| `vite.base.config.ts`     | Shared utilities      | Externals list, build helpers, HMR plugins |
+| `vite.main.config.ts`     | Main process + worker | Node.js target, builds image-processor too |
+| `vite.preload.config.ts`  | Preload scripts       | Must be single chunk, no code splitting    |
+| `vite.renderer.config.ts` | React UI              | Browser target, React plugin, dev server   |
 
 Electron Forge's `VitePlugin` orchestrates all of these via
 `forge.config.cts`. It injects dev server URLs as compile-time
@@ -83,34 +78,23 @@ Both paths rely on `asar.unpack: '**/*.{node,dll,dylib,so}'` so
 
 ## Communication Patterns
 
-Two IPC patterns coexist:
+### 1. Typed IPC (contextBridge)
 
-### 1. tRPC over IPC (structured, type-safe)
-
-Used for S3 operations. `electron-trpc` bridges tRPC to Electron IPC.
-
-```
-Renderer                     Main
-trpc.bucket.list.useQuery()
-  → ipcLink()               → createIPCHandler → appRouter
-  ← superjson response      ← S3.instance.listBuckets()
-```
-
-Router defined in `src/common/api/`, context injects S3 singleton.
-
-### 2. Raw IPC (contextBridge)
-
-Used for storage, theme, and image processing. Preload scripts wrap
-`ipcRenderer.invoke()` calls and expose typed APIs on `window.*`.
+Used for S3, storage, theme, photosets, and image processing. Preload
+scripts wrap `ipcRenderer.invoke()` calls and expose typed APIs on
+`window.*`.
 
 ```
 Renderer                     Preload                    Main
-window.storage.secureRead()
+window.s3.listBuckets()
   → ipcRenderer.invoke()    →                         → ipcMain.handle()
-                                                        → Storage.instance
+                                                        → S3.instance
 ```
 
-### 3. Image Processor (utilityProcess + MessageChannel)
+Main-process handlers use `src/main/ipc.ts` for error logging and Zod
+validation. The renderer consumes S3 promises through React Query.
+
+### 2. Image Processor (utilityProcess + MessageChannel)
 
 Heavy image work runs in a `utilityProcess` (separate Node.js process,
 not a renderer). Communication uses `MessageChannelMain` ports:
@@ -126,13 +110,13 @@ window.imageProcessor
 
 ## User Flow (Wizard)
 
-1. **Home** (`/`) — Lists S3 buckets via tRPC, user picks one
+1. **Home** (`/`) — Lists S3 buckets via `window.s3`, user picks one
 2. **ImagePicker** (`/bucket/:name/picker`) — Drag-and-drop via
    react-dropzone, files stored in Zustand
 3. **ImageProcessing** (`/bucket/:name/upload`) — Sends paths to
    utilityProcess worker, shows per-image progress bars
 4. **S3Upload** (`/bucket/:name/s3`) — Review processed images, edit
-   name/camera metadata, fill album form, submit via tRPC mutation
+   name/camera metadata, fill album form, submit via a React Query mutation
 5. **S3Summary** (`/bucket/:name/summary`) — Post-upload (stub)
 
 ## Key Singletons (Main Process)
@@ -148,7 +132,7 @@ window.imageProcessor
 - Tailwind CSS 3 + shadcn/ui (Radix primitives)
 - react-hook-form + zod for validation
 - Zustand for client state (image upload pipeline)
-- tRPC + React Query v4 for server state (S3)
+- React Query v4 for asynchronous S3 state
 - sonner for toasts, next-themes for dark mode
 - lucide-react for icons
 

@@ -5,9 +5,9 @@ import { addDebugEventListeners } from './debug';
 import { addImagePickerEventListeners } from './image-picker';
 import { addImageProcessorEventListeners } from './image-processor';
 import { addPhotosetEventListeners } from './photoset';
+import { addS3EventListeners } from './s3';
 import { addStorageEventListeners } from './storage';
 import { addThemeEventListeners } from './theme';
-import { addTrpcEventListeners } from './trpc';
 
 export function registerListeners(mainWindow: BrowserWindow) {
   // Register listeners here
@@ -15,8 +15,8 @@ export function registerListeners(mainWindow: BrowserWindow) {
   addDebugEventListeners();
   addImagePickerEventListeners();
   addPhotosetEventListeners();
+  addS3EventListeners();
   addThemeEventListeners();
   addStorageEventListeners(mainWindow);
-  addTrpcEventListeners(mainWindow);
   addImageProcessorEventListeners(mainWindow);
 }

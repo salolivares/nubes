@@ -3,7 +3,7 @@ import type { ProcessedImage } from '@/common/types';
 export type PhotosetWithImages = NonNullable<Awaited<ReturnType<Window['photosets']['get']>>>;
 export type DbImage = PhotosetWithImages['images'][number];
 
-/** Convert DB images back to ProcessedImage[] for the tRPC upload mutation. */
+/** Convert DB images back to ProcessedImage[] for the S3 upload operation. */
 export function toProcessedImages(images: DbImage[]): ProcessedImage[] {
   return images.map((img) => ({
     id: String(img.id),
