@@ -27,6 +27,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm format:check",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "devDependencies": {
