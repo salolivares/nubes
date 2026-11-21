@@ -51,7 +51,12 @@ function addImages(
     name: string;
     originalPath: string;
     camera?: string;
-    outputs?: Array<{ imagePath: string; type: 'jpg' | 'webp'; resolution: number; byteLength: number }>;
+    outputs?: Array<{
+      imagePath: string;
+      type: 'jpg' | 'webp';
+      resolution: number;
+      byteLength: number;
+    }>;
   }>,
 ) {
   return db.transaction((tx) => {
@@ -187,15 +192,17 @@ describe('photoset CRUD', () => {
       {
         name: 'photo.jpg',
         originalPath: '/p.jpg',
-        outputs: [
-          { imagePath: '/tmp/p_640.jpg', type: 'jpg', resolution: 640, byteLength: 1000 },
-        ],
+        outputs: [{ imagePath: '/tmp/p_640.jpg', type: 'jpg', resolution: 640, byteLength: 1000 }],
       },
     ]);
 
     db.delete(photosets).where(eq(photosets.id, ps.id)).run();
 
-    const images = db.select().from(photosetImages).where(eq(photosetImages.photosetId, ps.id)).all();
+    const images = db
+      .select()
+      .from(photosetImages)
+      .where(eq(photosetImages.photosetId, ps.id))
+      .all();
     const outputs = db.select().from(photosetImageOutputs).all();
     expect(images).toHaveLength(0);
     expect(outputs).toHaveLength(0);
@@ -225,23 +232,29 @@ describe('addImages', () => {
     expect(inserted).toHaveLength(2);
     expect(inserted[0].camera).toBe('Sony A7');
 
-    const outputs = db.select().from(photosetImageOutputs).where(eq(photosetImageOutputs.imageId, inserted[0].id)).all();
+    const outputs = db
+      .select()
+      .from(photosetImageOutputs)
+      .where(eq(photosetImageOutputs.imageId, inserted[0].id))
+      .all();
     expect(outputs).toHaveLength(2);
   });
 
   it('replaces existing images on re-add (idempotent)', () => {
     const ps = createPhotoset();
 
-    addImages(ps.id, [
-      { name: 'v1.jpg', originalPath: '/v1.jpg', outputs: [] },
-    ]);
+    addImages(ps.id, [{ name: 'v1.jpg', originalPath: '/v1.jpg', outputs: [] }]);
 
     addImages(ps.id, [
       { name: 'v2.jpg', originalPath: '/v2.jpg', outputs: [] },
       { name: 'v3.jpg', originalPath: '/v3.jpg', outputs: [] },
     ]);
 
-    const images = db.select().from(photosetImages).where(eq(photosetImages.photosetId, ps.id)).all();
+    const images = db
+      .select()
+      .from(photosetImages)
+      .where(eq(photosetImages.photosetId, ps.id))
+      .all();
     expect(images).toHaveLength(2);
     expect(images.map((i) => i.name).sort()).toEqual(['v2.jpg', 'v3.jpg']);
   });
@@ -300,9 +313,7 @@ describe('delete cleans up files', () => {
       {
         name: 'photo.jpg',
         originalPath: origPath,
-        outputs: [
-          { imagePath: outPath, type: 'jpg', resolution: 640, byteLength: 50 },
-        ],
+        outputs: [{ imagePath: outPath, type: 'jpg', resolution: 640, byteLength: 50 }],
       },
     ]);
 
@@ -335,14 +346,10 @@ describe('delete cleans up files', () => {
     const file2 = createTempFile('ps2_orig.jpg', 100);
 
     const ps1 = createPhotoset({ name: 'Set 1' });
-    addImages(ps1.id, [
-      { name: 'a.jpg', originalPath: file1, outputs: [] },
-    ]);
+    addImages(ps1.id, [{ name: 'a.jpg', originalPath: file1, outputs: [] }]);
 
     const ps2 = createPhotoset({ name: 'Set 2' });
-    addImages(ps2.id, [
-      { name: 'b.jpg', originalPath: file2, outputs: [] },
-    ]);
+    addImages(ps2.id, [{ name: 'b.jpg', originalPath: file2, outputs: [] }]);
 
     // Delete only ps1's files
     const paths = getPhotosetFilePaths(db, ps1.id);

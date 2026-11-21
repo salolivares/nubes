@@ -37,9 +37,9 @@ export const useProcessingImages = () => {
             }
 
             return file;
-          })
+          }),
         );
-      }
+      },
     );
 
     const unsubscribeComplete = window.imageProcessor.onComplete((_, processedImages) => {

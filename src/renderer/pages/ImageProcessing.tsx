@@ -28,7 +28,9 @@ export const ImageProcessing = () => {
   useEffect(() => {
     if (!uploadRan.current) {
       window.imageProcessor.resize({
-        imagePaths: files.filter((file) => file.path !== undefined).map((file) => file.path as string),
+        imagePaths: files
+          .filter((file) => file.path !== undefined)
+          .map((file) => file.path as string),
       });
     }
 
@@ -116,9 +118,7 @@ export const ImageProcessing = () => {
         </div>
         {processed && countdown !== null && (
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Continuing in {countdown}s…
-            </p>
+            <p className="text-sm text-muted-foreground">Continuing in {countdown}s…</p>
             <Button variant="outline" size="sm" onClick={goToNext}>
               Skip
             </Button>

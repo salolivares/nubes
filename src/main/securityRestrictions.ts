@@ -18,7 +18,7 @@ type Permission = Parameters<
 const ALLOWED_ORIGINS_AND_PERMISSIONS = new Map<string, Set<Permission>>(
   MAIN_WINDOW_VITE_DEV_SERVER_URL
     ? [[new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin, new Set()]]
-    : []
+    : [],
 );
 
 /**

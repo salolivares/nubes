@@ -41,7 +41,11 @@ export function BaseLayout() {
         <SidebarContent>
           {/* New Upload CTA */}
           <div className="px-4 pb-4">
-            <Button render={<Link to="/new" />} nativeButton={false} className="w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0">
+            <Button
+              render={<Link to="/new" />}
+              nativeButton={false}
+              className="w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
+            >
               <Plus data-icon="inline-start" />
               <span className="group-data-[collapsible=icon]:hidden">New Upload</span>
             </Button>

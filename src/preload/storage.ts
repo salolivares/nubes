@@ -19,10 +19,15 @@ const read = (key: string) => storageSend(STORAGE_READ, key);
 const write = (key: string, value: string) => storageSend(STORAGE_WRITE, key, value);
 
 const onStorageChange = (
-  listener: (event: IpcRendererEvent, args: { key: string; newValue: string; oldValue: string }) => void,
+  listener: (
+    event: IpcRendererEvent,
+    args: { key: string; newValue: string; oldValue: string },
+  ) => void,
 ) => {
-  const handler = (event: IpcRendererEvent, args: { key: string; newValue: string; oldValue: string }) =>
-    listener(event, args);
+  const handler = (
+    event: IpcRendererEvent,
+    args: { key: string; newValue: string; oldValue: string },
+  ) => listener(event, args);
   ipcRenderer.on(STORAGE_CHANGE, handler);
   return () => ipcRenderer.off(STORAGE_CHANGE, handler);
 };

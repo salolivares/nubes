@@ -33,7 +33,12 @@ export const AlbumForm: FC<Props> = ({ form }) => {
         render={({ field, fieldState }) => (
           <Field data-invalid={fieldState.invalid}>
             <FieldLabel htmlFor="location">Location</FieldLabel>
-            <Input id="location" placeholder="Los Angeles, California" {...field} value={field.value ?? ''} />
+            <Input
+              id="location"
+              placeholder="Los Angeles, California"
+              {...field}
+              value={field.value ?? ''}
+            />
             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
           </Field>
         )}

@@ -30,6 +30,6 @@ export const router = createHashRouter(
         <Route path="cameras" element={<CameraSettings />} />
         <Route path="storage" element={<StorageSettings />} />
       </Route>
-    </Route>
-  )
+    </Route>,
+  ),
 );

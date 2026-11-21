@@ -57,9 +57,7 @@ export function RouteErrorFallback({ error, resetErrorBoundary }: FallbackProps)
           This page encountered an error. The rest of the app should still work.
         </p>
         {message && (
-          <pre className="mt-3 max-h-32 overflow-auto rounded bg-muted p-3 text-xs">
-            {message}
-          </pre>
+          <pre className="mt-3 max-h-32 overflow-auto rounded bg-muted p-3 text-xs">{message}</pre>
         )}
       </CardContent>
       <CardFooter>

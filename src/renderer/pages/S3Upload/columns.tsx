@@ -30,11 +30,7 @@ export function useImageColumns(opts: {
         header: 'Image',
         size: 80,
         cell: ({ row }) => (
-          <button
-            type="button"
-            className="cursor-pointer"
-            onClick={() => onPreview(row.original)}
-          >
+          <button type="button" className="cursor-pointer" onClick={() => onPreview(row.original)}>
             <img
               src={`data:image/jpeg;base64,${row.original.preview}`}
               alt={row.original.name}

@@ -4,13 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@ui/card';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@ui/field';
 import { Input } from '@ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select';
 import type { FC } from 'react';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -110,64 +104,64 @@ export const AWSCredentialsForm: FC = () => {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <CardContent className="pb-6">
           <FieldGroup>
-          <Controller
-            control={form.control}
-            name="accessKeyId"
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="accessKeyId">Access Key ID</FieldLabel>
-                <Input
-                  id="accessKeyId"
-                  placeholder="Access Key ID"
-                  {...field}
-                  type={showAccessKeyId ? 'text' : 'password'}
-                  onFocus={() => setShowAccessKeyId(true)}
-                  onBlur={() => setShowAccessKeyId(false)}
-                />
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-              </Field>
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="secretAccessKey"
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="secretAccessKey">Secret Access Key</FieldLabel>
-                <Input
-                  id="secretAccessKey"
-                  placeholder="Secrets access key"
-                  {...field}
-                  type={showSecretAccessKey ? 'text' : 'password'}
-                  onFocus={() => setShowSecretAccessKey(true)}
-                  onBlur={() => setShowSecretAccessKey(false)}
-                />
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-              </Field>
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="awsRegion"
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="awsRegion">Region</FieldLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger id="awsRegion">
-                    <SelectValue placeholder="Select a region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AWS_REGIONS.map((region) => (
-                      <SelectItem key={region} value={region}>
-                        {region}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-              </Field>
-            )}
-          />
+            <Controller
+              control={form.control}
+              name="accessKeyId"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="accessKeyId">Access Key ID</FieldLabel>
+                  <Input
+                    id="accessKeyId"
+                    placeholder="Access Key ID"
+                    {...field}
+                    type={showAccessKeyId ? 'text' : 'password'}
+                    onFocus={() => setShowAccessKeyId(true)}
+                    onBlur={() => setShowAccessKeyId(false)}
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="secretAccessKey"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="secretAccessKey">Secret Access Key</FieldLabel>
+                  <Input
+                    id="secretAccessKey"
+                    placeholder="Secrets access key"
+                    {...field}
+                    type={showSecretAccessKey ? 'text' : 'password'}
+                    onFocus={() => setShowSecretAccessKey(true)}
+                    onBlur={() => setShowSecretAccessKey(false)}
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="awsRegion"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor="awsRegion">Region</FieldLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger id="awsRegion">
+                      <SelectValue placeholder="Select a region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AWS_REGIONS.map((region) => (
+                        <SelectItem key={region} value={region}>
+                          {region}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
           </FieldGroup>
         </CardContent>
         <CardFooter className="border-t px-6 py-4">

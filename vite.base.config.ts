@@ -47,15 +47,18 @@ export function getBuildDefine(env: ConfigEnv<'build'>) {
   const { command, forgeConfig } = env;
   const names = forgeConfig.renderer.filter(({ name }) => name != null).map(({ name }) => name!);
   const defineKeys = getDefineKeys(names);
-  const define = Object.entries(defineKeys).reduce((acc, [name, keys]) => {
-    const { VITE_DEV_SERVER_URL, VITE_NAME } = keys;
-    const def = {
-      [VITE_DEV_SERVER_URL]:
-        command === 'serve' ? JSON.stringify(process.env[VITE_DEV_SERVER_URL]) : undefined,
-      [VITE_NAME]: JSON.stringify(name),
-    };
-    return { ...acc, ...def };
-  }, {} as Record<string, string | undefined>);
+  const define = Object.entries(defineKeys).reduce(
+    (acc, [name, keys]) => {
+      const { VITE_DEV_SERVER_URL, VITE_NAME } = keys;
+      const def = {
+        [VITE_DEV_SERVER_URL]:
+          command === 'serve' ? JSON.stringify(process.env[VITE_DEV_SERVER_URL]) : undefined,
+        [VITE_NAME]: JSON.stringify(name),
+      };
+      return { ...acc, ...def };
+    },
+    {} as Record<string, string | undefined>,
+  );
 
   return define;
 }
