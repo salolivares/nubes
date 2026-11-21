@@ -13,7 +13,8 @@ albums to S3 with metadata.
 - In a linked worktree, dev data (SQLite DB, photosets, saved credentials, logs, mock S3 bucket)
   lives in `.dev-data/`, so two worktrees can run `pnpm start` side by side. `make clean-dev-data`
   clears it. The main checkout keeps using `nubes-dev/` under the OS app data folder. Mock S3 is on
-  by default in dev. `NUBES_USER_DATA` overrides the folder and `NUBES_MOCK_S3=1|0` forces the S3 mode.
+  by default in dev. `NUBES_USER_DATA` overrides the folder and `NUBES_MOCK_S3=1|0` forces the S3
+  mode.
 - Never run `pnpm package`, `make package` or `pnpm test:e2e` (which packages) unless asked.
   `make package` also replaces the installed app in `/Applications`.
 - Main-process tests run under Electron's Node (`pnpm test:main`), because `better-sqlite3` is built
@@ -70,8 +71,8 @@ src/
 constants (`MAIN_WINDOW_VITE_DEV_SERVER_URL`, `MAIN_WINDOW_VITE_NAME`).
 
 Path aliases: `@/*` is `src/*`, `@client/*` is `src/renderer/*`, `@common` is `src/common`, `@ui/*`
-is `src/renderer/components/ui/*`. They are defined in `tsconfig.json` and repeated in the `resolve.alias` of each Vite and Vitest
-config. The main and Vitest-main configs only have `@` and `@common`.
+is `src/renderer/components/ui/*`. They are defined in `tsconfig.json` and
+repeated in the `resolve.alias` of each Vite and Vitest config. The main and Vitest-main configs only have `@` and `@common`.
 
 ## How the pieces talk
 
