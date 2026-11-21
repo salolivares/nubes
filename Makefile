@@ -1,14 +1,15 @@
 .PHONY: setup check format clean-dev-data lint typecheck dev package
 
+# Bare `make` keeps running lint, as it did before these targets were added.
+.DEFAULT_GOAL := lint
+
 setup:
 	pnpm install --frozen-lockfile
 
-# Same steps and order as .github/workflows/ci.yml. Make stops on the first failure.
+# Runs typecheck, lint, test and format:check in CI order (see package.json).
+# Stops on the first failure.
 check:
-	pnpm typecheck
-	pnpm lint
-	pnpm test
-	pnpm format:check
+	pnpm check
 
 format:
 	pnpm format
