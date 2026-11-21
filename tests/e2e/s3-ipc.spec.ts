@@ -20,8 +20,8 @@ test('renderer can list buckets through Electron IPC', async () => {
     cwd: path.resolve(import.meta.dirname, '../..'),
     env: {
       ...process.env,
-      NUBES_E2E: '1',
-      NUBES_E2E_USER_DATA: userDataPath,
+      NUBES_MOCK_S3: '1',
+      NUBES_USER_DATA: userDataPath,
     },
   });
 
@@ -52,14 +52,14 @@ test('renderer can create an album through Electron IPC', async () => {
   const userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'nubes-e2e-'));
   const runId = Date.now();
   const location = `E2E ${runId}`;
-  const albumPath = path.join(os.tmpdir(), 'nubes-mock', 'mock-photos-bucket', `2026-e2e-${runId}`);
+  const albumPath = path.join(userDataPath, 'mock-s3', 'mock-photos-bucket', `2026-e2e-${runId}`);
   const electronApp = await electron.launch({
     args: ['.'],
     cwd: path.resolve(import.meta.dirname, '../..'),
     env: {
       ...process.env,
-      NUBES_E2E: '1',
-      NUBES_E2E_USER_DATA: userDataPath,
+      NUBES_MOCK_S3: '1',
+      NUBES_USER_DATA: userDataPath,
     },
   });
 
@@ -85,10 +85,10 @@ test('renderer can create an album through Electron IPC', async () => {
     );
 
     expect(result).toEqual({ success: true });
+    await expect(fs.stat(albumPath)).resolves.toBeTruthy();
   } finally {
     await electronApp.close();
     await fs.rm(userDataPath, { recursive: true, force: true });
-    await fs.rm(albumPath, { recursive: true, force: true });
   }
 });
 
@@ -99,8 +99,8 @@ test('album creation rejects invalid input at the IPC boundary', async () => {
     cwd: path.resolve(import.meta.dirname, '../..'),
     env: {
       ...process.env,
-      NUBES_E2E: '1',
-      NUBES_E2E_USER_DATA: userDataPath,
+      NUBES_MOCK_S3: '1',
+      NUBES_USER_DATA: userDataPath,
     },
   });
 

@@ -5,33 +5,48 @@ import path from 'node:path';
 import { platform } from 'node:process';
 
 import { app } from 'electron';
+import baseLog from 'electron-log/main';
 
+import { readDotGitFile, resolveDevEnvironment } from './dev-environment';
 import { Database } from './drivers/database';
 import { MockS3, setS3Provider } from './drivers/s3';
 import { Storage } from './drivers/storage';
 import { restoreOrCreateWindow } from './mainWindow';
 
-const isE2E = !app.isPackaged && process.env.NUBES_E2E === '1';
-
 /**
- * In development, use a separate userData directory to avoid
- * polluting production data (database, config, photosets).
+ * Pick the userData folder and S3 mode before anything else runs.
+ *
+ * - Packaged builds keep Electron's default folder and real S3.
+ * - In dev, NUBES_USER_DATA wins, then `<worktree>/.dev-data` for linked git
+ *   worktrees, then `<appData>/nubes-dev`. Each folder has its own
+ *   single-instance lock, so parallel worktrees can each run the app.
+ * - In dev, S3 is mocked unless NUBES_MOCK_S3=0.
  *
  * IMPORTANT: This must run before anything that reads userData
  * (Storage, Database, etc.). Do not move this below other init code.
  */
-if (!app.isPackaged) {
-  app.setPath(
-    'userData',
-    isE2E && process.env.NUBES_E2E_USER_DATA
-      ? process.env.NUBES_E2E_USER_DATA
-      : path.join(app.getPath('appData'), 'nubes-dev'),
-  );
+const devEnvironment = resolveDevEnvironment({
+  isPackaged: app.isPackaged,
+  env: process.env,
+  appDataPath: app.getPath('appData'),
+  appRoot: app.getAppPath(),
+  dotGitFile: app.isPackaged ? null : readDotGitFile(app.getAppPath()),
+});
+if (devEnvironment.userDataPath) {
+  app.setPath('userData', devEnvironment.userDataPath);
+  // Keep electron-log's main.log next to the data too, not in the shared ~/Library/Logs/Nubes.
+  app.setAppLogsPath(path.join(devEnvironment.userDataPath, 'logs'));
 }
 
-if (isE2E) {
+const log = baseLog.scope('startup');
+
+if (devEnvironment.mockS3) {
   setS3Provider(new MockS3());
 }
+log.info(
+  `userData: ${app.getPath('userData')} (${devEnvironment.userDataSource}); ` +
+    `S3: ${devEnvironment.mockS3 ? 'mock' : 'real'} (${devEnvironment.mockS3Source})`,
+);
 
 /**
  * Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -48,6 +63,10 @@ if (platform === 'win32') {
  */
 const isSingleInstance = app.requestSingleInstanceLock();
 if (!isSingleInstance) {
+  log.error(
+    `Another Nubes instance already holds the lock for ${app.getPath('userData')}. ` +
+      'Quitting. Set NUBES_USER_DATA to a different folder to run a second instance.',
+  );
   app.quit();
   process.exit(0);
 }
