@@ -57,7 +57,7 @@ describe('AWSCredentialsForm', () => {
   it('enables save and calls storage on valid submit', async () => {
     // Pre-populate credentials so form loads with valid values already dirty
     vi.mocked(window.storage.secureRead)
-      .mockResolvedValueOnce('AKIA1234567890ABCDEF')   // accessKeyId
+      .mockResolvedValueOnce('AKIA1234567890ABCDEF') // accessKeyId
       .mockResolvedValueOnce('wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'); // secretAccessKey
     vi.mocked(window.storage.read).mockResolvedValueOnce('us-east-1');
 

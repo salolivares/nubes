@@ -11,7 +11,12 @@ import {
 import type { Album, ProcessedImage } from '@/common/types';
 import { batchPromises, metadataFilename, slugify } from '@/common/utils';
 
-import { ACCESS_KEY_ID, AWS_REGION, DEFAULT_AWS_REGION, SECRET_ACCESS_KEY } from '../../../common/constants';
+import {
+  ACCESS_KEY_ID,
+  AWS_REGION,
+  DEFAULT_AWS_REGION,
+  SECRET_ACCESS_KEY,
+} from '../../../common/constants';
 import { Storage } from '../storage';
 import type { IS3Provider } from './s3-provider';
 

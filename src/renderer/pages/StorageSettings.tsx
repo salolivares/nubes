@@ -96,16 +96,13 @@ export const StorageSettings = () => {
           <div>
             <h3 className="text-sm font-medium">Uploaded Photosets</h3>
             <p className="text-xs text-muted-foreground">
-              These photosets have been uploaded and their local cache can be
-              safely deleted.
+              These photosets have been uploaded and their local cache can be safely deleted.
             </p>
           </div>
           {photosets.length > 0 && (
             <AlertDialog>
               <AlertDialogTrigger
-                render={
-                  <Button variant="destructive" size="sm" disabled={deletingAll} />
-                }
+                render={<Button variant="destructive" size="sm" disabled={deletingAll} />}
               >
                 {deletingAll ? 'Deleting...' : 'Delete All'}
               </AlertDialogTrigger>
@@ -114,8 +111,8 @@ export const StorageSettings = () => {
                   <AlertDialogTitle>Delete all uploaded photosets?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will permanently delete {photosets.length} uploaded{' '}
-                    {photosets.length === 1 ? 'photoset' : 'photosets'} and
-                    their cached images from disk. This cannot be undone.
+                    {photosets.length === 1 ? 'photoset' : 'photosets'} and their cached images from
+                    disk. This cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -141,29 +138,17 @@ export const StorageSettings = () => {
         ) : (
           <ul className="divide-y divide-border">
             {photosets.map((ps) => (
-              <li
-                key={ps.id}
-                className="flex items-center justify-between px-6 py-3"
-              >
+              <li key={ps.id} className="flex items-center justify-between px-6 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{ps.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {ps.images.length}{' '}
-                    {ps.images.length === 1 ? 'image' : 'images'}
-                    {ps.uploadedAt && (
-                      <> &middot; Uploaded {formatDate(ps.uploadedAt)}</>
-                    )}
+                    {ps.images.length} {ps.images.length === 1 ? 'image' : 'images'}
+                    {ps.uploadedAt && <> &middot; Uploaded {formatDate(ps.uploadedAt)}</>}
                   </p>
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={deleting === ps.id}
-                      />
-                    }
+                    render={<Button variant="ghost" size="sm" disabled={deleting === ps.id} />}
                   >
                     <Trash2 className="h-4 w-4 text-muted-foreground" />
                   </AlertDialogTrigger>
@@ -171,17 +156,13 @@ export const StorageSettings = () => {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete "{ps.name}"?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete this photoset and its
-                        cached images from disk. The uploaded version in S3 is
-                        not affected.
+                        This will permanently delete this photoset and its cached images from disk.
+                        The uploaded version in S3 is not affected.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        onClick={() => handleDelete(ps.id)}
-                      >
+                      <AlertDialogAction variant="destructive" onClick={() => handleDelete(ps.id)}>
                         Delete
                       </AlertDialogAction>
                     </AlertDialogFooter>

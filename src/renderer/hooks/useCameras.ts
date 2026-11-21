@@ -1,4 +1,4 @@
-import { CAMERA_SORT_MODE_KEY,CAMERAS_STORAGE_KEY } from '@common';
+import { CAMERA_SORT_MODE_KEY, CAMERAS_STORAGE_KEY } from '@common';
 import { useCallback, useEffect, useState } from 'react';
 
 export type CameraSortMode = 'lastUsed' | 'custom';
@@ -65,14 +65,14 @@ export function useCameras() {
       const next = [...cameras, { name: trimmed, lastUsed: new Date().toISOString() }];
       await persist(next);
     },
-    [cameras, persist]
+    [cameras, persist],
   );
 
   const removeCamera = useCallback(
     async (name: string) => {
       await persist(cameras.filter((c) => c.name !== name));
     },
-    [cameras, persist]
+    [cameras, persist],
   );
 
   const touchCamera = useCallback(
@@ -84,7 +84,7 @@ export function useCameras() {
         : [...cameras, { name, lastUsed: now }];
       await persist(next);
     },
-    [cameras, persist]
+    [cameras, persist],
   );
 
   const renameCamera = useCallback(
@@ -95,14 +95,14 @@ export function useCameras() {
       const next = cameras.map((c) => (c.name === oldName ? { ...c, name: trimmed } : c));
       await persist(next);
     },
-    [cameras, persist]
+    [cameras, persist],
   );
 
   const reorderCameras = useCallback(
     async (reordered: CameraEntry[]) => {
       await persist(reordered);
     },
-    [persist]
+    [persist],
   );
 
   const setSortMode = useCallback(async (mode: CameraSortMode) => {

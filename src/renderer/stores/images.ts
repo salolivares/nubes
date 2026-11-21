@@ -77,7 +77,7 @@ export const useImageStore = create<State & Action>()((set) => ({
   setFilePreview: (filePath: string, preview: string) =>
     set((state) => ({
       files: state.files.map((file) =>
-        file.path === filePath ? Object.assign(file, { preview }) : file
+        file.path === filePath ? Object.assign(file, { preview }) : file,
       ),
     })),
   removeFile: (index: number) =>
@@ -121,10 +121,13 @@ export const useImageStore = create<State & Action>()((set) => ({
   setProcessed: (processed: boolean) => set({ processed }),
   initializeProcessingImages: () =>
     set((state) => {
-      const existingProcessingImages = state.processingImages.reduce((acc, img) => {
-        acc[img.name] = img;
-        return acc;
-      }, {} as Record<string, ProcessingImage>);
+      const existingProcessingImages = state.processingImages.reduce(
+        (acc, img) => {
+          acc[img.name] = img;
+          return acc;
+        },
+        {} as Record<string, ProcessingImage>,
+      );
 
       const updatedProcessingImages = state.files.map((file) => {
         const existingImage = existingProcessingImages[file.name];
@@ -156,6 +159,12 @@ export const useImageStore = create<State & Action>()((set) => ({
       state.files.forEach((file) => {
         if (file.preview?.startsWith('blob:')) URL.revokeObjectURL(file.preview);
       });
-      return { photosetId: null, files: [], processingImages: [], processedImages: [], processed: false };
+      return {
+        photosetId: null,
+        files: [],
+        processingImages: [],
+        processedImages: [],
+        processed: false,
+      };
     }),
 }));

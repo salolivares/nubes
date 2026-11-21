@@ -26,7 +26,7 @@ describe('metadataFilename', () => {
   });
 
   it('handles names with special characters', () => {
-    expect(metadataFilename(2023, "Bob's Trip!")).toBe("2023-bobs-trip.json");
+    expect(metadataFilename(2023, "Bob's Trip!")).toBe('2023-bobs-trip.json');
   });
 });
 

@@ -5,7 +5,11 @@ import { dialog } from 'electron';
 import sharp from 'sharp';
 import { z } from 'zod';
 
-import { IMAGE_PICKER_OPEN, IMAGE_PICKER_READ_PREVIEW, IMAGE_PICKER_READ_THUMBNAIL } from '@/common';
+import {
+  IMAGE_PICKER_OPEN,
+  IMAGE_PICKER_READ_PREVIEW,
+  IMAGE_PICKER_READ_THUMBNAIL,
+} from '@/common';
 import { handle } from '@/main/ipc';
 
 const THUMBNAIL_WIDTH = 200;

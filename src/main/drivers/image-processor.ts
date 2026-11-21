@@ -73,7 +73,9 @@ async function processImage(
 
   if (!dryRun) {
     const totalBytes = imagePaths.reduce((sum, p) => sum + p.byteLength, 0);
-    log.debug(`"${name}": ${imagePaths.length} variants, ${(totalBytes / 1024).toFixed(1)} KB total`);
+    log.debug(
+      `"${name}": ${imagePaths.length} variants, ${(totalBytes / 1024).toFixed(1)} KB total`,
+    );
   }
 
   return { id, name, imagePaths, preview };

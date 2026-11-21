@@ -80,9 +80,9 @@ describe('useImageStore', () => {
 
     it('preserves existing progress for known files', () => {
       useImageStore.getState().addFiles([makeFile('a.jpg'), makeFile('b.jpg')]);
-      useImageStore.getState().setProcessingImages([
-        { name: 'a.jpg', progress: 50, file: makeFile('a.jpg') },
-      ]);
+      useImageStore
+        .getState()
+        .setProcessingImages([{ name: 'a.jpg', progress: 50, file: makeFile('a.jpg') }]);
       useImageStore.getState().initializeProcessingImages();
 
       const { processingImages } = useImageStore.getState();
@@ -99,7 +99,9 @@ describe('useImageStore', () => {
 
     it('updates matching image by id', () => {
       useImageStore.getState().setProcessedImages(images);
-      useImageStore.getState().setProcessedImage('img1', { name: 'Golden Sunset', camera: 'Sony A7' });
+      useImageStore
+        .getState()
+        .setProcessedImage('img1', { name: 'Golden Sunset', camera: 'Sony A7' });
 
       const updated = useImageStore.getState().processedImages;
       expect(updated[0].name).toBe('Golden Sunset');

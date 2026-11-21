@@ -77,7 +77,11 @@ export class MockS3 implements IS3Provider {
       })),
     };
 
-    const slug = album.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
+    const slug = album.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-');
     await fsp.writeFile(path.join(albumDir, `${slug}.json`), JSON.stringify(metadata, null, 2));
 
     console.log(`[MockS3] Album written to: ${albumDir}`);

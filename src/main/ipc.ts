@@ -26,9 +26,10 @@ export function handle(
 ): void {
   const hasSchema = typeof schemaOrHandler !== 'function';
   const schema = hasSchema ? (schemaOrHandler as z.ZodType) : undefined;
-  const handler = (
-    hasSchema ? handlerOrOptions : schemaOrHandler
-  ) as (event: Electron.IpcMainInvokeEvent, args: unknown) => unknown;
+  const handler = (hasSchema ? handlerOrOptions : schemaOrHandler) as (
+    event: Electron.IpcMainInvokeEvent,
+    args: unknown,
+  ) => unknown;
 
   ipcMain.handle(channel, async (event, rawArgs) => {
     try {
@@ -63,9 +64,10 @@ export function on(
 ): void {
   const hasSchema = typeof schemaOrHandler !== 'function';
   const schema = hasSchema ? (schemaOrHandler as z.ZodType) : undefined;
-  const handler = (
-    hasSchema ? handlerOrOptions : schemaOrHandler
-  ) as (event: Electron.IpcMainEvent, args: unknown) => void;
+  const handler = (hasSchema ? handlerOrOptions : schemaOrHandler) as (
+    event: Electron.IpcMainEvent,
+    args: unknown,
+  ) => void;
 
   ipcMain.on(channel, (event, rawArgs) => {
     try {

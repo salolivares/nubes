@@ -92,7 +92,7 @@ export function CameraCombobox({ value, cameras, onSelect, onAdd }: CameraCombob
               'flex h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm',
               'border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background',
               'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              !value && 'text-muted-foreground'
+              !value && 'text-muted-foreground',
             )}
           />
         }
@@ -128,7 +128,7 @@ export function CameraCombobox({ value, cameras, onSelect, onAdd }: CameraCombob
               className={cn(
                 'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
                 highlightIndex === i && 'bg-accent text-accent-foreground',
-                'hover:bg-accent hover:text-accent-foreground'
+                'hover:bg-accent hover:text-accent-foreground',
               )}
               onMouseEnter={() => setHighlightIndex(i)}
               onClick={() => handleSelect(camera.name)}
@@ -145,7 +145,7 @@ export function CameraCombobox({ value, cameras, onSelect, onAdd }: CameraCombob
               className={cn(
                 'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground',
                 highlightIndex === filtered.length && 'bg-accent text-accent-foreground',
-                'hover:bg-accent hover:text-accent-foreground'
+                'hover:bg-accent hover:text-accent-foreground',
               )}
               onMouseEnter={() => setHighlightIndex(filtered.length)}
               onClick={handleAdd}

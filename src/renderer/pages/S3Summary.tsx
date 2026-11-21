@@ -33,15 +33,13 @@ export const S3Summary = () => {
       .finally(() => setLoading(false));
   }, [photosetId]);
 
-  const totalSize = photoset?.images.reduce(
-    (sum, img) => sum + img.outputs.reduce((s, p) => s + p.byteLength, 0),
-    0,
-  ) ?? 0;
+  const totalSize =
+    photoset?.images.reduce(
+      (sum, img) => sum + img.outputs.reduce((s, p) => s + p.byteLength, 0),
+      0,
+    ) ?? 0;
 
-  const totalFiles = photoset?.images.reduce(
-    (sum, img) => sum + img.outputs.length,
-    0,
-  ) ?? 0;
+  const totalFiles = photoset?.images.reduce((sum, img) => sum + img.outputs.length, 0) ?? 0;
 
   const handleStartOver = () => {
     reset();

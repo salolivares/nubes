@@ -239,7 +239,12 @@ describe('IPC arg schemas', () => {
   it('photosetCreateArgsSchema requires name, bucketName, location, and year', () => {
     expect(() => photosetCreateArgsSchema.parse({})).toThrow();
     expect(() => photosetCreateArgsSchema.parse({ name: 'Test', bucketName: 'bucket' })).toThrow();
-    const result = photosetCreateArgsSchema.parse({ name: 'Test', bucketName: 'bucket', location: 'Paris', year: 2024 });
+    const result = photosetCreateArgsSchema.parse({
+      name: 'Test',
+      bucketName: 'bucket',
+      location: 'Paris',
+      year: 2024,
+    });
     expect(result.name).toBe('Test');
   });
 

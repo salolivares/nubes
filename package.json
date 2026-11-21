@@ -25,6 +25,8 @@
     "test:watch": "ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron ./node_modules/vitest/vitest.mjs --config vitest.config.main.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "devDependencies": {

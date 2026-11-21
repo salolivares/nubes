@@ -18,7 +18,8 @@ export function useImageColumns(opts: {
   onRemove: (image: DbImage) => void;
   disabled?: boolean;
 }): ColumnDef<DbImage>[] {
-  const { cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove, disabled } = opts;
+  const { cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove, disabled } =
+    opts;
 
   return useMemo<ColumnDef<DbImage>[]>(
     () => [
