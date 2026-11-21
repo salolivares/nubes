@@ -72,7 +72,8 @@ constants (`MAIN_WINDOW_VITE_DEV_SERVER_URL`, `MAIN_WINDOW_VITE_NAME`).
 
 Path aliases: `@/*` is `src/*`, `@client/*` is `src/renderer/*`, `@common` is `src/common`, `@ui/*`
 is `src/renderer/components/ui/*`. They are defined in `tsconfig.json` and
-repeated in the `resolve.alias` of each Vite and Vitest config. The main and Vitest-main configs only have `@` and `@common`.
+repeated in the `resolve.alias` of each Vite and Vitest config. The main and Vitest-main configs only
+have `@` and `@common`.
 
 ## How the pieces talk
 
