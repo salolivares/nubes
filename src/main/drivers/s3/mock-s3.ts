@@ -29,8 +29,11 @@ const MOCK_IMAGES: Record<string, string[]> = {
   'mock-portfolio-bucket': [],
 };
 
+export const MOCK_S3_DIR = 'mock-s3';
+
+/** Mock bucket files live under userData so each worktree gets its own. */
 function getMockBasePath(): string {
-  return path.join(app.getPath('temp'), 'nubes-mock');
+  return path.join(app.getPath('userData'), MOCK_S3_DIR);
 }
 
 function albumDirName(album: Album): string {

@@ -26,8 +26,6 @@ export function addDebugEventListeners() {
     return;
   }
 
-  setS3Provider(new MockS3());
-
   handle(DEBUG_SET_MOCK_S3, z.boolean(), (_, enabled) => {
     if (enabled) {
       setS3Provider(new MockS3());

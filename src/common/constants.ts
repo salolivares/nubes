@@ -59,6 +59,7 @@ export const CACHE_GET_USAGE = `${CACHE_CHANNEL}:getUsage`;
 export const S3_CHANNEL = 's3';
 export const S3_LIST_BUCKETS = `${S3_CHANNEL}:listBuckets`;
 export const S3_CREATE_ALBUM = `${S3_CHANNEL}:createAlbum`;
+export const S3_IS_MOCK = `${S3_CHANNEL}:isMock`;
 
 export const IMAGE_PROCESSOR_CHANNEL = 'image-processor';
 export const IMAGE_PROCESSOR_RESIZE = `${IMAGE_PROCESSOR_CHANNEL}:resize`;

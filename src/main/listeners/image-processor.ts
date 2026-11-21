@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { BrowserWindow } from 'electron';
 import { app, MessageChannelMain, utilityProcess } from 'electron';
+import baseLog from 'electron-log/main';
 
 import {
   IMAGE_PROCESSOR_COMPLETE,
@@ -20,7 +21,11 @@ function createImageProcessor() {
   port1.start();
   port2.start();
 
-  const imageProcessor = utilityProcess.fork(path.join(__dirname, './image-processor.js'));
+  // The worker has no `app`, so electron-log can't see the main process's log path.
+  // Hand it the resolved file so both processes write to the same per-userData log.
+  const imageProcessor = utilityProcess.fork(path.join(__dirname, './image-processor.js'), [], {
+    env: { ...process.env, NUBES_LOG_FILE: baseLog.transports.file.getFile().path },
+  });
 
   app.on('before-quit', () => {
     if (imageProcessor.kill()) {

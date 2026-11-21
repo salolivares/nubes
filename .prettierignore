@@ -8,6 +8,9 @@ pnpm-lock.yaml
 skills-lock.json
 .electron-vendors.cache.json
 
+# Per-worktree dev app data
+.dev-data
+
 .github
 .idea
 

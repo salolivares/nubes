@@ -28,6 +28,12 @@ export default defineConfig((env) => {
         '@ui': path.resolve(__dirname, './src/renderer/components/ui'),
       },
     },
+    server: {
+      watch: {
+        // Chromium caches and DevTools extensions under .dev-data churn constantly.
+        ignored: ['**/.dev-data/**'],
+      },
+    },
     clearScreen: false,
   } as UserConfig;
 });

@@ -6,7 +6,17 @@ import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  { ignores: ['node_modules/**', '**/dist/**', '.vite/**', 'out/**', '*.config.js', '.*.cjs'] },
+  {
+    ignores: [
+      'node_modules/**',
+      '**/dist/**',
+      '.vite/**',
+      'out/**',
+      '*.config.js',
+      '.*.cjs',
+      '.dev-data/**',
+    ],
+  },
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {

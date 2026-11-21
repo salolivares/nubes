@@ -94,3 +94,6 @@ playwright-report/
 
 # Electron-Forge
 out/
+
+# Per-worktree dev app data (userData, mock S3, logs)
+.dev-data/

@@ -8,6 +8,11 @@ import sharp from 'sharp';
 import { IMAGE_PROCESSOR_COMPLETE, IMAGE_PROCESSOR_PROGRESS } from '@/common';
 import type { ProcessedImage } from '@/common/types';
 
+const logFile = process.env.NUBES_LOG_FILE;
+if (logFile) {
+  baseLog.transports.file.resolvePathFn = () => logFile;
+}
+
 const log = baseLog.scope('ImageProcessor');
 
 async function processImage(

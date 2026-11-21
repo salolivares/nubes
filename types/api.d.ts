@@ -85,6 +85,8 @@ declare global {
   }
 
   interface S3Context {
+    /** True when uploads go to the local mock bucket instead of AWS. */
+    isMock: () => Promise<boolean>;
     listBuckets: () => Promise<Bucket[]>;
     createAlbum: (args: S3CreateAlbumArgs) => Promise<{ success: boolean }>;
   }

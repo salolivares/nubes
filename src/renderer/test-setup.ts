@@ -47,6 +47,7 @@ window.photosets = {
 };
 
 window.s3 = {
+  isMock: vi.fn().mockResolvedValue(false),
   listBuckets: vi.fn().mockResolvedValue([]),
   createAlbum: vi.fn().mockResolvedValue({ success: true }),
 };
