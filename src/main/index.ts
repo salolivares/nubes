@@ -34,8 +34,11 @@ const devEnvironment = resolveDevEnvironment({
 });
 if (devEnvironment.userDataPath) {
   app.setPath('userData', devEnvironment.userDataPath);
-  // Keep electron-log's main.log next to the data too, not in the shared ~/Library/Logs/Nubes.
-  app.setAppLogsPath(path.join(devEnvironment.userDataPath, 'logs'));
+  // Keep logs next to the data, not in the shared ~/Library/Logs/Nubes. electron-log
+  // ignores app.getPath('logs') on macOS by default, so point its file transport there too.
+  const logsDir = path.join(devEnvironment.userDataPath, 'logs');
+  app.setAppLogsPath(logsDir);
+  baseLog.transports.file.resolvePathFn = (vars) => path.join(logsDir, vars.fileName ?? 'main.log');
 }
 
 const log = baseLog.scope('startup');
@@ -47,6 +50,9 @@ log.info(
   `userData: ${app.getPath('userData')} (${devEnvironment.userDataSource}); ` +
     `S3: ${devEnvironment.mockS3 ? 'mock' : 'real'} (${devEnvironment.mockS3Source})`,
 );
+if (!app.isPackaged && process.env.NUBES_MOCK_S3 && devEnvironment.mockS3Source !== 'env') {
+  log.warn(`Ignoring NUBES_MOCK_S3=${process.env.NUBES_MOCK_S3}. Use 1 or 0.`);
+}
 
 /**
  * Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -64,8 +70,10 @@ if (platform === 'win32') {
 const isSingleInstance = app.requestSingleInstanceLock();
 if (!isSingleInstance) {
   log.error(
-    `Another Nubes instance already holds the lock for ${app.getPath('userData')}. ` +
-      'Quitting. Set NUBES_USER_DATA to a different folder to run a second instance.',
+    `Another Nubes instance already holds the lock for ${app.getPath('userData')}. Quitting.` +
+      (app.isPackaged
+        ? ''
+        : ' Set NUBES_USER_DATA to a different folder to run a second instance.'),
   );
   app.quit();
   process.exit(0);

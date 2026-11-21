@@ -78,8 +78,9 @@ export function resolveDevEnvironment(input: DevEnvironmentInput): DevEnvironmen
 
   let userDataPath: string;
   let userDataSource: UserDataSource;
-  if (env.NUBES_USER_DATA) {
-    userDataPath = path.resolve(env.NUBES_USER_DATA);
+  const envUserData = env.NUBES_USER_DATA?.trim();
+  if (envUserData) {
+    userDataPath = path.resolve(envUserData);
     userDataSource = 'env';
   } else if (dotGitFile !== null && isLinkedWorktreeGitFile(dotGitFile, appRoot)) {
     userDataPath = path.join(appRoot, DEV_DATA_DIR);

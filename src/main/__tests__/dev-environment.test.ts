@@ -131,9 +131,11 @@ describe('resolveDevEnvironment', () => {
     expect(result.userDataSource).toBe('env');
   });
 
-  it('ignores an empty NUBES_USER_DATA', () => {
-    const result = resolveDevEnvironment(input({ env: { NUBES_USER_DATA: '' } }));
-    expect(result.userDataSource).toBe('dev-default');
+  it('ignores an empty or blank NUBES_USER_DATA', () => {
+    for (const value of ['', '   ']) {
+      const result = resolveDevEnvironment(input({ env: { NUBES_USER_DATA: value } }));
+      expect(result.userDataSource).toBe('dev-default');
+    }
   });
 
   it('defaults to mock S3 in dev', () => {

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
 
 interface TestS3Context {
+  isMock: () => Promise<boolean>;
   listBuckets: () => Promise<Array<{ Name?: string; CreationDate?: Date }>>;
   createAlbum: (args: {
     bucketName: string;
@@ -37,6 +38,10 @@ test('renderer can list buckets through Electron IPC', async () => {
         creationDateIsDate: bucket.CreationDate instanceof Date,
       }));
     });
+
+    expect(
+      await page.evaluate(() => (window as Window & { s3?: TestS3Context }).s3?.isMock()),
+    ).toBe(true);
 
     expect(buckets).toContainEqual({
       name: 'mock-photos-bucket',
