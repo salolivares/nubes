@@ -59,13 +59,26 @@ export class MockS3 implements IS3Provider {
     const albumDir = path.join(basePath, bucketName, albumDirName(album));
     await fsp.mkdir(albumDir, { recursive: true });
 
+    // Same contract as real S3: log each failed file with its key, keep going, and report
+    // `{ success: false }` without writing metadata.
+    let failed = false;
     for (const image of images) {
       for (const outputImage of image.imagePaths) {
         const { imagePath, type, resolution } = outputImage;
         const destName = `${image.name.replace(/\s+/g, '-').toLowerCase()}_${resolution}.${type}`;
-        const destPath = path.join(albumDir, destName);
-        await fsp.copyFile(imagePath, destPath);
+        try {
+          await fsp.copyFile(imagePath, path.join(albumDir, destName));
+        } catch (error) {
+          console.error(
+            `[MockS3] Failed to upload image ${albumDirName(album)}/${destName}:`,
+            error,
+          );
+          failed = true;
+        }
       }
+    }
+    if (failed) {
+      return { success: false };
     }
 
     const metadata = {
@@ -85,7 +98,15 @@ export class MockS3 implements IS3Provider {
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
       .replace(/-+/g, '-');
-    await fsp.writeFile(path.join(albumDir, `${slug}.json`), JSON.stringify(metadata, null, 2));
+    try {
+      await fsp.writeFile(path.join(albumDir, `${slug}.json`), JSON.stringify(metadata, null, 2));
+    } catch (error) {
+      console.error(
+        `[MockS3] Failed to upload metadata ${albumDirName(album)}/${slug}.json:`,
+        error,
+      );
+      return { success: false };
+    }
 
     console.log(`[MockS3] Album written to: ${albumDir}`);
     return { success: true };
