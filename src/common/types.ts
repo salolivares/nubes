@@ -302,6 +302,9 @@ export const photosetAddImagesArgsSchema = z.object({
 
 export type PhotosetAddImagesArgs = z.infer<typeof photosetAddImagesArgsSchema>;
 
+export const photosetShowInFolderArgsSchema = z.object({ filePath: z.string() });
+export type PhotosetShowInFolderArgs = z.infer<typeof photosetShowInFolderArgsSchema>;
+
 export const photosetRemoveFilesArgsSchema = z.object({
   filePaths: z.array(z.string()),
 });

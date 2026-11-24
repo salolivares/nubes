@@ -17,6 +17,8 @@ import { imageJobIdArgsSchema, imageProcessorResizeArgsSchema } from '@/common/t
 import type { WorkerHandle, WorkerHooks } from '@/main/drivers/image-worker/supervisor';
 import { ImageWorkerSupervisor } from '@/main/drivers/image-worker/supervisor';
 import { broadcast, handle } from '@/main/ipc';
+import { mediaAccess } from '@/main/media';
+import { assertResizePaths } from '@/main/media/guards';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const log = baseLog.scope('ImageWorkerSupervisor');
@@ -84,7 +86,9 @@ export function addImageProcessorEventListeners() {
     jobs.add(jobId);
   };
 
-  handle(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, (event, { imagePaths }) => {
+  handle(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, async (event, { imagePaths }) => {
+    // The worker reads whatever it is sent, so the allowlist check happens here.
+    await assertResizePaths(mediaAccess, imagePaths);
     const job = imageWorker.submit(imagePaths);
     trackJob(event.sender, job.jobId);
     return job;
