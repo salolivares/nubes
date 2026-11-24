@@ -28,6 +28,20 @@ export function isWithin(root: string, child: string): boolean {
   return rel.split(path.sep)[0] !== '..';
 }
 
+/** `..` as a segment, with either separator. */
+function hasTraversal(filePath: string): boolean {
+  return filePath.split(/[\\/]/).includes('..');
+}
+
+/**
+ * Windows paths that reach devices or alternate data streams: `\\?\`, `\\.\` and a `:` anywhere
+ * but after the drive letter (`photo.jpg:secret`).
+ */
+export function isWindowsSpecialPath(filePath: string, sep: string): boolean {
+  if (sep !== '\\') return false;
+  return /^[\\/]{2}[?.][\\/]/.test(filePath) || filePath.indexOf(':', 2) !== -1;
+}
+
 /** Resolve symlinks. Returns null when the path doesn't exist or isn't a regular file. */
 async function realFile(filePath: string): Promise<string | null> {
   try {
@@ -48,9 +62,15 @@ async function realFile(filePath: string): Promise<string | null> {
  * The renderer can't add to it.
  */
 export class MediaAccess {
+  /** Real paths of picked files. */
   private readonly picked = new Set<string>();
+  /** The paths as they were picked, normalized. Lets resolve() gate a request before any disk I/O. */
+  private readonly pickedInputs = new Set<string>();
 
-  constructor(private readonly roots: () => string[]) {}
+  constructor(
+    private readonly roots: () => string[],
+    private readonly sep: string = path.sep,
+  ) {}
 
   /**
    * The single entry point for "the user picked this file". Call it from main with paths that
@@ -60,12 +80,19 @@ export class MediaAccess {
   async allowPickedFiles(filePaths: string[]): Promise<string[]> {
     const accepted: string[] = [];
     for (const filePath of filePaths) {
-      if (!path.isAbsolute(filePath) || filePath.includes('\0') || !isImagePath(filePath)) {
+      if (
+        !path.isAbsolute(filePath) ||
+        filePath.includes('\0') ||
+        hasTraversal(filePath) ||
+        isWindowsSpecialPath(filePath, this.sep) ||
+        !isImagePath(filePath)
+      ) {
         continue;
       }
       const real = await realFile(filePath);
       if (!real || !isImagePath(real)) continue;
       this.picked.add(real);
+      this.pickedInputs.add(path.resolve(filePath));
       accepted.push(filePath);
     }
     return accepted;
@@ -74,6 +101,7 @@ export class MediaAccess {
   /** Forget every picked file. Tests use this; the app keeps picks until it quits. */
   clearPicked(): void {
     this.picked.clear();
+    this.pickedInputs.clear();
   }
 
   async resolve(requestUrl: string): Promise<MediaResolution> {
@@ -100,17 +128,32 @@ export class MediaAccess {
     }
 
     let width: number | undefined;
-    const w = url.searchParams.get('w');
-    if (w !== null) {
-      if (w !== String(MEDIA_THUMBNAIL_WIDTH)) return deny(400, 'unsupported width');
+    const params = [...url.searchParams.keys()];
+    if (params.length > 0) {
+      if (params.length > 1 || params[0] !== 'w') return deny(400, 'unsupported query');
+      if (url.searchParams.get('w') !== String(MEDIA_THUMBNAIL_WIDTH)) {
+        return deny(400, 'unsupported width');
+      }
       width = MEDIA_THUMBNAIL_WIDTH;
     }
 
     if (requested.includes('\0')) return deny(400, 'NUL in path');
     if (!path.isAbsolute(requested)) return deny(403, 'path is not absolute');
     // Reject traversal outright instead of trusting normalization to land somewhere safe.
-    if (requested.split(/[\\/]/).includes('..')) return deny(403, 'path contains ..');
+    if (hasTraversal(requested)) return deny(403, 'path contains ..');
+    if (isWindowsSpecialPath(requested, this.sep)) return deny(403, 'device or stream path');
     if (!isImagePath(requested)) return deny(403, 'not an image');
+
+    // Gate on the path as written before touching the disk. realpath() on an arbitrary path could
+    // open a UNC share (an SMB connection that leaks NTLM hashes) or a device.
+    const realRoots = await this.realRoots();
+    const normalized = path.resolve(requested);
+    const plausible =
+      this.pickedInputs.has(normalized) ||
+      this.picked.has(normalized) ||
+      this.roots().some((root) => isWithin(path.resolve(root), normalized)) ||
+      realRoots.some((root) => isWithin(root, normalized));
+    if (!plausible) return deny(403, 'outside allowed roots');
 
     const real = await realFile(requested);
     if (!real) return deny(404, 'not found');
@@ -118,17 +161,21 @@ export class MediaAccess {
     if (!isImagePath(real)) return deny(403, 'not an image');
 
     if (this.picked.has(real)) return { ok: true, filePath: real, width };
-
-    for (const root of this.roots()) {
-      let realRoot: string;
-      try {
-        realRoot = await fsp.realpath(root);
-      } catch {
-        continue;
-      }
-      if (isWithin(realRoot, real)) return { ok: true, filePath: real, width };
-    }
+    if (realRoots.some((root) => isWithin(root, real))) return { ok: true, filePath: real, width };
 
     return deny(403, 'outside allowed roots');
+  }
+
+  /** The roots with symlinks resolved. Roots that don't exist yet are skipped. */
+  private async realRoots(): Promise<string[]> {
+    const real: string[] = [];
+    for (const root of this.roots()) {
+      try {
+        real.push(await fsp.realpath(root));
+      } catch {
+        // No photosets folder yet.
+      }
+    }
+    return real;
   }
 }

@@ -52,7 +52,9 @@ export function registerMediaProtocol() {
 
     try {
       if (result.width) {
+        // rotate() applies EXIF orientation, which the jpeg re-encode would otherwise drop.
         const buffer = await sharp(result.filePath)
+          .rotate()
           .resize({ width: result.width })
           .jpeg({ quality: 80 })
           .toBuffer();

@@ -34,8 +34,14 @@ export function useImageColumns(opts: {
         id: 'thumbnail',
         header: 'Image',
         size: 80,
-        cell: ({ row }) =>
-          row.original.preview || row.original.outputs.length > 0 ? (
+        cell: ({ row }) => {
+          const placeholder = (
+            <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
+              <ImageIcon className="h-6 w-6 text-muted-foreground" />
+            </div>
+          );
+          if (!row.original.preview && row.original.outputs.length === 0) return placeholder;
+          return (
             <button
               type="button"
               className="cursor-pointer"
@@ -48,13 +54,11 @@ export function useImageColumns(opts: {
                 width={64}
                 height={64}
                 className="aspect-square object-cover rounded-md"
+                placeholder={placeholder}
               />
             </button>
-          ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
-              <ImageIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-          ),
+          );
+        },
       },
       {
         accessorKey: 'name',

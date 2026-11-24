@@ -1,4 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
+import { ImageIcon } from 'lucide-react';
 import { useMemo } from 'react';
 
 import type { ProcessedImage } from '@/common/types';
@@ -39,6 +40,11 @@ export function useImageColumns(opts: {
               width={64}
               height={64}
               className="aspect-square object-cover rounded-md"
+              placeholder={
+                <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
+                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+              }
             />
           </button>
         ),

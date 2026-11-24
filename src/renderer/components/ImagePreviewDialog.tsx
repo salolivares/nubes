@@ -30,7 +30,15 @@ export function ImagePreviewDialog({
   const src = hiResSrc ?? previewDataUrl(image?.preview);
 
   return (
-    <Dialog open={!!image} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={!!image}
+      onOpenChange={(open) => {
+        if (open) return;
+        // Retry the hi-res file next time, in case it was regenerated at the same path.
+        setFailedPath(null);
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-2xl p-2">
         <DialogTitle className="sr-only">{image?.name ?? 'Image preview'}</DialogTitle>
         {src && (

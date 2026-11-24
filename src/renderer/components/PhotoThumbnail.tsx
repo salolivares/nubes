@@ -18,9 +18,12 @@ export function PhotoThumbnail({
   placeholder?: ReactNode;
 } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
   const sources = [thumbnailUrl(outputs), previewDataUrl(preview)].filter((s): s is string => !!s);
-  const [failed, setFailed] = useState(0);
+  // Count failures per set of sources, so new outputs (a refetch, a reused row) start fresh.
+  const key = sources.join('\n');
+  const [failures, setFailures] = useState({ key, count: 0 });
+  const failed = failures.key === key ? failures.count : 0;
   const src = sources[failed];
 
   if (!src) return <>{placeholder}</>;
-  return <img {...imgProps} src={src} onError={() => setFailed((n) => n + 1)} />;
+  return <img {...imgProps} src={src} onError={() => setFailures({ key, count: failed + 1 })} />;
 }

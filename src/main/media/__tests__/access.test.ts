@@ -3,10 +3,10 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mediaUrl } from '@/common/media-url';
-import { isWithin, MediaAccess } from '@/main/media/access';
+import { isWindowsSpecialPath, isWithin, MediaAccess } from '@/main/media/access';
 
 let tmpDir: string;
 let photosetsDir: string;
@@ -30,6 +30,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await fsp.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -147,7 +148,41 @@ describe('MediaAccess.resolve', () => {
   });
 });
 
+describe('MediaAccess.resolve before disk access', () => {
+  it('rejects a path outside the roots without calling realpath on it', async () => {
+    const realpath = vi.spyOn(fsp, 'realpath');
+    // On Windows this is a UNC share; realpath() on it would open an SMB connection.
+    const unc = '//attacker.example/share/a.jpg';
+    expect(await access.resolve(mediaUrl(unc))).toMatchObject({ ok: false, status: 403 });
+    expect(realpath.mock.calls.map(([p]) => String(p))).not.toContain(unc);
+    // The spy did see calls: only the trusted root was resolved.
+    expect(realpath.mock.calls.map(([p]) => String(p))).toEqual([photosetsDir]);
+  });
+
+  it('rejects extra or repeated query params', async () => {
+    const file = write(path.join(photosetsDir, 'a.jpg'));
+    expect(await access.resolve(`${mediaUrl(file)}?w=200&x=1`)).toMatchObject({ status: 400 });
+    expect(await access.resolve(`${mediaUrl(file)}?w=200&w=200`)).toMatchObject({ status: 400 });
+  });
+});
+
+describe('isWindowsSpecialPath', () => {
+  it('flags device paths and alternate data streams on Windows only', () => {
+    expect(isWindowsSpecialPath('\\\\?\\C:\\a.jpg', '\\')).toBe(true);
+    expect(isWindowsSpecialPath('\\\\.\\pipe\\a.jpg', '\\')).toBe(true);
+    expect(isWindowsSpecialPath('C:\\p\\a.jpg:secret', '\\')).toBe(true);
+    expect(isWindowsSpecialPath('C:\\p\\a.jpg', '\\')).toBe(false);
+    expect(isWindowsSpecialPath('/p/a:b.jpg', '/')).toBe(false);
+  });
+});
+
 describe('MediaAccess.allowPickedFiles', () => {
+  it('skips paths with .. segments', async () => {
+    write(path.join(outsideDir, 'ok.jpg'));
+    const raw = `${outsideDir}${path.sep}..${path.sep}outside${path.sep}ok.jpg`;
+    expect(await access.allowPickedFiles([raw])).toEqual([]);
+  });
+
   it('skips relative paths, non-images, folders and missing files', async () => {
     const image = write(path.join(outsideDir, 'ok.png'));
     const text = write(path.join(outsideDir, 'notes.txt'));
