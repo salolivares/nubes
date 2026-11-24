@@ -98,7 +98,15 @@ export class MockS3 implements IS3Provider {
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
       .replace(/-+/g, '-');
-    await fsp.writeFile(path.join(albumDir, `${slug}.json`), JSON.stringify(metadata, null, 2));
+    try {
+      await fsp.writeFile(path.join(albumDir, `${slug}.json`), JSON.stringify(metadata, null, 2));
+    } catch (error) {
+      console.error(
+        `[MockS3] Failed to upload metadata ${albumDirName(album)}/${slug}.json:`,
+        error,
+      );
+      return { success: false };
+    }
 
     console.log(`[MockS3] Album written to: ${albumDir}`);
     return { success: true };

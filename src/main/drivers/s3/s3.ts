@@ -139,8 +139,6 @@ export class S3 implements IS3Provider {
    * Creates a json file in the bucket with metadata about the album.
    */
   private async createAlbumMetadata(bucketName: string, album: Album, images: ProcessedImage[]) {
-    const client = this.requireClient();
-
     const prefix = `${album.year}-${slugify(album.location)}`;
     const key = `${prefix}/${metadataFilename(album.year, album.name)}`;
     // Create the metadata object that matches the JSON structure
@@ -167,7 +165,7 @@ export class S3 implements IS3Provider {
     });
 
     try {
-      return await client.send(uploadCommand);
+      return await this.requireClient().send(uploadCommand);
     } catch (err) {
       console.error(`Failed to upload metadata ${key}:`, err);
       throw err;

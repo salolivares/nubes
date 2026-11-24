@@ -64,6 +64,23 @@ describe('S3.createAlbum', () => {
     expect(sent.some((key) => key.endsWith('.json'))).toBe(false);
   });
 
+  it('logs a failed metadata upload with its key', async () => {
+    const failure = new Error('SlowDown');
+    vi.spyOn(S3Client.prototype, 'send').mockImplementation(async (command: unknown) => {
+      if ((command as PutObjectCommand).input.Key!.endsWith('.json')) throw failure;
+      return {};
+    });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await S3.instance.createAlbum('bucket', album, images);
+
+    expect(result).toEqual({ success: false });
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringMatching(/^Failed to upload metadata 2024-big-sur\/.+\.json:$/),
+      failure,
+    );
+  });
+
   it('reads each file in its own batch instead of all up front', async () => {
     // Two photos make 8 files, so the uploads run as a batch of 5, then a batch of 3.
     images.push({ ...images[0], id: 'b', name: 'Dawn' });
