@@ -1,40 +1,33 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { Button } from '../../components/ui/button';
+import { photosetKeys, photosetQuery } from '../../lib/photoset-queries';
 import { DraftView } from './DraftView';
 import { UploadedView } from './UploadedView';
-import type { PhotosetWithImages } from './utils';
 
 export const PhotosetDetail = () => {
   const { photosetId } = useParams<{ photosetId: string }>();
-  const [photoset, setPhotoset] = useState<PhotosetWithImages | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const id = Number(photosetId);
+  const queryClient = useQueryClient();
+  // DraftView copies the photoset into form and table state when it mounts. Bump this after a
+  // save to remount it with the saved row, so the form is clean again.
+  const [draftVersion, setDraftVersion] = useState(0);
+  const { data, isPending, isFetchedAfterMount, error, refetch } = useQuery({
+    ...photosetQuery(id),
+    enabled: !!photosetId,
+  });
 
-  const loadPhotoset = useCallback(async () => {
-    if (!photosetId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await window.photosets.get({ id: Number(photosetId) });
-      if (!data) {
-        setError('Photoset not found');
-      } else {
-        setPhotoset(data);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load photoset');
-    } finally {
-      setLoading(false);
-    }
-  }, [photosetId]);
+  const handleDraftUpdate = async () => {
+    // All photoset keys: Home and Storage list this photoset too.
+    await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
+    setDraftVersion((v) => v + 1);
+  };
 
-  useEffect(() => {
-    loadPhotoset();
-  }, [loadPhotoset]);
-
-  if (loading) {
+  // Wait for a fresh read. DraftView seeds its state from the first photoset it gets, and a cached
+  // row can predate a write made elsewhere (upload, draft save, delete).
+  if (isPending || (!isFetchedAfterMount && !error)) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
         Loading...
@@ -42,20 +35,22 @@ export const PhotosetDetail = () => {
     );
   }
 
-  if (error || !photoset) {
+  if (!data) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-        <p className="text-sm font-medium text-destructive">{error ?? 'Photoset not found'}</p>
-        <Button variant="outline" size="sm" onClick={loadPhotoset}>
+        <p className="text-sm font-medium text-destructive">
+          {error instanceof Error ? error.message : 'Photoset not found'}
+        </p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
           Retry
         </Button>
       </div>
     );
   }
 
-  if (photoset.uploadedAt) {
-    return <UploadedView photoset={photoset} />;
+  if (data.uploadedAt) {
+    return <UploadedView photoset={data} />;
   }
 
-  return <DraftView photoset={photoset} onUpdate={loadPhotoset} />;
+  return <DraftView key={draftVersion} photoset={data} onUpdate={handleDraftUpdate} />;
 };

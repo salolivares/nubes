@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from '@client/components/ui/card';
 import { wizardPath } from '@client/components/wizard-step';
+import { s3Keys } from '@client/lib/photoset-queries';
 import { useImageStore } from '@client/stores/images';
 import { useQuery } from '@tanstack/react-query';
 import { Folder, KeyRound } from 'lucide-react';
@@ -16,15 +17,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export const NewUpload = () => {
-  const { isSet } = useAWSCredentials();
+  const { isSet, accessKeyId, awsRegion } = useAWSCredentials();
   // Mock S3 needs no credentials, so a fresh dev checkout can browse mock buckets.
   const { data: isMock } = useQuery({
-    queryKey: ['s3', 'isMock'],
+    queryKey: s3Keys.isMock(),
     queryFn: () => window.s3.isMock(),
   });
   const canBrowse = !!isSet || isMock === true;
   const { data, error } = useQuery({
-    queryKey: ['s3', 'buckets'],
+    queryKey: s3Keys.buckets(accessKeyId, awsRegion),
     queryFn: () => window.s3.listBuckets(),
     enabled: canBrowse,
   });

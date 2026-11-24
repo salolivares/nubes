@@ -104,8 +104,9 @@ Routes are in `src/renderer/routes.tsx`. Steps 3 to 6 live under
 `/photoset/:photosetId/{picker,upload,s3,summary}`. Each step wraps itself in `WizardStep`
 (`src/renderer/components/wizard-step.tsx`), which loads the photoset from the DB and redirects to
 `/new` when the id is invalid or unknown, so a window reload keeps the user's place. Only picked
-`File`s and in-flight processing state live in the Zustand store. Photoset query keys are in
-`src/renderer/lib/photoset-queries.ts`.
+`File`s and in-flight processing state live in the Zustand store. Query keys and query options for
+photosets, cache usage, cameras and S3 are in `src/renderer/lib/photoset-queries.ts`. Pages load data
+with `useQuery`, and writes invalidate the keys they change.
 
 1. **Home** lists photosets from the DB.
 2. **NewUpload** lists S3 buckets, then creates a photoset for the chosen one.

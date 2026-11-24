@@ -6,9 +6,11 @@ import {
   DropdownMenuTrigger,
 } from '@client/components/ui/dropdown-menu';
 import { ScrollArea } from '@client/components/ui/scroll-area';
+import { photosetListQuery } from '@client/lib/photoset-queries';
 import { cn } from '@client/lib/utils';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ArrowUpDown, ChevronRight, ImageIcon, Plus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 type SortBy = 'name' | 'createdAt' | 'status';
@@ -33,37 +35,18 @@ function formatRelativeTime(dateStr: string): string {
   return `${Math.floor(diffDays / 365)} years ago`;
 }
 
-type PhotosetRow = Awaited<ReturnType<Window['photosets']['list']>>[number];
-
 export const Home = () => {
-  const [photosets, setPhotosets] = useState<PhotosetRow[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>('createdAt');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadPhotosets = useCallback(async (sort: SortBy) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await window.photosets.list({
-        sortBy: sort,
-        sortOrder: sort === 'name' ? 'asc' : 'desc',
-      });
-      setPhotosets(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load photosets');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPhotosets(sortBy);
-  }, [sortBy, loadPhotosets]);
-
-  const handleSort = (sort: SortBy) => {
-    setSortBy(sort);
-  };
+  const {
+    data: photosets,
+    isPending,
+    error,
+    refetch,
+  } = useQuery({
+    ...photosetListQuery({ sortBy, sortOrder: sortBy === 'name' ? 'asc' : 'desc' }),
+    // Keep the current list on screen while another sort order loads.
+    placeholderData: keepPreviousData,
+  });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -79,7 +62,7 @@ export const Home = () => {
             {(Object.keys(sortLabels) as SortBy[]).map((key) => (
               <DropdownMenuItem
                 key={key}
-                onClick={() => handleSort(key)}
+                onClick={() => setSortBy(key)}
                 className={cn(sortBy === key && 'font-semibold')}
               >
                 {sortLabels[key]}
@@ -90,14 +73,17 @@ export const Home = () => {
       </div>
 
       {/* List */}
-      {loading ? (
+      {isPending ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           Loading...
         </div>
-      ) : error ? (
+      ) : !photosets ? (
+        // Only when there's nothing to show. A failed background refetch keeps the last list.
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-          <p className="text-sm font-medium text-destructive">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => loadPhotosets(sortBy)}>
+          <p className="text-sm font-medium text-destructive">
+            {error instanceof Error ? error.message : 'Failed to load photosets'}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
             Retry
           </Button>
         </div>
