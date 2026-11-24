@@ -1,6 +1,7 @@
 import type { Bucket } from '@aws-sdk/client-s3';
 
 import type {
+  CredentialsStatus,
   ImageProcessorResizeArgs,
   InProgressEvent,
   Photoset,
@@ -13,20 +14,22 @@ import type {
   PhotosetUpdateArgs,
   ProcessedImage,
   S3CreateAlbumArgs,
+  SecureStorageKey,
+  StorageChange,
 } from '../src/common/types';
 
 declare global {
   interface StorageContext {
-    secureRead: (key: bool) => Promise<string>;
-    secureWrite: (key: string, value: string) => Promise<void>;
+    /** Whether credentials are saved. Never returns the secret access key. */
+    credentialsStatus: () => Promise<CredentialsStatus>;
+    /** Saves a credential encrypted. There is no matching read. */
+    secureWrite: (key: SecureStorageKey, value: string) => Promise<void>;
     read: (key: string) => Promise<string>;
     write: (key: string, value: string) => Promise<void>;
-    onStorageChange: (
-      listener: (
-        event: IpcRendererEvent,
-        args: { key: string; newValue: string; oldValue: string },
-      ) => void,
-    ) => () => void;
+    /** Fires when a plain key changes (today only the AWS region). */
+    onStorageChange: (listener: (change: StorageChange) => void) => () => void;
+    /** Fires with the new status whenever a credential is saved or cleared. */
+    onCredentialsChange: (listener: (status: CredentialsStatus) => void) => () => void;
   }
 
   interface ThemeModeContext {

@@ -1,12 +1,13 @@
-import { z } from 'zod';
-
+import type { CredentialsStatus, StorageChange } from '@/common/types';
+import { storageArgsSchema } from '@/common/types';
 import { broadcast, handle } from '@/main/ipc';
 
 import {
   ACCESS_KEY_ID,
   AWS_REGION,
+  CREDENTIALS_CHANGE,
+  CREDENTIALS_STATUS_CHANNEL,
   SECRET_ACCESS_KEY,
-  SECURE_STORAGE_READ,
   SECURE_STORAGE_WRITE,
   STORAGE_CHANGE,
   STORAGE_CHANNEL,
@@ -15,74 +16,41 @@ import {
 } from '../../common/constants';
 import { Storage } from '../drivers/storage';
 
-const readArgsSchema = z.object({
-  action: z.union([z.literal(STORAGE_READ), z.literal(SECURE_STORAGE_READ)]),
-  key: z.string(),
-});
-
-const writeArgsSchema = z.object({
-  action: z.union([z.literal(STORAGE_WRITE), z.literal(SECURE_STORAGE_WRITE)]),
-  key: z.string(),
-  value: z.string(),
-});
-
-const argsSchema = z.union([readArgsSchema, writeArgsSchema]);
+/**
+ * The renderer's view of the saved credentials. The decrypted secret never leaves main: only
+ * whether one is saved.
+ */
+export function getCredentialsStatus(): CredentialsStatus {
+  return {
+    accessKeyId: Storage.instance.secureRead(ACCESS_KEY_ID),
+    hasSecret: Storage.instance.secureRead(SECRET_ACCESS_KEY) !== null,
+  };
+}
 
 export function addStorageEventListeners() {
-  handle(STORAGE_CHANNEL, argsSchema, async (_, args) => {
-    const { action, key } = args;
-
-    if (action === SECURE_STORAGE_READ || action === STORAGE_READ) {
-      switch (action) {
-        case SECURE_STORAGE_READ:
-          return Storage.instance.secureRead(key);
-        case STORAGE_READ:
-          return Storage.instance.read(key);
-      }
-    } else if (action === SECURE_STORAGE_WRITE || action === STORAGE_WRITE) {
-      const { value } = args;
-      switch (action) {
-        case SECURE_STORAGE_WRITE:
-          return Storage.instance.secureWrite(key, value);
-        case STORAGE_WRITE:
-          return Storage.instance.write(key, value);
-      }
-    }
-
-    throw new Error('Invalid action');
-  });
-
-  Storage.instance.store.onDidChange(ACCESS_KEY_ID, (newValue, oldValue) => {
-    if (!newValue) return;
-    try {
-      broadcast(STORAGE_CHANGE, {
-        key: ACCESS_KEY_ID,
-        newValue: Storage.instance.decrypt(newValue),
-        oldValue: Storage.instance.decrypt(oldValue ?? ''),
-      });
-    } catch {
-      // Stale ciphertext from a previous app identity — ignore
+  handle(STORAGE_CHANNEL, storageArgsSchema, async (_, args) => {
+    switch (args.action) {
+      case STORAGE_READ:
+        return Storage.instance.read(args.key);
+      case STORAGE_WRITE:
+        return Storage.instance.write(args.key, args.value);
+      case SECURE_STORAGE_WRITE:
+        return Storage.instance.secureWrite(args.key, args.value);
     }
   });
 
-  Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, (newValue, oldValue) => {
-    if (!newValue) return;
-    try {
-      broadcast(STORAGE_CHANGE, {
-        key: SECRET_ACCESS_KEY,
-        newValue: Storage.instance.decrypt(newValue),
-        oldValue: Storage.instance.decrypt(oldValue ?? ''),
-      });
-    } catch {
-      // Stale ciphertext from a previous app identity — ignore
-    }
-  });
+  handle(CREDENTIALS_STATUS_CHANNEL, () => getCredentialsStatus());
+
+  const pushCredentialsStatus = () => broadcast(CREDENTIALS_CHANGE, getCredentialsStatus());
+  Storage.instance.store.onDidChange(ACCESS_KEY_ID, () => pushCredentialsStatus());
+  Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, () => pushCredentialsStatus());
 
   Storage.instance.store.onDidChange(AWS_REGION, (newValue, oldValue) => {
-    broadcast(STORAGE_CHANGE, {
+    const change: StorageChange = {
       key: AWS_REGION,
       newValue: newValue ?? '',
       oldValue: oldValue ?? '',
-    });
+    };
+    broadcast(STORAGE_CHANGE, change);
   });
 }

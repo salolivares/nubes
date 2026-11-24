@@ -26,6 +26,8 @@ const electron = vi.hoisted(() => {
       send: vi.fn(),
       openDevTools: vi.fn(),
       isDestroyed: () => this.destroyed,
+      // The app page in the main frame, so ipc.ts's sender check accepts calls from it.
+      mainFrame: { url: 'file:///app/renderer/main_window/index.html', parent: null },
     };
 
     constructor() {
@@ -34,6 +36,10 @@ const electron = vi.hoisted(() => {
 
     static getAllWindows() {
       return windows.filter((w) => !w.destroyed);
+    }
+
+    static fromWebContents(contents: unknown) {
+      return windows.find((w) => w.webContents === contents) ?? null;
     }
 
     on(event: string, cb: () => void) {
@@ -213,7 +219,7 @@ describe('restoreOrCreateWindow', () => {
     const { closed, reopened } = await startThenReopen();
 
     electron.sendListeners.get(IMAGE_PROCESSOR_RESIZE)?.(
-      { sender: reopened.webContents },
+      { sender: reopened.webContents, senderFrame: reopened.webContents.mainFrame },
       { imagePaths: ['/photos/a.jpg'] },
     );
     const onWorkerMessage = electron.ports[0].on.mock.calls.find(([e]) => e === 'message')?.[1];

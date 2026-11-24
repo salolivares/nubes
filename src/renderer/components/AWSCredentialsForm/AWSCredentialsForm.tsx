@@ -6,7 +6,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@ui/field';
 import { Input } from '@ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select';
 import type { FC } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -48,20 +48,36 @@ const AWS_REGIONS = [
   'sa-east-1',
 ] as const;
 
-const awsCredentialsSchema = z.object({
-  accessKeyId: z.string().regex(/^AKIA[0-9A-Z]{16}$/, INVALID_ACCESS_KEY_ID_MESSAGE),
-  secretAccessKey: z.string().regex(/^[0-9a-zA-Z/+]{40}$/, INVALID_SECRET_ACCESS_KEY_MESSAGE),
-  awsRegion: z.string().min(1),
-});
+const SECRET_ACCESS_KEY_PATTERN = /^[0-9a-zA-Z/+]{40}$/;
+
+/**
+ * Main never sends the saved secret back, so the secret field always starts empty. Once a secret
+ * is saved, leaving the field empty keeps it.
+ */
+const makeAwsCredentialsSchema = (hasSecret: boolean) =>
+  z.object({
+    accessKeyId: z.string().regex(/^AKIA[0-9A-Z]{16}$/, INVALID_ACCESS_KEY_ID_MESSAGE),
+    secretAccessKey: z
+      .string()
+      .refine(
+        (value) => (hasSecret && value === '') || SECRET_ACCESS_KEY_PATTERN.test(value),
+        INVALID_SECRET_ACCESS_KEY_MESSAGE,
+      ),
+    awsRegion: z.string().min(1),
+  });
+
+type AwsCredentialsFormValues = z.infer<ReturnType<typeof makeAwsCredentialsSchema>>;
 
 export const AWSCredentialsForm: FC = () => {
-  const { accessKeyId, secretAccessKey, awsRegion } = useAWSCredentials();
+  const { accessKeyId, hasSecret, awsRegion } = useAWSCredentials();
 
-  const form = useForm({
-    resolver: zodResolver(awsCredentialsSchema),
+  const schema = useMemo(() => makeAwsCredentialsSchema(hasSecret), [hasSecret]);
+
+  const form = useForm<AwsCredentialsFormValues>({
+    resolver: zodResolver(schema),
     defaultValues: {
       accessKeyId,
-      secretAccessKey,
+      secretAccessKey: '',
       awsRegion,
     },
     mode: 'onChange',
@@ -73,17 +89,19 @@ export const AWSCredentialsForm: FC = () => {
   useEffect(() => {
     form.reset({
       accessKeyId,
-      secretAccessKey,
+      secretAccessKey: '',
       awsRegion,
     });
-  }, [accessKeyId, secretAccessKey, awsRegion, form]);
+  }, [accessKeyId, hasSecret, awsRegion, form]);
 
   const { isDirty, isValid } = form.formState;
 
-  async function onSubmit(values: z.infer<typeof awsCredentialsSchema>) {
+  async function onSubmit(values: AwsCredentialsFormValues) {
     try {
       await window.storage.secureWrite(ACCESS_KEY_ID, values.accessKeyId);
-      await window.storage.secureWrite(SECRET_ACCESS_KEY, values.secretAccessKey);
+      if (values.secretAccessKey) {
+        await window.storage.secureWrite(SECRET_ACCESS_KEY, values.secretAccessKey);
+      }
       await window.storage.write(AWS_REGION, values.awsRegion);
       toast.success(SUCCESS_ON_SAVE_MESSAGE);
     } catch (error) {
@@ -130,7 +148,9 @@ export const AWSCredentialsForm: FC = () => {
                   <FieldLabel htmlFor="secretAccessKey">Secret Access Key</FieldLabel>
                   <Input
                     id="secretAccessKey"
-                    placeholder="Secrets access key"
+                    placeholder={
+                      hasSecret ? 'Saved. Enter a new key to replace it' : 'Secret access key'
+                    }
                     {...field}
                     type={showSecretAccessKey ? 'text' : 'password'}
                     onFocus={() => setShowSecretAccessKey(true)}
