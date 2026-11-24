@@ -33,7 +33,7 @@ export function isTrustedSender(event: Electron.IpcMainEvent | Electron.IpcMainI
   return isAppUrl(frame.url);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- placeholder for future per-handler options
 export interface HandleOptions {}
 
 export function handle<S extends z.ZodType>(
@@ -75,7 +75,7 @@ export function handle(
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- placeholder for future per-listener options
 export interface OnOptions {}
 
 export function on<S extends z.ZodType>(
