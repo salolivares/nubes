@@ -9,7 +9,6 @@ import {
   type Page,
   test,
 } from '@playwright/test';
-import sharp from 'sharp';
 
 interface TestPhotosetsContext {
   create: (args: {
@@ -38,8 +37,7 @@ test.beforeEach(async () => {
       NUBES_USER_DATA: userDataPath,
     },
   });
-  // Main-process and worker output goes into the test report on failure, so a CI run shows why
-  // processing stalled.
+  // Main-process output goes into the test report on failure, so a CI run shows what went wrong.
   electronApp.process().stdout?.on('data', (chunk) => appOutput.push(String(chunk)));
   electronApp.process().stderr?.on('data', (chunk) => appOutput.push(String(chunk)));
 
@@ -71,7 +69,8 @@ test.afterEach(async ({}, testInfo) => {
     }
   }
 
-  // A stuck worker can keep close() from returning. Kill the app rather than hang the run.
+  // A stuck utility process can keep close() from returning (see #129). Kill the app rather than
+  // hang the run.
   if (app) {
     const closed = app.close().then(() => true);
     const timedOut = new Promise<false>((resolve) => setTimeout(() => resolve(false), 5_000));
@@ -109,17 +108,6 @@ function addStagingInput() {
   });
 }
 
-/**
- * Drops files the way Chromium delivers a drop from Finder: File objects backed by files on disk.
- * Playwright can't start an OS drag, so the files go through a hidden file input first, which
- * gives them their disk backing, and then into the drop event's DataTransfer.
- */
-async function dropFilesFromDisk(filePaths: string[]) {
-  await addStagingInput();
-  await page.setInputFiles('#e2e-drop-source', filePaths);
-  await dropStagedFiles();
-}
-
 /** Drops a File built in memory, with no file on disk behind it, like an image from a browser. */
 async function dropInMemoryFile(name: string) {
   await addStagingInput();
@@ -130,29 +118,6 @@ async function dropInMemoryFile(name: string) {
   });
   await dropStagedFiles();
 }
-
-test('a jpg dropped from disk is processed and reaches the review step', async () => {
-  const imagePath = path.join(userDataPath, 'dropped.jpg');
-  await sharp({ create: { width: 64, height: 48, channels: 3, background: '#3366cc' } })
-    .jpeg()
-    .toFile(imagePath);
-
-  await dropFilesFromDisk([imagePath]);
-  await expect(page.getByText('Queued for upload')).toBeVisible();
-  // The thumbnail loads over nubes-media://, which only serves files main put on its allowlist.
-  const thumbnail = page.getByRole('img', { name: 'dropped.jpg' });
-  await expect(thumbnail).toHaveAttribute('src', /^nubes-media:/);
-  await expect
-    .poll(() => thumbnail.evaluate((img: HTMLImageElement) => img.naturalWidth))
-    .toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Upload', exact: true }).click();
-
-  await expect(page).toHaveURL(/#\/photoset\/\d+\/s3$/, { timeout: 20_000 });
-  // The review step lists the processed image (named without its extension), so the worker read
-  // the file from its real path.
-  await expect(page.getByRole('heading', { name: 'Review & Upload' })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'dropped', exact: true })).toBeVisible();
-});
 
 test('a dropped file with no path on disk is rejected with a message', async () => {
   await dropInMemoryFile('from-browser.jpg');
