@@ -64,10 +64,17 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
   const removeFile = useImageStore((s) => s.removeFile);
   const removeAllFiles = useImageStore((s) => s.removeAllFiles);
   const unloadPreviews = useImageStore((s) => s.unloadPreviews);
+  const setProcessed = useImageStore((s) => s.setProcessed);
+  const setProcessedImages = useImageStore((s) => s.setProcessedImages);
+  const setProcessingImages = useImageStore((s) => s.setProcessingImages);
 
   const navigate = useNavigate();
 
   const handleUpload = () => {
+    // Drop results from an earlier run so the processing step runs on the files picked now.
+    setProcessed(false);
+    setProcessedImages([]);
+    setProcessingImages([]);
     navigate(wizardPath(photosetId, 'upload'));
   };
 

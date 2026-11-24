@@ -54,6 +54,10 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
   const uploadRan = useRef(false);
   const persistRan = useRef(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  // Only move on once the results are in the DB, so a reload on the next step can find them.
+  const [persist, setPersist] = useState<'pending' | 'saved' | 'failed'>('pending');
+  // The worker finished but every image failed. Nothing to upload.
+  const nothingProcessed = processed && processedImages.length === 0;
 
   const goToNext = useCallback(() => {
     navigate(wizardPath(photosetId, 's3'));
@@ -97,8 +101,10 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
           })),
         });
         await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
+        setPersist('saved');
         toast.success('Images processed successfully');
       } catch (err) {
+        setPersist('failed');
         toast.error('Failed to save images', {
           description: err instanceof Error ? err.message : 'Unknown error',
         });
@@ -108,9 +114,9 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
     persist();
   }, [processed, photosetId, processedImages, queryClient]);
 
-  // Auto-navigate countdown once processing is done
+  // Auto-navigate countdown once processing is done and saved
   useEffect(() => {
-    if (!processed) return;
+    if (persist !== 'saved') return;
     setCountdown(AUTO_NAVIGATE_SECONDS);
 
     const interval = setInterval(() => {
@@ -118,7 +124,7 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [processed]);
+  }, [persist]);
 
   useEffect(() => {
     if (countdown === 0) goToNext();
@@ -151,11 +157,34 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
             </div>
           ))}
         </div>
-        {processed && countdown !== null && (
+        {persist === 'saved' && countdown !== null && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Continuing in {countdown}s…</p>
             <Button variant="outline" size="sm" onClick={goToNext}>
               Skip
+            </Button>
+          </div>
+        )}
+        {persist === 'failed' && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-destructive">
+              The images were processed but not saved. You can still continue, but a reload on the
+              next step will lose them.
+            </p>
+            <Button variant="outline" size="sm" onClick={goToNext}>
+              Continue
+            </Button>
+          </div>
+        )}
+        {nothingProcessed && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-destructive">None of the images could be processed.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(wizardPath(photosetId, 'picker'))}
+            >
+              Pick images again
             </Button>
           </div>
         )}

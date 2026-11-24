@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -44,7 +44,7 @@ export function WizardStep({
 }) {
   const { photosetId: raw } = useParams<{ photosetId: string }>();
   const photosetId = parsePhotosetId(raw);
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isPending, isFetchedAfterMount, error, refetch } = useQuery({
     ...photosetQuery(photosetId ?? 0),
     enabled: photosetId !== null,
   });
@@ -53,7 +53,9 @@ export function WizardStep({
     return <WizardRedirect to="/new" message="Photoset not found. Start a new upload." />;
   }
 
-  if (isLoading) {
+  // Wait for a fresh read. Cached data can predate a write made elsewhere (upload, draft save,
+  // delete), and acting on it would redirect the wrong way.
+  if (isPending || (!isFetchedAfterMount && !error)) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
         Loading...
@@ -83,5 +85,6 @@ export function WizardStep({
     return <WizardRedirect to={wizardPath(data.id, 'summary')} />;
   }
 
-  return <>{children(data)}</>;
+  // Key on the id so step state (refs, retry state, form) never carries over between photosets.
+  return <Fragment key={data.id}>{children(data)}</Fragment>;
 }

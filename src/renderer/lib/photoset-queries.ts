@@ -14,4 +14,6 @@ export const photosetQuery = (id: number) =>
   queryOptions({
     queryKey: photosetKeys.detail(id),
     queryFn: async () => (await window.photosets.get({ id })) ?? null,
+    // Local SQLite over IPC. The default 'online' mode pauses the query while the OS is offline.
+    networkMode: 'always',
   });

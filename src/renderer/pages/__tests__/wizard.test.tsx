@@ -200,6 +200,25 @@ describe('wizard steps', () => {
   });
 });
 
+describe('image picker', () => {
+  it('clears results from an earlier run before processing a new pick', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    const file = Object.assign(new File([], 'b.jpg'), { path: '/tmp/b.jpg' });
+    useImageStore.getState().addFiles([file]);
+    useImageStore.getState().setProcessed(true);
+    useImageStore.getState().setProcessedImages([processedImage]);
+
+    renderAt('/photoset/7/picker');
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload' }));
+
+    await expectLocation('/photoset/7/upload');
+    expect(useImageStore.getState().processedImages).toEqual([]);
+    await waitFor(() =>
+      expect(window.imageProcessor.resize).toHaveBeenCalledWith({ imagePaths: ['/tmp/b.jpg'] }),
+    );
+  });
+});
+
 describe('S3 upload', () => {
   async function fillAndUpload() {
     fireEvent.change(await screen.findByPlaceholderText('My awesome album'), {
@@ -229,6 +248,33 @@ describe('S3 upload', () => {
     );
     expect(window.photosets.markUploaded).toHaveBeenCalledWith({ id: 7 });
     expect(toast.success).toHaveBeenCalledWith('Album uploaded to S3');
+  });
+
+  it('does not touch the DB when S3 reports a failed upload', async () => {
+    vi.mocked(window.s3.createAlbum).mockResolvedValueOnce({ success: false });
+
+    renderAt('/photoset/7/s3');
+    await fillAndUpload();
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Upload to S3 failed')),
+    );
+    expect(window.photosets.addImages).not.toHaveBeenCalled();
+    expect(window.photosets.markUploaded).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(screen.getByTestId('location').textContent).toBe('/photoset/7/s3');
+  });
+
+  it('marks the photoset uploaded only after publishing it', async () => {
+    renderAt('/photoset/7/s3');
+    await screen.findByPlaceholderText('My awesome album');
+    fireEvent.click(document.getElementById('published')!);
+    await fillAndUpload();
+
+    await expectLocation('/photoset/7/summary');
+    const publishOrder = vi.mocked(window.photosets.publish).mock.invocationCallOrder[0];
+    const markOrder = vi.mocked(window.photosets.markUploaded).mock.invocationCallOrder[0];
+    expect(publishOrder).toBeLessThan(markOrder);
   });
 
   it('surfaces a failed DB update after S3 succeeds and lets the user retry it', async () => {

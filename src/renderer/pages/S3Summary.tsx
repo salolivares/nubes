@@ -1,4 +1,5 @@
 import { Calendar, Camera, CheckCircle2, MapPin } from 'lucide-react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '../components/ui/button';
@@ -28,6 +29,11 @@ export const S3Summary = () => (
 const S3SummaryStep = ({ photoset }: { photoset: PhotosetWithImages }) => {
   const navigate = useNavigate();
   const reset = useImageStore((s) => s.reset);
+
+  // The upload is recorded in the DB. Clear wizard state so it can't leak into another photoset.
+  useEffect(() => {
+    reset();
+  }, [reset]);
 
   const totalSize = photoset.images.reduce(
     (sum, img) => sum + img.outputs.reduce((s, p) => s + p.byteLength, 0),

@@ -28,6 +28,7 @@ import { wizardPath, WizardRedirect, WizardStep } from '../../components/wizard-
 import { useCameras } from '../../hooks/useCameras';
 import { useProcessedImages } from '../../hooks/useProcessedImages';
 import { photosetKeys } from '../../lib/photoset-queries';
+import { uploadAlbum } from '../../lib/upload-album';
 import { useImageStore } from '../../stores/images';
 import type { PhotosetWithImages } from '../PhotosetDetail/utils';
 import { toProcessedImages } from '../PhotosetDetail/utils';
@@ -88,20 +89,25 @@ async function saveUploadedPhotoset(photosetId: number, values: Album, images: P
     location: values.location,
     year: values.year,
   });
-  await window.photosets.markUploaded({ id: photosetId });
   if (values.published) {
     await window.photosets.publish({ id: photosetId });
   }
+  // Last, so `uploadedAt` is only set once everything before it is saved.
+  await window.photosets.markUploaded({ id: photosetId });
 }
 
 const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketName: string }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { processedImages, setProcessedImage, setProcessedImages } = useProcessedImages();
-  // Set when S3 has the album but the local DB update failed. Holds what to retry with.
-  const [dbSyncFailure, setDbSyncFailure] = useState<{ values: Album; message: string } | null>(
-    null,
-  );
+  // Set when S3 has the album but the local DB update failed. Holds exactly what was uploaded,
+  // so a retry records that and not later edits.
+  const [dbSyncFailure, setDbSyncFailure] = useState<{
+    values: Album;
+    images: ProcessedImage[];
+    message: string;
+  } | null>(null);
+  const reset = useImageStore((s) => s.reset);
   const { cameras, addCamera, touchCamera } = useCameras();
   const [isSaving, setIsSaving] = useState(false);
   const [imagesDirty, setImagesDirty] = useState(false);
@@ -119,7 +125,7 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
   });
 
   const { mutate, isPending: isUploading } = useMutation({
-    mutationFn: (args: S3CreateAlbumArgs) => window.s3.createAlbum(args),
+    mutationFn: (args: S3CreateAlbumArgs) => uploadAlbum(args),
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to upload album');
     },
@@ -175,40 +181,40 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
 
   // ── Submit handlers ──────────────────────────────────────────────
 
-  /** Record a finished S3 upload in the DB. Returns false and shows the failure if it can't. */
-  const syncUploadToDb = async (values: Album) => {
+  /**
+   * Record a finished S3 upload in the DB, or show why it failed. Holds `isSaving` the whole time:
+   * a per-call `onSuccess` runs after `isUploading` is already false, and the buttons must stay
+   * disabled or a second click uploads the album again.
+   */
+  const syncUploadToDb = async (values: Album, images: ProcessedImage[]) => {
+    setIsSaving(true);
     try {
-      await saveUploadedPhotoset(photosetId, values, processedImages);
+      await saveUploadedPhotoset(photosetId, values, images);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setDbSyncFailure({ values, message });
+      setDbSyncFailure({ values, images, message });
       toast.error('Album uploaded to S3, but the local database was not updated', {
         description: message,
       });
-      return false;
+      setIsSaving(false);
+      return;
     }
-    setDbSyncFailure(null);
-    // Refetch before leaving, so the summary step doesn't read the pre-upload row from the cache.
-    await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
     toast.success('Album uploaded to S3');
-    navigate(wizardPath(photosetId, 'summary'));
-    return true;
+    // Refetch before leaving, so the summary step doesn't read the pre-upload row from the cache.
+    // The refetch alone already redirects this step to the summary, so replace, don't push.
+    await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
+    navigate(wizardPath(photosetId, 'summary'), { replace: true });
   };
 
-  const handleRetryDbSync = async () => {
-    if (!dbSyncFailure) return;
-    setIsSaving(true);
-    try {
-      await syncUploadToDb(dbSyncFailure.values);
-    } finally {
-      setIsSaving(false);
-    }
+  const handleRetryDbSync = () => {
+    if (dbSyncFailure) void syncUploadToDb(dbSyncFailure.values, dbSyncFailure.images);
   };
 
   const handleUpload = form.handleSubmit((values) => {
+    const images = processedImages;
     mutate(
-      { bucketName, album: values, images: processedImages },
-      { onSuccess: () => syncUploadToDb(values) },
+      { bucketName, album: values, images },
+      { onSuccess: () => syncUploadToDb(values, images) },
     );
   });
 
@@ -231,6 +237,8 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
       await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
       toast.success('Draft saved');
       navigate(`/photoset/${photosetId}`);
+      // The draft is in the DB now. Clear wizard state so it can't leak into another photoset.
+      reset();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save draft');
     } finally {
