@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger,
 } from '@client/components/ui/dropdown-menu';
 import { ScrollArea } from '@client/components/ui/scroll-area';
+import { paths } from '@client/lib/paths';
 import { photosetListQuery } from '@client/lib/photoset-queries';
 import { cn } from '@client/lib/utils';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -99,7 +100,7 @@ export const Home = () => {
               Start by uploading your first set of photos.
             </p>
           </div>
-          <Link to="/new" className={cn(buttonVariants(), 'gap-2')}>
+          <Link to={paths.newUpload()} className={cn(buttonVariants(), 'gap-2')}>
             <Plus className="h-4 w-4" />
             New Upload
           </Link>
@@ -110,7 +111,7 @@ export const Home = () => {
             {photosets.map((photoset) => (
               <li key={photoset.id} className="relative">
                 <Link
-                  to={`/photoset/${photoset.id}`}
+                  to={paths.photoset(photoset.id)}
                   className="flex items-center space-x-4 px-4 py-4 sm:px-6 lg:px-8"
                 >
                   {/* Upload status dot */}

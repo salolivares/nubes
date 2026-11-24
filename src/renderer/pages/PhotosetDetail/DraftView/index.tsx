@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import { useCameras } from '../../../hooks/useCameras';
+import { paths } from '../../../lib/paths';
 import { forgetPhotosets } from '../../../lib/photoset-queries';
 import { uploadAlbum } from '../../../lib/upload-album';
 import { useImageJobStore } from '../../../stores/image-jobs';
@@ -335,7 +336,7 @@ export function DraftView({
       await window.photosets.delete({ id: photoset.id });
       toast.success('Photoset deleted');
       void forgetPhotosets(queryClient, [photoset.id]);
-      navigate('/');
+      navigate(paths.home());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete');
       setIsDeleting(false);
@@ -351,7 +352,7 @@ export function DraftView({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(paths.home())}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
