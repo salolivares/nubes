@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import baseLog from 'electron-log/main';
 import type { z } from 'zod';
 
@@ -77,4 +77,17 @@ export function on(
       log.error(`[${channel}]`, err);
     }
   });
+}
+
+/**
+ * Push an event to every open window. Look windows up on each send instead of
+ * holding a reference, because on macOS the window can be closed and recreated
+ * while the app keeps running.
+ */
+export function broadcast(channel: string, payload: unknown): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(channel, payload);
+    }
+  }
 }

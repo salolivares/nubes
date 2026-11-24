@@ -11,6 +11,7 @@ import { readDotGitFile, resolveDevEnvironment } from './dev-environment';
 import { Database } from './drivers/database';
 import { MockS3, setS3Provider } from './drivers/s3';
 import { Storage } from './drivers/storage';
+import { registerListeners } from './listeners';
 import { restoreOrCreateWindow } from './mainWindow';
 
 /**
@@ -95,19 +96,24 @@ app.on('window-all-closed', () => {
 });
 
 /**
- * @see https://www.electronjs.org/docs/latest/api/app#event-activate-macos Event: 'activate'.
- */
-app.on('activate', restoreOrCreateWindow);
-
-/**
- * Create the application window when the background process is ready.
+ * Register IPC handlers and start the image worker once, then create the window.
+ * Windows come and go (on macOS, closing the window keeps the app running and the
+ * dock icon makes a new one), so nothing here may run per window.
  */
 app
   .whenReady()
   .then(() => {
     Storage.init();
     Database.init();
-    restoreOrCreateWindow();
+    registerListeners();
+
+    /**
+     * Registered after the IPC handlers so a reopened window always has them.
+     * @see https://www.electronjs.org/docs/latest/api/app#event-activate-macos Event: 'activate'.
+     */
+    app.on('activate', restoreOrCreateWindow);
+
+    return restoreOrCreateWindow();
   })
   .catch((e) => console.error('Failed create window:', e));
 
