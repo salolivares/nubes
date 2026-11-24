@@ -42,6 +42,11 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
 
   try {
     const page = await electronApp.firstWindow();
+    // The CSP (vite.renderer.config.ts) must not block anything the app itself loads.
+    const cspViolations: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('Content Security Policy')) cspViolations.push(message.text());
+    });
 
     await expect(page.getByRole('heading', { name: 'Photosets' })).toBeVisible();
 
@@ -88,6 +93,11 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
       name.startsWith('nubes.db.bak-'),
     );
     expect(backups).toHaveLength(1);
+
+    // Open a photoset so thumbnails render (nubes-media:// or the base64 fallback).
+    await rows.filter({ hasText: 'Fixture Joshua Tree' }).click();
+    await expect(page.getByRole('img').first()).toBeVisible();
+    expect(cspViolations).toEqual([]);
   } catch (error) {
     console.error(`Electron output:\n${appOutput.join('')}`);
     throw error;
