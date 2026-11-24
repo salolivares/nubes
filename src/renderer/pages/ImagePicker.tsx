@@ -1,11 +1,11 @@
 import { useCallback, useEffect } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { type FileRejection, useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { Button } from '../components/ui/button';
 import { WizardStep } from '../components/wizard-step';
 import { paths } from '../lib/paths';
-import type { CustomFile } from '../stores/images';
 import { useImageStore } from '../stores/images';
 
 // TODO: move icons to own component
@@ -59,7 +59,6 @@ export const ImagePicker = () => (
 
 const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
   const files = useImageStore((s) => s.files);
-  const addFiles = useImageStore((s) => s.addFiles);
   const addFilesFromPaths = useImageStore((s) => s.addFilesFromPaths);
   const removeFile = useImageStore((s) => s.removeFile);
   const removeAllFiles = useImageStore((s) => s.removeAllFiles);
@@ -81,14 +80,48 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
     }
   }, [addFilesFromPaths]);
 
+  const handleDrop = useCallback(
+    async (droppedFiles: File[], rejections: FileRejection[]) => {
+      if (rejections.length > 0) {
+        toast.error(
+          rejections.length === 1
+            ? `Skipped ${rejections[0].file.name}`
+            : `Skipped ${rejections.length} files`,
+          { description: 'Only JPG and PNG images can be added.' },
+        );
+      }
+      if (droppedFiles.length === 0) return;
+
+      // Queued by path like Browse, so the worker can read them and previews load over
+      // nubes-media://. Don't read `file.path`: react-dropzone sets it to the bare file name.
+      const { entries, missing } = await window.imagePicker.addDroppedFiles(droppedFiles);
+      if (entries.length > 0) addFilesFromPaths(entries);
+      if (missing.length > 0) {
+        toast.error(
+          missing.length === 1
+            ? `Couldn't add ${missing[0]}`
+            : `Couldn't add ${missing.length} images`,
+          {
+            description:
+              'Nubes can only process images saved on this computer. Save them to a folder first, then drop them from there.',
+          },
+        );
+      }
+    },
+    [addFilesFromPaths],
+  );
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    // The same formats the Browse dialog allows.
     accept: {
-      'image/*': [],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
     },
     noClick: true,
-    onDrop: (acceptedFiles) => {
-      addFiles(acceptedFiles as CustomFile[]);
-    },
+    // Space and Enter would open react-dropzone's own file picker, whose files have no disk path.
+    // Browse files is the only way to open a dialog.
+    noKeyboard: true,
+    onDrop: (files, rejections) => void handleDrop(files, rejections),
   });
 
   useEffect(() => {
@@ -101,6 +134,7 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
       <h1>Upload</h1>
       <div
         {...getRootProps()}
+        data-testid="drop-zone"
         className="flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/20 transition-colors hover:border-primary/30 hover:bg-muted/30"
       >
         <input {...getInputProps()} />

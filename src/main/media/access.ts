@@ -58,8 +58,10 @@ async function realFile(filePath: string): Promise<string | null> {
  * - files under one of `roots()` (the photosets folder), after resolving symlinks, and
  * - source files the user picked this session, added with `allowPickedFiles()`.
  *
- * The allowlist lives only in main and only grows from main-side code paths (the open dialog).
- * The renderer can't add to it.
+ * The allowlist lives only in main. It grows from the open dialog and from drops. A drop is
+ * resolved in preload, which looks up the disk paths of the dropped File objects and sends them
+ * over `IMAGE_PICKER_ALLOW_DROPPED`. The page can't send paths itself: it only hands preload File
+ * objects, and it can't give a File a path on disk.
  */
 export class MediaAccess {
   /** Real paths of picked files. */

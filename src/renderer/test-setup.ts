@@ -40,6 +40,7 @@ window.imageProcessor = {
 
 window.imagePicker = {
   open: vi.fn().mockResolvedValue([]),
+  addDroppedFiles: vi.fn().mockResolvedValue({ entries: [], missing: [] }),
 };
 
 window.photosets = {

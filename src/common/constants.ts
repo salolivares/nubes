@@ -38,6 +38,7 @@ export const DEBUG_KILL_IMAGE_WORKER = `${DEBUG_CHANNEL}:killImageWorker`;
 
 export const IMAGE_PICKER_CHANNEL = 'image-picker';
 export const IMAGE_PICKER_OPEN = `${IMAGE_PICKER_CHANNEL}:open`;
+export const IMAGE_PICKER_ALLOW_DROPPED = `${IMAGE_PICKER_CHANNEL}:allow-dropped`;
 
 export const CAMERAS_STORAGE_KEY = 'cameras';
 export const CAMERA_SORT_MODE_KEY = 'cameraSortMode';
