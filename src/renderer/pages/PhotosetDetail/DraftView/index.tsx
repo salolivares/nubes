@@ -9,7 +9,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import type { InProgressEvent, ProcessedImage } from '@/common/types';
+import type { InProgressEvent, ProcessedImage, S3CreateAlbumArgs } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
 import { AlbumForm } from '../../../components/AlbumForm/AlbumForm';
@@ -98,8 +98,8 @@ export function DraftView({
     },
   });
 
-  const { mutate: uploadMutate, isLoading: isUploading } = useMutation({
-    mutationFn: window.s3.createAlbum,
+  const { mutate: uploadMutate, isPending: isUploading } = useMutation({
+    mutationFn: (args: S3CreateAlbumArgs) => window.s3.createAlbum(args),
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to upload album');
     },
