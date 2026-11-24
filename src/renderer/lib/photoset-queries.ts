@@ -9,6 +9,12 @@ type ListArgs = NonNullable<PhotosetListArgs>;
 // while the OS reports offline, which would leave local pages spinning forever.
 export const localNetworkMode = 'always' as const;
 
+/**
+ * Options for queries that read local data over IPC. A failed local read won't pass on a retry, and
+ * the default three retries hold back the error for about 7 seconds.
+ */
+export const localQuery = { networkMode: localNetworkMode, retry: false } as const;
+
 /** Query keys for photosets. Invalidate `photosetKeys.all` after any photoset write. */
 export const photosetKeys = {
   all: ['photosets'] as const,
@@ -25,7 +31,7 @@ export const photosetQuery = (id: number) =>
   queryOptions({
     queryKey: photosetKeys.detail(id),
     queryFn: async () => (await window.photosets.get({ id })) ?? null,
-    networkMode: localNetworkMode,
+    ...localQuery,
   });
 
 /** Photosets with their image ids, in the given order. */
@@ -33,7 +39,7 @@ export const photosetListQuery = (args: ListArgs) =>
   queryOptions({
     queryKey: photosetKeys.list(args),
     queryFn: () => window.photosets.list(args),
-    networkMode: localNetworkMode,
+    ...localQuery,
   });
 
 type PhotosetListRow = Awaited<ReturnType<Window['photosets']['list']>>[number];
@@ -41,13 +47,16 @@ type PhotosetListRow = Awaited<ReturnType<Window['photosets']['list']>>[number];
 /**
  * After deleting photosets: drop them from every cached list now, so a page that mounts next (Home
  * after a draft delete) never shows them while it refetches. Then refetch the lists and cache
- * usage that are on screen. The detail query is left alone; the page showing it is on its way out,
- * and refetching it there would flash "not found".
+ * usage that are on screen. A detail query on screen is left alone; the page showing it is on its
+ * way out, and refetching it there would flash "not found".
  */
 export async function forgetPhotosets(queryClient: QueryClient, ids: number[]) {
   queryClient.setQueriesData<PhotosetListRow[]>({ queryKey: photosetKeys.lists() }, (rows) =>
     rows?.filter((row) => !ids.includes(row.id)),
   );
+  for (const id of ids) {
+    queryClient.removeQueries({ queryKey: photosetKeys.detail(id), type: 'inactive' });
+  }
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: photosetKeys.lists() }),
     queryClient.invalidateQueries({ queryKey: cacheKeys.all }),
@@ -64,7 +73,10 @@ export const cacheUsageQuery = () =>
   queryOptions({
     queryKey: cacheKeys.usage(),
     queryFn: () => window.cache.getUsage(),
-    networkMode: localNetworkMode,
+    ...localQuery,
+    // Image processing and draft edits write files without touching this key. Drop the value when
+    // Storage closes, so it never opens on an old number.
+    gcTime: 0,
   });
 
 /** Saved cameras and their sort mode, both in electron-store. Only `useCameras` writes them. */
@@ -74,12 +86,9 @@ export const cameraKeys = {
   sortMode: () => ['cameras', 'sortMode'] as const,
 };
 
-/**
- * S3 state. Buckets are keyed on the credentials and region, so saving new credentials never shows
- * the buckets of the old ones.
- */
+/** S3 state. */
 export const s3Keys = {
   all: ['s3'] as const,
   isMock: () => ['s3', 'isMock'] as const,
-  buckets: (accessKeyId: string, region: string) => ['s3', 'buckets', accessKeyId, region] as const,
+  buckets: () => ['s3', 'buckets'] as const,
 };

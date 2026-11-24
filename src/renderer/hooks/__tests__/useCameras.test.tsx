@@ -67,6 +67,30 @@ describe('useCameras', () => {
     );
   });
 
+  it('keeps a write made while the first load is still in flight', async () => {
+    let finishLoad!: (raw: string) => void;
+    vi.mocked(window.storage.read).mockImplementation((key) =>
+      key === CAMERAS_STORAGE_KEY ? new Promise((r) => (finishLoad = r)) : Promise.resolve(''),
+    );
+    const { a } = renderCameras();
+    await waitFor(() => expect(window.storage.read).toHaveBeenCalledWith(CAMERAS_STORAGE_KEY));
+
+    let added!: Promise<void>;
+    act(() => {
+      added = a.result.current.addCamera('Fuji X-T5');
+    });
+    finishLoad(stored(['Canon R5']));
+    await act(() => added);
+
+    await waitFor(() =>
+      expect(a.result.current.rawCameras.map((c) => c.name)).toEqual(['Canon R5', 'Fuji X-T5']),
+    );
+    expect(window.storage.write).toHaveBeenLastCalledWith(
+      CAMERAS_STORAGE_KEY,
+      expect.stringMatching(/Canon R5.*Fuji X-T5/),
+    );
+  });
+
   it('reloads from disk when a write fails', async () => {
     vi.mocked(window.storage.read).mockImplementation(async (key) =>
       key === CAMERAS_STORAGE_KEY ? stored(['Canon R5']) : '',

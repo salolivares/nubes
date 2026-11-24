@@ -28,14 +28,17 @@ describe('Home', () => {
   });
 
   it('shows the error and retries', async () => {
+    let resolveRetry!: (rows: ReturnType<typeof makeListRow>[]) => void;
     vi.mocked(window.photosets.list)
       .mockRejectedValueOnce(new Error('database is locked'))
-      .mockResolvedValueOnce([makeListRow({ name: 'Iceland' })]);
+      .mockReturnValueOnce(new Promise((resolve) => (resolveRetry = resolve)));
 
     renderHome();
 
     expect(await screen.findByText('database is locked')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Loading...')).toBeInTheDocument();
+    resolveRetry([makeListRow({ name: 'Iceland' })]);
     expect(await screen.findByText('Iceland')).toBeInTheDocument();
   });
 

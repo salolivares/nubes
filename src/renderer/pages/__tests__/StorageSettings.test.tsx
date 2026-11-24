@@ -22,6 +22,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.mocked(toast.error).mockClear();
   vi.mocked(window.photosets.list).mockReset().mockResolvedValue([]);
   vi.mocked(window.photosets.delete).mockReset().mockResolvedValue(undefined);
 });
@@ -57,6 +58,31 @@ describe('StorageSettings', () => {
       photosetKeys.list({ sortBy: 'createdAt', sortOrder: 'desc' }),
     );
     expect(cached?.map((p) => p.id)).toEqual([2]);
+  });
+
+  it('lets every delete finish before reloading after a failure', async () => {
+    const second = makeListRow({ id: 3, name: 'Alps', uploadedAt: '2026-02-02T00:00:00.000Z' });
+    vi.mocked(window.photosets.list).mockResolvedValue([uploaded, second]);
+    renderRoutes('/', { '/': <StorageSettings /> });
+    await screen.findByText('Alps');
+
+    let finishSecond!: () => void;
+    vi.mocked(window.photosets.delete)
+      .mockRejectedValueOnce(new Error('EBUSY'))
+      .mockReturnValueOnce(new Promise<void>((r) => (finishSecond = r)));
+    const listCalls = vi.mocked(window.photosets.list).mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete All' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete All' }));
+    await waitFor(() => expect(window.photosets.delete).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(vi.mocked(window.photosets.list).mock.calls.length).toBe(listCalls);
+    finishSecond();
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Failed to delete', { description: 'EBUSY' }),
+    );
   });
 
   it('reports a failed delete and reloads from disk', async () => {

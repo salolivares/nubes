@@ -37,8 +37,12 @@ export const StorageSettings = () => {
   const usage = usageQuery.data;
 
   const deletePhotosets = useMutation({
-    mutationFn: ({ ids }: { ids: number[]; all: boolean }) =>
-      Promise.all(ids.map((id) => window.photosets.delete({ id }))).then(() => undefined),
+    mutationFn: async ({ ids }: { ids: number[]; all: boolean }) => {
+      // Let every delete finish before reporting, so the reload below sees the final state.
+      const results = await Promise.allSettled(ids.map((id) => window.photosets.delete({ id })));
+      const failed = results.find((r) => r.status === 'rejected');
+      if (failed) throw failed.reason;
+    },
     networkMode: localNetworkMode,
     onSuccess: (_data, { ids }) => forgetPhotosets(queryClient, ids),
     onError: (err) => {
@@ -118,7 +122,7 @@ export const StorageSettings = () => {
           )}
         </div>
 
-        {photosetsQuery.isPending ? (
+        {photosetsQuery.isPending || (!photosetsQuery.data && photosetsQuery.isFetching) ? (
           <div className="space-y-3 p-6">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />

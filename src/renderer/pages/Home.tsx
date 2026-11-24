@@ -40,6 +40,7 @@ export const Home = () => {
   const {
     data: photosets,
     isPending,
+    isFetching,
     error,
     refetch,
   } = useQuery({
@@ -73,7 +74,7 @@ export const Home = () => {
       </div>
 
       {/* List */}
-      {isPending ? (
+      {isPending || (!photosets && isFetching) ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           Loading...
         </div>

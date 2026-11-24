@@ -55,6 +55,30 @@ describe('PhotosetDetail', () => {
     expect(screen.queryByRole('button', { name: 'Save Draft' })).not.toBeInTheDocument();
   });
 
+  it('shows the error, not the cached row, when the fresh read fails', async () => {
+    const queryClient = newQueryClient();
+    queryClient.setQueryData(photosetKeys.detail(7), makePhotoset({ name: 'Iceland' }));
+    vi.mocked(window.photosets.get).mockRejectedValueOnce(new Error('database is locked'));
+
+    renderDetail(queryClient);
+
+    expect(await screen.findByText('database is locked')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Iceland' })).not.toBeInTheDocument();
+  });
+
+  it('shows Loading while Retry reads again after an error', async () => {
+    vi.mocked(window.photosets.get).mockRejectedValueOnce(new Error('database is locked'));
+    let resolve!: (p: ReturnType<typeof makePhotoset>) => void;
+    vi.mocked(window.photosets.get).mockReturnValueOnce(new Promise((r) => (resolve = r)));
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+
+    expect(await screen.findByText('Loading...')).toBeInTheDocument();
+    resolve(makePhotoset({ name: 'Iceland', uploadedAt: '2026-02-01T00:00:00.000Z' }));
+    expect(await screen.findByRole('heading', { name: 'Iceland' })).toBeInTheDocument();
+  });
+
   it('reloads the draft after a save, so the form is clean again', async () => {
     vi.mocked(window.photosets.get).mockResolvedValue(
       makePhotoset({ name: 'Iceland', location: 'Reykjavik' }),
@@ -66,10 +90,14 @@ describe('PhotosetDetail', () => {
     const save = screen.getByRole('button', { name: 'Save Draft' });
     await waitFor(() => expect(save).toBeEnabled());
 
-    vi.mocked(window.photosets.get).mockResolvedValue(
-      makePhotoset({ name: 'Iceland 2026', location: 'Reykjavik' }),
-    );
+    let resolveReload!: (p: ReturnType<typeof makePhotoset>) => void;
+    vi.mocked(window.photosets.get).mockReturnValueOnce(new Promise((r) => (resolveReload = r)));
     fireEvent.click(save);
+
+    // The draft is hidden while it reloads, so Save and Upload can't fire again on the old form.
+    expect(await screen.findByText('Loading...')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save Draft' })).not.toBeInTheDocument();
+    resolveReload(makePhotoset({ name: 'Iceland 2026', location: 'Reykjavik' }));
 
     expect(await screen.findByRole('heading', { name: 'Iceland 2026' })).toBeInTheDocument();
     expect(window.photosets.update).toHaveBeenCalledWith(
