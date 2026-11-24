@@ -19,12 +19,12 @@ export const NewUpload = () => {
   // Mock S3 needs no credentials, so a fresh dev checkout can browse mock buckets.
   const { data: isMock } = useQuery({
     queryKey: ['s3', 'isMock'],
-    queryFn: window.s3.isMock,
+    queryFn: () => window.s3.isMock(),
   });
   const canBrowse = !!isSet || isMock === true;
   const { data, error } = useQuery({
     queryKey: ['s3', 'buckets'],
-    queryFn: window.s3.listBuckets,
+    queryFn: () => window.s3.listBuckets(),
     enabled: canBrowse,
   });
   const navigate = useNavigate();
