@@ -2,8 +2,9 @@ import type { Bucket } from '@aws-sdk/client-s3';
 
 import type {
   CredentialsStatus,
+  ImageJob,
+  ImageJobEvent,
   ImageProcessorResizeArgs,
-  InProgressEvent,
   Photoset,
   PhotosetAddImagesArgs,
   PhotosetCreateArgs,
@@ -12,7 +13,6 @@ import type {
   PhotosetListArgs,
   PhotosetRemoveFilesArgs,
   PhotosetUpdateArgs,
-  ProcessedImage,
   S3CreateAlbumArgs,
   SecureStorageKey,
   StorageChange,
@@ -41,16 +41,14 @@ declare global {
   }
 
   interface ImageProcessorContext {
-    resize: (args: ImageProcessorResizeArgs) => void;
-    onProgressChange: (
-      listener: (event: IpcRendererEvent, progress: InProgressEvent) => void,
-    ) => () => void;
-    onComplete: (
-      listener: (
-        event: IpcRendererEvent,
-        result: { processedImages: ProcessedImage[]; erroredImagePaths: string[] },
-      ) => void,
-    ) => () => void;
+    /** Queue a resize job. Resolves with the job's snapshot, including its jobId. */
+    resize: (args: ImageProcessorResizeArgs) => Promise<ImageJob>;
+    /** Stop the job after the image in progress. A queued job never starts. */
+    cancel: (jobId: string) => Promise<void>;
+    /** Main's current snapshot of a job, or null if it is unknown or was pruned. */
+    getJob: (jobId: string) => Promise<ImageJob | null>;
+    /** Every job event, for every job. Returns an unsubscribe function. */
+    onEvent: (listener: (event: ImageJobEvent) => void) => () => void;
   }
 
   interface ImagePickerFile {
@@ -102,6 +100,8 @@ declare global {
     clearDb: () => Promise<void>;
     getDbPath: () => Promise<string>;
     copyToClipboard: (text: string) => Promise<void>;
+    /** Kill the image worker as if it crashed. Resolves false if none was running. */
+    killImageWorker: () => Promise<boolean>;
   }
 
   interface Window {

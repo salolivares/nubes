@@ -1,39 +1,33 @@
 import { ipcRenderer } from 'electron';
 
 import {
-  IMAGE_PROCESSOR_COMPLETE,
-  IMAGE_PROCESSOR_PROGRESS,
+  IMAGE_PROCESSOR_CANCEL,
+  IMAGE_PROCESSOR_EVENT,
+  IMAGE_PROCESSOR_GET_JOB,
   IMAGE_PROCESSOR_RESIZE,
 } from '@/common';
-import type { InProgressEvent, ProcessedImage } from '@/common/types';
+import type { ImageJob, ImageJobEvent, ImageProcessorResizeArgs } from '@/common/types';
 
-const resize = (args: { imagePaths: string[] }) => {
-  ipcRenderer.send(IMAGE_PROCESSOR_RESIZE, args);
-};
+const resize = (args: ImageProcessorResizeArgs) =>
+  ipcRenderer.invoke(IMAGE_PROCESSOR_RESIZE, args) as Promise<ImageJob>;
 
-const onProgressChange = (
-  listener: (event: Electron.IpcRendererEvent, progress: InProgressEvent) => void,
-) => {
-  const handler = (event: Electron.IpcRendererEvent, progress: InProgressEvent) => {
-    listener(event, progress);
+const cancel = (jobId: string) =>
+  ipcRenderer.invoke(IMAGE_PROCESSOR_CANCEL, { jobId }) as Promise<void>;
+
+const getJob = (jobId: string) =>
+  ipcRenderer.invoke(IMAGE_PROCESSOR_GET_JOB, { jobId }) as Promise<ImageJob | null>;
+
+const onEvent = (listener: (event: ImageJobEvent) => void) => {
+  const handler = (_: Electron.IpcRendererEvent, event: ImageJobEvent) => listener(event);
+  ipcRenderer.on(IMAGE_PROCESSOR_EVENT, handler);
+  return () => {
+    ipcRenderer.off(IMAGE_PROCESSOR_EVENT, handler);
   };
-  ipcRenderer.on(IMAGE_PROCESSOR_PROGRESS, handler);
-  return () => ipcRenderer.off(IMAGE_PROCESSOR_PROGRESS, handler);
-};
-
-type ImageProcessorResult = { processedImages: ProcessedImage[]; erroredImagePaths: string[] };
-
-const onComplete = (
-  listener: (event: Electron.IpcRendererEvent, result: ImageProcessorResult) => void,
-) => {
-  const handler = (event: Electron.IpcRendererEvent, result: ImageProcessorResult) =>
-    listener(event, result);
-  ipcRenderer.on(IMAGE_PROCESSOR_COMPLETE, handler);
-  return () => ipcRenderer.off(IMAGE_PROCESSOR_COMPLETE, handler);
 };
 
 export const imageProcessor: ImageProcessorContext = {
   resize,
-  onProgressChange,
-  onComplete,
+  cancel,
+  getJob,
+  onEvent,
 };

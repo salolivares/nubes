@@ -6,6 +6,7 @@ import {
   DEBUG_GET_DB_PATH,
   DEBUG_GET_MOCK_S3_PATH,
   DEBUG_IS_MOCK_S3,
+  DEBUG_KILL_IMAGE_WORKER,
   DEBUG_OPEN_MOCK_S3_PATH,
   DEBUG_SET_MOCK_S3,
 } from '@/common';
@@ -18,6 +19,7 @@ const clearDb = () => ipcRenderer.invoke(DEBUG_CLEAR_DB) as Promise<void>;
 const getDbPath = () => ipcRenderer.invoke(DEBUG_GET_DB_PATH) as Promise<string>;
 const copyToClipboard = (text: string) =>
   ipcRenderer.invoke(DEBUG_COPY_TO_CLIPBOARD, text) as Promise<void>;
+const killImageWorker = () => ipcRenderer.invoke(DEBUG_KILL_IMAGE_WORKER) as Promise<boolean>;
 
 export const debug: DebugContext = {
   setMockS3,
@@ -27,4 +29,5 @@ export const debug: DebugContext = {
   clearDb,
   getDbPath,
   copyToClipboard,
+  killImageWorker,
 };

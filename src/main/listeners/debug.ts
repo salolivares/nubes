@@ -12,6 +12,7 @@ import {
   DEBUG_GET_DB_PATH,
   DEBUG_GET_MOCK_S3_PATH,
   DEBUG_IS_MOCK_S3,
+  DEBUG_KILL_IMAGE_WORKER,
   DEBUG_OPEN_MOCK_S3_PATH,
   DEBUG_SET_MOCK_S3,
   PHOTOSETS_DIR,
@@ -20,6 +21,7 @@ import { handle } from '@/main/ipc';
 
 import { Database } from '../drivers/database';
 import { getMockS3Path, getS3Provider, MockS3, S3, setS3Provider } from '../drivers/s3';
+import { killImageWorker } from './image-processor';
 
 export function addDebugEventListeners() {
   if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -55,6 +57,8 @@ export function addDebugEventListeners() {
   handle(DEBUG_COPY_TO_CLIPBOARD, z.string(), (_, text) => {
     clipboard.writeText(text);
   });
+
+  handle(DEBUG_KILL_IMAGE_WORKER, () => killImageWorker());
 
   handle(DEBUG_CLEAR_DB, async () => {
     const { db } = Database.instance;

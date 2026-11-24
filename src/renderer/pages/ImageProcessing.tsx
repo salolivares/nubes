@@ -27,8 +27,8 @@ export const ImageProcessing = () => (
 const ImageProcessingGate = ({ photoset }: { photoset: PhotosetWithImages }) => {
   // Read once on mount. Later changes come from this step's own processing run.
   const [hasWork] = useState(() => {
-    const { files, processed } = useImageStore.getState();
-    return processed || files.some((file) => file.path !== undefined);
+    const { files, processed, jobId } = useImageStore.getState();
+    return processed || jobId !== null || files.some((file) => file.path !== undefined);
   });
 
   if (!hasWork) {
@@ -46,36 +46,24 @@ const ImageProcessingGate = ({ photoset }: { photoset: PhotosetWithImages }) => 
 };
 
 const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
-  const { files, processingImages, processed } = useProcessingImages();
+  const { processingImages, processed, job, erroredImages, cancel, retry } = useProcessingImages();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const processedImages = useImageStore((s) => s.processedImages);
 
-  const uploadRan = useRef(false);
   const persistRan = useRef(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   // Only move on once the results are in the DB, so a reload on the next step can find them.
   const [persist, setPersist] = useState<'pending' | 'saved' | 'failed'>('pending');
   // The worker finished but every image failed. Nothing to upload.
   const nothingProcessed = processed && processedImages.length === 0;
+  // Some images failed. Don't auto-advance past the errors.
+  const hasErrors = erroredImages.length > 0;
+  const inFlight = job?.status === 'queued' || job?.status === 'running';
 
   const goToNext = useCallback(() => {
     navigate(wizardPath(photosetId, 's3'));
   }, [navigate, photosetId]);
-
-  useEffect(() => {
-    if (!uploadRan.current && !useImageStore.getState().processed) {
-      window.imageProcessor.resize({
-        imagePaths: files
-          .filter((file) => file.path !== undefined)
-          .map((file) => file.path as string),
-      });
-    }
-
-    return () => {
-      uploadRan.current = true;
-    };
-  }, []);
 
   // Persist processed images to the photoset in the DB
   useEffect(() => {
@@ -114,9 +102,9 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
     persist();
   }, [processed, photosetId, processedImages, queryClient]);
 
-  // Auto-navigate countdown once processing is done and saved
+  // Auto-navigate countdown once processing is done and saved, unless there are errors to read
   useEffect(() => {
-    if (persist !== 'saved') return;
+    if (persist !== 'saved' || hasErrors) return;
     setCountdown(AUTO_NAVIGATE_SECONDS);
 
     const interval = setInterval(() => {
@@ -124,7 +112,7 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [persist]);
+  }, [persist, hasErrors]);
 
   useEffect(() => {
     if (countdown === 0) goToNext();
@@ -150,13 +138,72 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">{item.name}</span>
-                  <span className="text-sm text-muted-foreground">{item.progress}%</span>
+                  {item.error ? (
+                    <span className="text-sm text-destructive">Failed</span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">{item.progress}%</span>
+                  )}
                 </div>
                 <Progress value={item.progress} />
               </div>
             </div>
           ))}
         </div>
+        {inFlight && (
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={cancel}>
+              Cancel
+            </Button>
+          </div>
+        )}
+        {hasErrors && (
+          <div className="rounded-md border border-destructive/50 p-4 text-sm">
+            <p className="font-medium text-destructive">
+              {erroredImages.length} image{erroredImages.length === 1 ? '' : 's'} could not be
+              processed
+            </p>
+            <ul className="mt-2 grid gap-1 text-muted-foreground">
+              {erroredImages.map((e) => (
+                <li key={e.path} className="break-all">
+                  <span className="font-mono">{e.path}</span>: {e.error}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {(job?.status === 'failed' || job?.status === 'cancelled') && (
+          <div className="flex items-center justify-between gap-4 rounded-md border p-4">
+            <p
+              className={
+                job.status === 'failed'
+                  ? 'text-sm text-destructive'
+                  : 'text-sm text-muted-foreground'
+              }
+            >
+              {job.status === 'failed' ? job.error : 'Processing cancelled.'}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(wizardPath(photosetId, 'picker'))}
+              >
+                Pick images again
+              </Button>
+              <Button size="sm" onClick={retry}>
+                Try again
+              </Button>
+            </div>
+          </div>
+        )}
+        {persist === 'saved' && hasErrors && (
+          <div className="flex justify-end">
+            <Button size="sm" onClick={goToNext}>
+              Continue with {processedImages.length} image
+              {processedImages.length === 1 ? '' : 's'}
+            </Button>
+          </div>
+        )}
         {persist === 'saved' && countdown !== null && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Continuing in {countdown}s…</p>

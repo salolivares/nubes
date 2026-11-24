@@ -2,10 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   AWS_REGION,
-  IMAGE_PROCESSOR_PROGRESS,
+  IMAGE_PROCESSOR_EVENT,
   IMAGE_PROCESSOR_RESIZE,
   STORAGE_CHANGE,
 } from '@/common';
+import type { ImageJob } from '@/common/types';
 
 /**
  * Covers the macOS reopen path: close the window (the app keeps running), then
@@ -15,7 +16,6 @@ import {
 const electron = vi.hoisted(() => {
   const handlers = new Map<string, unknown>();
   const sendListeners = new Map<string, (event: unknown, args: unknown) => void>();
-  const ports: Array<{ on: ReturnType<typeof vi.fn> }> = [];
   const windows: FakeWindow[] = [];
 
   class FakeWindow {
@@ -68,12 +68,9 @@ const electron = vi.hoisted(() => {
     focus() {}
   }
 
-  const fakePort = () => ({ start: vi.fn(), on: vi.fn(), postMessage: vi.fn() });
-
   return {
     handlers,
     sendListeners,
-    ports,
     windows,
     FakeWindow,
     fork: vi.fn(() => ({ postMessage: vi.fn(), kill: vi.fn(() => true), on: vi.fn() })),
@@ -92,13 +89,6 @@ const electron = vi.hoisted(() => {
           sendListeners.set(channel, listener);
         }),
         removeHandler: vi.fn((channel: string) => handlers.delete(channel)),
-      },
-      MessageChannelMain: class {
-        port1 = fakePort();
-        port2 = fakePort();
-        constructor() {
-          ports.push(this.port1);
-        }
       },
       app: { getPath: () => '/tmp/nubes-test', quit: vi.fn() },
       nativeTheme: { themeSource: 'system', shouldUseDarkColors: false },
@@ -144,7 +134,6 @@ beforeEach(() => {
   vi.resetModules();
   electron.handlers.clear();
   electron.sendListeners.clear();
-  electron.ports.length = 0;
   electron.windows.length = 0;
   electron.fork.mockClear();
   electron.appOn.mockClear();
@@ -192,7 +181,8 @@ describe('restoreOrCreateWindow', () => {
     const { reopened } = await startThenReopen();
 
     expect(reopened.shown).toBe(true);
-    expect(electron.fork).toHaveBeenCalledTimes(1);
+    // The worker forks on the first resize request, not at startup.
+    expect(electron.fork).not.toHaveBeenCalled();
     const channels = electron.module.ipcMain.handle.mock.calls.map(([channel]) => channel);
     expect(new Set(channels).size).toBe(channels.length);
     expect(electron.appOn.mock.calls.filter(([event]) => event === 'before-quit')).toHaveLength(1);
@@ -215,22 +205,33 @@ describe('restoreOrCreateWindow', () => {
     });
   });
 
-  it('sends image progress to the window that asked for the resize', async () => {
+  it('forks one worker and sends job events to open windows only', async () => {
     const { closed, reopened } = await startThenReopen();
+    const resize = electron.handlers.get(IMAGE_PROCESSOR_RESIZE) as (
+      event: unknown,
+      args: unknown,
+    ) => Promise<ImageJob>;
 
-    electron.sendListeners.get(IMAGE_PROCESSOR_RESIZE)?.(
-      { sender: reopened.webContents, senderFrame: reopened.webContents.mainFrame },
-      { imagePaths: ['/photos/a.jpg'] },
-    );
-    const onWorkerMessage = electron.ports[0].on.mock.calls.find(([e]) => e === 'message')?.[1];
+    const sender = { sender: reopened.webContents, senderFrame: reopened.webContents.mainFrame };
+    const job = await resize(sender, { imagePaths: ['/photos/a.jpg'] });
+    await resize(sender, { imagePaths: ['/photos/b.jpg'] });
+    expect(electron.fork).toHaveBeenCalledTimes(1);
+
+    const worker = electron.fork.mock.results[0].value;
+    const onWorkerMessage = worker.on.mock.calls.find(([e]: [string]) => e === 'message')?.[1];
     onWorkerMessage({
-      data: { type: IMAGE_PROCESSOR_PROGRESS, current: 1, total: 1, path: 'a', name: 'a', id: 'a' },
+      type: 'progress',
+      jobId: job.jobId,
+      current: 1,
+      total: 1,
+      path: '/photos/a.jpg',
+      name: 'a.jpg',
     });
 
     expect(closed.webContents.send).not.toHaveBeenCalled();
     expect(reopened.webContents.send).toHaveBeenCalledWith(
-      IMAGE_PROCESSOR_PROGRESS,
-      expect.objectContaining({ current: 1, total: 1 }),
+      IMAGE_PROCESSOR_EVENT,
+      expect.objectContaining({ type: 'progress', jobId: job.jobId, current: 1 }),
     );
   });
 });

@@ -34,6 +34,7 @@ export const DEBUG_OPEN_MOCK_S3_PATH = `${DEBUG_CHANNEL}:openMockS3Path`;
 export const DEBUG_CLEAR_DB = `${DEBUG_CHANNEL}:clearDb`;
 export const DEBUG_GET_DB_PATH = `${DEBUG_CHANNEL}:getDbPath`;
 export const DEBUG_COPY_TO_CLIPBOARD = `${DEBUG_CHANNEL}:copyToClipboard`;
+export const DEBUG_KILL_IMAGE_WORKER = `${DEBUG_CHANNEL}:killImageWorker`;
 
 export const IMAGE_PICKER_CHANNEL = 'image-picker';
 export const IMAGE_PICKER_OPEN = `${IMAGE_PICKER_CHANNEL}:open`;
@@ -68,6 +69,6 @@ export const S3_IS_MOCK = `${S3_CHANNEL}:isMock`;
 
 export const IMAGE_PROCESSOR_CHANNEL = 'image-processor';
 export const IMAGE_PROCESSOR_RESIZE = `${IMAGE_PROCESSOR_CHANNEL}:resize`;
-export const IMAGE_PROCESSOR_PROGRESS = `${IMAGE_PROCESSOR_CHANNEL}:progress`;
-export const IMAGE_PROCESSOR_COMPLETE = `${IMAGE_PROCESSOR_CHANNEL}:complete`;
-export const IMAGE_PROCESSOR_ERROR = `${IMAGE_PROCESSOR_CHANNEL}:error`;
+export const IMAGE_PROCESSOR_CANCEL = `${IMAGE_PROCESSOR_CHANNEL}:cancel`;
+export const IMAGE_PROCESSOR_GET_JOB = `${IMAGE_PROCESSOR_CHANNEL}:getJob`;
+export const IMAGE_PROCESSOR_EVENT = `${IMAGE_PROCESSOR_CHANNEL}:event`;

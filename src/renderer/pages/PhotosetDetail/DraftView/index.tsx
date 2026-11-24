@@ -4,12 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowLeft, ChevronDown, ImagePlus, Loader2, Trash2, Upload } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import type { InProgressEvent, ProcessedImage, S3CreateAlbumArgs } from '@/common/types';
+import type { ProcessedImage, S3CreateAlbumArgs } from '@/common/types';
 import { albumSchema } from '@/common/types';
 
 import { AlbumForm } from '../../../components/AlbumForm/AlbumForm';
@@ -38,6 +38,7 @@ import {
 } from '../../../components/ui/dropdown-menu';
 import { useCameras } from '../../../hooks/useCameras';
 import { uploadAlbum } from '../../../lib/upload-album';
+import { useImageJobStore } from '../../../stores/image-jobs';
 import type { DbImage, PhotosetWithImages } from '../utils';
 import { toProcessedImages } from '../utils';
 import { useImageColumns } from './columns';
@@ -84,10 +85,19 @@ export function DraftView({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processedCount, setProcessedCount] = useState(0);
-  const [processingTotal, setProcessingTotal] = useState(0);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const job = useImageJobStore((s) => (jobId ? s.jobs[jobId] : undefined));
+  const isProcessing = isStarting || job?.status === 'queued' || job?.status === 'running';
+  const processedCount = job?.donePaths.length ?? 0;
+  const processingTotal = job?.imagePaths.length ?? 0;
+
+  // The results only land in this view's local state, so leaving the draft drops them. Cancel the
+  // job instead of letting it finish into nothing (and toast "Added" on a page that's gone).
+  useEffect(() => {
+    if (!jobId) return;
+    return () => void useImageJobStore.getState().cancel(jobId);
+  }, [jobId]);
   const form = useForm({
     resolver: zodResolver(albumSchema),
     mode: 'onChange',
@@ -112,56 +122,47 @@ export function DraftView({
   const [previewImage, setPreviewImage] = useState<DbImage | null>(null);
   const [pendingFileDeletes, setPendingFileDeletes] = useState<string[]>([]);
 
-  // Clean up event listeners on unmount
-  useEffect(() => {
-    return () => {
-      unsubscribeRef.current?.();
-    };
-  }, []);
-
   const handleAddImages = async () => {
     const files = await window.imagePicker.open();
     if (files.length === 0) return;
 
-    const paths = files.map((f) => f.path);
-    setIsProcessing(true);
-    setProcessedCount(0);
-    setProcessingTotal(paths.length);
-
-    // Clean up any previous listeners
-    unsubscribeRef.current?.();
-
-    const unsubProgress = window.imageProcessor.onProgressChange(
-      (_: unknown, event: InProgressEvent) => {
-        setProcessedCount((prev) => Math.min(prev + 1, event.total));
-      },
-    );
-
-    const unsubComplete = window.imageProcessor.onComplete(
-      (_: unknown, result: { processedImages: ProcessedImage[] }) => {
-        const newImages = result.processedImages;
-        setImages((prev) => {
-          const startOrder = prev.length;
-          const converted = newImages.map((img, i) => processedImageToDbImage(img, startOrder + i));
-          return [...prev, ...converted];
+    setIsStarting(true);
+    const finished = await useImageJobStore
+      .getState()
+      .run(
+        files.map((f) => f.path),
+        (id) => {
+          setJobId(id);
+          setIsStarting(false);
+        },
+      )
+      .catch((err: unknown) => {
+        setIsStarting(false);
+        toast.error('Could not start image processing', {
+          description: err instanceof Error ? err.message : 'Unknown error',
         });
-        setImagesDirty(true);
-        setIsProcessing(false);
-        toast.success(`Added ${newImages.length} image${newImages.length === 1 ? '' : 's'}`);
+        return null;
+      });
 
-        // Clean up listeners
-        unsubProgress();
-        unsubComplete();
-        unsubscribeRef.current = null;
-      },
-    );
+    if (!finished) return;
+    if (finished.status === 'failed') {
+      toast.error('Image processing failed', { description: finished.error ?? undefined });
+      return;
+    }
+    if (finished.status !== 'complete') return;
 
-    unsubscribeRef.current = () => {
-      unsubProgress();
-      unsubComplete();
-    };
-
-    window.imageProcessor.resize({ imagePaths: paths });
+    const newImages = finished.processedImages;
+    if (newImages.length > 0) {
+      setImages((prev) => [
+        ...prev,
+        ...newImages.map((img, i) => processedImageToDbImage(img, prev.length + i)),
+      ]);
+      setImagesDirty(true);
+      toast.success(`Added ${newImages.length} image${newImages.length === 1 ? '' : 's'}`);
+    }
+    for (const { path, error } of finished.erroredImages) {
+      toast.error(`Could not process ${path}`, { description: error });
+    }
   };
 
   const handleImageUpdate = (

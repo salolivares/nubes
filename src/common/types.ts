@@ -28,19 +28,98 @@ export const processedImageSchema = z.object({
 
 export type ProcessedImage = z.infer<typeof processedImageSchema>;
 
-export interface InProgressEvent {
-  current: number;
-  total: number;
-  path: string;
-  name: string;
-  id: string;
-}
+export const imageErrorSchema = z.object({
+  path: z.string(),
+  error: z.string(),
+});
+
+export type ImageError = z.infer<typeof imageErrorSchema>;
 
 export const imageProcessorResizeArgsSchema = z.object({
   imagePaths: z.array(z.string()),
 });
 
 export type ImageProcessorResizeArgs = z.infer<typeof imageProcessorResizeArgsSchema>;
+
+export const imageJobIdArgsSchema = z.object({ jobId: z.string() });
+
+export type ImageJobIdArgs = z.infer<typeof imageJobIdArgsSchema>;
+
+// Main → worker. The worker runs one resize at a time and checks for a cancel between images.
+export const imageWorkerRequestSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('resize'),
+    jobId: z.string(),
+    imagePaths: z.array(z.string()),
+    outputFolder: z.string(),
+  }),
+  z.object({ type: z.literal('cancel'), jobId: z.string() }),
+]);
+
+export type ImageWorkerRequest = z.infer<typeof imageWorkerRequestSchema>;
+
+// Sent once per image, whether it succeeded or failed.
+export const imageJobProgressEventSchema = z.object({
+  type: z.literal('progress'),
+  jobId: z.string(),
+  current: z.number(),
+  total: z.number(),
+  path: z.string(),
+  name: z.string(),
+  error: z.string().optional(),
+});
+
+export const imageJobCompleteEventSchema = z.object({
+  type: z.literal('complete'),
+  jobId: z.string(),
+  processedImages: z.array(processedImageSchema),
+  erroredImages: z.array(imageErrorSchema),
+  cancelled: z.boolean(),
+});
+
+// Worker → main. Main parses these before forwarding them.
+export const imageWorkerEventSchema = z.discriminatedUnion('type', [
+  imageJobProgressEventSchema,
+  imageJobCompleteEventSchema,
+]);
+
+export type ImageWorkerEvent = z.infer<typeof imageWorkerEventSchema>;
+
+// Main → renderer. Adds the events only main knows about: a job leaving the queue, and a job
+// failing because the worker exited.
+export const imageJobEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('started'), jobId: z.string() }),
+  imageJobProgressEventSchema,
+  imageJobCompleteEventSchema,
+  z.object({ type: z.literal('failed'), jobId: z.string(), error: z.string() }),
+]);
+
+export type ImageJobEvent = z.infer<typeof imageJobEventSchema>;
+
+export const imageJobStatusSchema = z.enum([
+  'queued',
+  'running',
+  'complete',
+  'cancelled',
+  'failed',
+]);
+
+export type ImageJobStatus = z.infer<typeof imageJobStatusSchema>;
+
+// What main and the renderer each build by folding ImageJobEvents with applyImageJobEvent().
+export const imageJobSchema = z.object({
+  jobId: z.string(),
+  status: imageJobStatusSchema,
+  imagePaths: z.array(z.string()),
+  /** Paths the worker has finished, successfully or not. */
+  donePaths: z.array(z.string()),
+  processedImages: z.array(processedImageSchema),
+  erroredImages: z.array(imageErrorSchema),
+  /** Set when the whole job failed, e.g. the worker crashed. */
+  error: z.string().nullable(),
+});
+
+export type ImageJob = z.infer<typeof imageJobSchema>;
 
 // ── Album form ──────────────────────────────────────────────────────
 
