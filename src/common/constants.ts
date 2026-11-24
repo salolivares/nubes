@@ -1,9 +1,10 @@
 export const SECURE_STORAGE_WRITE = 'secure-storage:write';
-export const SECURE_STORAGE_READ = 'secure-storage:read';
 export const STORAGE_READ = 'storage:read';
 export const STORAGE_WRITE = 'storage:write';
 export const STORAGE_CHANNEL = 'storage';
 export const STORAGE_CHANGE = 'storage:change';
+export const CREDENTIALS_STATUS_CHANNEL = 'storage:credentials-status';
+export const CREDENTIALS_CHANGE = 'storage:credentials-change';
 
 export const CONFIG_FILE = 'config.json';
 export const DB_FILENAME = 'nubes.db';
@@ -13,6 +14,10 @@ export const MIGRATIONS_DEV_PATH = 'src/common/db/migrations';
 export const ACCESS_KEY_ID = 'accessKeyId';
 export const SECRET_ACCESS_KEY = 'secretAccessKey';
 export const AWS_REGION = 'awsRegion';
+/**
+ * Keys stored encrypted with safeStorage. The renderer can write them but never read them back.
+ */
+export const SECURE_STORAGE_KEYS = [ACCESS_KEY_ID, SECRET_ACCESS_KEY] as const;
 export const DEFAULT_AWS_REGION = 'us-east-1';
 
 export const THEME_MODE_CURRENT_CHANNEL = 'theme-mode:current';

@@ -5,11 +5,12 @@ import { vi } from 'vitest';
 // Mock window.* preload APIs exposed via contextBridge
 
 window.storage = {
-  secureRead: vi.fn().mockResolvedValue(''),
+  credentialsStatus: vi.fn().mockResolvedValue({ accessKeyId: null, hasSecret: false }),
   secureWrite: vi.fn().mockResolvedValue(undefined),
   read: vi.fn().mockResolvedValue(''),
   write: vi.fn().mockResolvedValue(undefined),
   onStorageChange: vi.fn().mockReturnValue(() => {}),
+  onCredentialsChange: vi.fn().mockReturnValue(() => {}),
 };
 
 window.themeMode = {

@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+import {
+  SECURE_STORAGE_KEYS,
+  SECURE_STORAGE_WRITE,
+  STORAGE_READ,
+  STORAGE_WRITE,
+} from './constants';
+
 // ── Image processing ────────────────────────────────────────────────
 
 export const outputImageSchema = z.object({
@@ -65,6 +72,52 @@ export const s3CreateAlbumArgsSchema = z.object({
 });
 
 export type S3CreateAlbumArgs = z.infer<typeof s3CreateAlbumArgsSchema>;
+
+// ── Storage ─────────────────────────────────────────────────────────
+
+export const secureStorageKeySchema = z.enum(SECURE_STORAGE_KEYS);
+
+export type SecureStorageKey = z.infer<typeof secureStorageKeySchema>;
+
+// Plain reads and writes can't touch secure keys. Without safeStorage the "encrypted" value is
+// only base64, so a plain read would hand the secret to the renderer.
+const plainStorageKeySchema = z
+  .string()
+  .refine(
+    (key) => !secureStorageKeySchema.safeParse(key).success,
+    'Credentials are only reachable through secureWrite and credentialsStatus',
+  );
+
+export const storageArgsSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal(STORAGE_READ), key: plainStorageKeySchema }),
+  z.object({ action: z.literal(STORAGE_WRITE), key: plainStorageKeySchema, value: z.string() }),
+  z.object({
+    action: z.literal(SECURE_STORAGE_WRITE),
+    key: secureStorageKeySchema,
+    value: z.string(),
+  }),
+]);
+
+export type StorageArgs = z.infer<typeof storageArgsSchema>;
+
+/**
+ * What the renderer may know about the saved AWS credentials. The secret itself stays in main.
+ */
+export const credentialsStatusSchema = z.object({
+  accessKeyId: z.string().nullable(),
+  hasSecret: z.boolean(),
+});
+
+export type CredentialsStatus = z.infer<typeof credentialsStatusSchema>;
+
+/** Pushed on `STORAGE_CHANGE` when a plain (unencrypted) key changes. */
+export const storageChangeSchema = z.object({
+  key: z.string(),
+  newValue: z.string(),
+  oldValue: z.string(),
+});
+
+export type StorageChange = z.infer<typeof storageChangeSchema>;
 
 // ── Photoset row types ──────────────────────────────────────────────
 

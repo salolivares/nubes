@@ -1,49 +1,50 @@
-import { ACCESS_KEY_ID, AWS_REGION, DEFAULT_AWS_REGION, SECRET_ACCESS_KEY } from '@common';
+import { AWS_REGION, DEFAULT_AWS_REGION } from '@common';
 import { useEffect, useState } from 'react';
-import { z } from 'zod';
 
-const storageChangeArgsSchema = z.object({
-  key: z.string(),
-  newValue: z.string(),
-  oldValue: z.string(),
-});
+import type { CredentialsStatus } from '@/common/types';
+import { credentialsStatusSchema, storageChangeSchema } from '@/common/types';
 
+const EMPTY_STATUS: CredentialsStatus = { accessKeyId: null, hasSecret: false };
+
+/**
+ * Saved AWS credentials as the renderer sees them: the access key ID and whether a secret is
+ * saved. Main never sends the secret itself.
+ */
 export const useAWSCredentials = () => {
-  const [accessKeyId, setAccessKeyId] = useState<string>('');
-  const [secretAccessKey, setSecretAccessKey] = useState<string>('');
+  const [status, setStatus] = useState<CredentialsStatus>(EMPTY_STATUS);
   const [awsRegion, setAwsRegion] = useState<string>(DEFAULT_AWS_REGION);
 
   useEffect(() => {
     async function fetchAWSCredentials() {
-      const fetchedAccessKeyId = await window.storage.secureRead(ACCESS_KEY_ID);
-      const fetchedSecretAccessKey = await window.storage.secureRead(SECRET_ACCESS_KEY);
-      const fetchedRegion = await window.storage.read(AWS_REGION);
-      setAccessKeyId(fetchedAccessKeyId ?? '');
-      setSecretAccessKey(fetchedSecretAccessKey ?? '');
-      setAwsRegion(fetchedRegion ?? DEFAULT_AWS_REGION);
+      const [fetchedStatus, fetchedRegion] = await Promise.all([
+        window.storage.credentialsStatus(),
+        window.storage.read(AWS_REGION),
+      ]);
+      setStatus(fetchedStatus ?? EMPTY_STATUS);
+      setAwsRegion(fetchedRegion || DEFAULT_AWS_REGION);
     }
 
     fetchAWSCredentials();
 
-    const unsubscribe = window.storage.onStorageChange((_, args) => {
-      const { key, newValue } = storageChangeArgsSchema.parse(args);
-      if (key === ACCESS_KEY_ID) {
-        setAccessKeyId(newValue);
-      }
-      if (key === SECRET_ACCESS_KEY) {
-        setSecretAccessKey(newValue);
-      }
+    const unsubscribeCredentials = window.storage.onCredentialsChange((next) => {
+      setStatus(credentialsStatusSchema.parse(next));
+    });
+    const unsubscribeStorage = window.storage.onStorageChange((change) => {
+      const { key, newValue } = storageChangeSchema.parse(change);
       if (key === AWS_REGION) {
         setAwsRegion(newValue || DEFAULT_AWS_REGION);
       }
     });
 
     return () => {
-      unsubscribe();
+      unsubscribeCredentials();
+      unsubscribeStorage();
     };
   }, []);
 
-  const isSet = accessKeyId && secretAccessKey;
+  const accessKeyId = status.accessKeyId ?? '';
+  const { hasSecret } = status;
+  const isSet = !!accessKeyId && hasSecret;
 
-  return { accessKeyId, secretAccessKey, awsRegion, isSet };
+  return { accessKeyId, hasSecret, awsRegion, isSet };
 };
