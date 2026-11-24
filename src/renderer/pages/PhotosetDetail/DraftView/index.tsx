@@ -133,6 +133,7 @@ export function DraftView({
     const finished = await useImageJobStore
       .getState()
       .run(
+        photoset.id,
         files.map((f) => f.path),
         (id) => {
           setJobId(id);

@@ -5,12 +5,22 @@ import path from 'node:path';
 
 import { eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import sharp from 'sharp';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as schema from '@/common/db/schema';
 import { photosetImageOutputs, photosetImages, photosets } from '@/common/db/schema';
 import { createTestDb } from '@/main/__test-utils__/db';
-import { deleteFiles, getPhotosetFilePaths } from '@/main/listeners/photoset';
+import { processImage } from '@/main/drivers/image-worker/process-image';
+import {
+  deleteFiles,
+  deletePhotoset,
+  getPhotosetFilePaths,
+  getReferencedPaths,
+  removeUnreferencedFiles,
+} from '@/main/listeners/photoset';
+import { MediaAccess } from '@/main/media/access';
+import { photosetOutputFolder } from '@/main/photoset-folders';
 
 let db: BetterSQLite3Database<typeof schema>;
 let close: () => void;
@@ -361,5 +371,238 @@ describe('delete cleans up files', () => {
 
     // Cleanup
     await fsp.rm(tmpDir, { recursive: true, force: true });
+  });
+});
+
+describe('photosets made from same-named sources', () => {
+  let tmpDir: string;
+  let root: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nubes-test-'));
+    root = path.join(tmpDir, 'photosets');
+  });
+
+  const deps = () => ({ db, root, access: new MediaAccess(() => [root]) });
+
+  /** An image file directly in the photosets folder, as photosets made before #131 had. */
+  function legacyFile(name: string): string {
+    fs.mkdirSync(root, { recursive: true });
+    const filePath = path.join(root, name);
+    fs.writeFileSync(filePath, 'x');
+    return filePath;
+  }
+
+  const output = (imagePath: string) => ({
+    imagePath,
+    type: 'jpg' as const,
+    resolution: 640,
+    byteLength: 1,
+  });
+
+  afterEach(() => fsp.rm(tmpDir, { recursive: true, force: true }));
+
+  /** Write a small solid-color jpg at `<tmpDir>/<folder>/<name>`, like a camera card would. */
+  async function source(folder: string, name: string, red: number): Promise<string> {
+    const filePath = path.join(tmpDir, folder, name);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    await sharp({
+      create: { width: 64, height: 48, channels: 3, background: { r: red, g: 0, b: 0 } },
+    })
+      .jpeg()
+      .toFile(filePath);
+    return filePath;
+  }
+
+  /** Process `sources` the way the worker does, then save them the way the wizard does. */
+  async function processInto(photosetId: number, sources: string[]) {
+    const folder = photosetOutputFolder(root, photosetId);
+    const processed = [];
+    for (const src of sources) processed.push(await processImage(src, folder));
+    addImages(
+      photosetId,
+      processed.map((img) => ({
+        name: img.name,
+        originalPath: img.imagePaths[0].imagePath,
+        outputs: img.imagePaths,
+      })),
+    );
+    return processed.flatMap((img) => img.imagePaths.map((p) => p.imagePath));
+  }
+
+  it('writes each photoset to its own folder, and deleting one keeps the other', async () => {
+    const trip1 = createPhotoset({ name: 'Trip 1' });
+    const trip2 = createPhotoset({ name: 'Trip 2' });
+
+    const trip1Files = await processInto(trip1.id, [
+      await source('card-a', 'IMG_0001.jpg', 10),
+      await source('card-a', 'IMG_0002.jpg', 20),
+      await source('card-a', 'IMG_0003.jpg', 30),
+    ]);
+    const trip2Files = await processInto(trip2.id, [
+      await source('card-b', 'IMG_0001.jpg', 200),
+      await source('card-b', 'IMG_0002.jpg', 210),
+    ]);
+
+    expect(trip1Files).toHaveLength(24);
+    expect(trip2Files).toHaveLength(16);
+    expect(trip1Files.filter((p) => trip2Files.includes(p))).toEqual([]);
+    expect(trip1Files.every((p) => path.dirname(p) === path.join(root, String(trip1.id)))).toBe(
+      true,
+    );
+
+    await deletePhotoset(trip2.id, deps());
+
+    expect(trip1Files.every((p) => fs.existsSync(p))).toBe(true);
+    expect(trip2Files.some((p) => fs.existsSync(p))).toBe(false);
+    expect(fs.existsSync(photosetOutputFolder(root, trip2.id))).toBe(false);
+    expect(getPhotosetFilePaths(db, trip1.id)).toHaveLength(24 + 3);
+  });
+
+  it('gives same-named sources in one photoset their own files', async () => {
+    const ps = createPhotoset();
+    const files = await processInto(ps.id, [
+      await source('card-a', 'IMG_0001.jpg', 10),
+      await source('card-b', 'IMG_0001.jpg', 200),
+    ]);
+
+    expect(new Set(files).size).toBe(16);
+    expect(files.map((p) => path.basename(p))).toContain('IMG_0001_128.jpg');
+    expect(files.map((p) => path.basename(p))).toContain('IMG_0001-2_128.jpg');
+  });
+
+  it('keeps files from a re-run apart, and delete clears the leftovers with the folder', async () => {
+    const ps = createPhotoset();
+    const src = await source('card-a', 'IMG_0001.jpg', 10);
+    const firstRun = await processInto(ps.id, [src]);
+    // A second run replaces the rows, so the first run's files are now on disk but unreferenced.
+    const secondRun = await processInto(ps.id, [src]);
+
+    expect(firstRun.filter((p) => secondRun.includes(p))).toEqual([]);
+
+    await deletePhotoset(ps.id, deps());
+
+    expect([...firstRun, ...secondRun].some((p) => fs.existsSync(p))).toBe(false);
+    expect(fs.existsSync(photosetOutputFolder(root, ps.id))).toBe(false);
+  });
+
+  it('does not delete legacy flat files that another photoset still points at', async () => {
+    // Before per-photoset folders, two photosets could point at the same flat files.
+    const shared = legacyFile('IMG_0001_640.jpg');
+    const ownOnly = legacyFile('IMG_0002_640.jpg');
+
+    const older = createPhotoset({ name: 'Older' });
+    addImages(older.id, [{ name: 'IMG_0001', originalPath: shared, outputs: [output(shared)] }]);
+    const newer = createPhotoset({ name: 'Newer' });
+    addImages(newer.id, [
+      { name: 'IMG_0001', originalPath: shared, outputs: [output(shared)] },
+      { name: 'IMG_0002', originalPath: ownOnly, outputs: [output(ownOnly)] },
+    ]);
+
+    await deletePhotoset(newer.id, deps());
+
+    expect(fs.existsSync(shared)).toBe(true);
+    expect(fs.existsSync(ownOnly)).toBe(false);
+    expect(fs.existsSync(root)).toBe(true);
+  });
+
+  it('removeFiles skips files a photoset still points at and drops the empty folder', async () => {
+    const ps = createPhotoset();
+    const files = await processInto(ps.id, [await source('card-a', 'IMG_0001.jpg', 10)]);
+    const outside = path.join(tmpDir, 'outside.jpg');
+    fs.writeFileSync(outside, 'x');
+
+    // Still in the DB: nothing is deleted.
+    await removeUnreferencedFiles([...files, outside], deps());
+    expect(files.every((p) => fs.existsSync(p))).toBe(true);
+    expect(fs.existsSync(outside)).toBe(true);
+
+    // The draft was saved without the image, so its files can go, and the folder with them.
+    addImages(ps.id, []);
+    await removeUnreferencedFiles([...files, outside], deps());
+    expect(files.some((p) => fs.existsSync(p))).toBe(false);
+    expect(fs.existsSync(photosetOutputFolder(root, ps.id))).toBe(false);
+    expect(fs.existsSync(outside)).toBe(true);
+  });
+
+  it('deletes shared legacy files when every photoset using them is deleted at once', async () => {
+    const shared = legacyFile('IMG_0001_640.jpg');
+    const ids = [createPhotoset({ name: 'A' }).id, createPhotoset({ name: 'B' }).id];
+    for (const id of ids) {
+      addImages(id, [{ name: 'IMG_0001', originalPath: shared, outputs: [output(shared)] }]);
+    }
+
+    // Like "Delete all" in storage settings: every delete in flight together.
+    await Promise.all(ids.map((id) => deletePhotoset(id, deps())));
+
+    expect(fs.existsSync(shared)).toBe(false);
+    expect(db.select().from(photosets).all()).toEqual([]);
+  });
+
+  it('treats paths that differ only in case as the same file', async () => {
+    const upper = legacyFile('IMG_0001_640.jpg');
+    const lower = path.join(root, 'img_0001_640.jpg');
+    const older = createPhotoset({ name: 'Older' });
+    addImages(older.id, [{ name: 'IMG_0001', originalPath: upper, outputs: [output(upper)] }]);
+    const newer = createPhotoset({ name: 'Newer' });
+    addImages(newer.id, [{ name: 'img_0001', originalPath: lower, outputs: [output(lower)] }]);
+
+    expect(getReferencedPaths(db, [lower], newer.id).size).toBe(1);
+
+    // On macOS and Windows `lower` is the same file as `upper`. Deleting must not unlink it.
+    await deletePhotoset(newer.id, deps());
+    expect(fs.existsSync(upper)).toBe(true);
+
+    await removeUnreferencedFiles([lower, upper.replace('IMG', 'Img')], deps());
+    expect(fs.existsSync(upper)).toBe(true);
+  });
+
+  it('removeFiles normalizes paths before checking whether they are in use', async () => {
+    const ps = createPhotoset();
+    const [file] = await processInto(ps.id, [await source('card-a', 'IMG_0001.jpg', 10)]);
+    // Not path.join: it would normalize the `.` away.
+    const sneaky = [path.dirname(file), '.', path.basename(file)].join(path.sep);
+
+    await removeUnreferencedFiles([sneaky], deps());
+
+    expect(fs.existsSync(file)).toBe(true);
+  });
+
+  it('looks up more paths than fit in one SQLite batch', () => {
+    const ps = createPhotoset();
+    const paths = Array.from({ length: 1201 }, (_, i) => path.join(root, `IMG_${i}_640.jpg`));
+    addImages(ps.id, [{ name: 'many', originalPath: paths[0], outputs: paths.map(output) }]);
+
+    expect(getReferencedPaths(db, paths).size).toBe(1201);
+    expect(getReferencedPaths(db, paths, ps.id).size).toBe(0);
+  });
+
+  it("stops the photoset's image jobs before it touches the row or the files", async () => {
+    const ps = createPhotoset();
+    const files = await processInto(ps.id, [await source('card-a', 'IMG_0001.jpg', 10)]);
+    const stopJobs = vi.fn(async (id: number) => {
+      expect(id).toBe(ps.id);
+      expect(db.select().from(photosets).where(eq(photosets.id, ps.id)).get()).toBeDefined();
+      expect(files.every((p) => fs.existsSync(p))).toBe(true);
+    });
+
+    await deletePhotoset(ps.id, { ...deps(), stopJobs });
+
+    expect(stopJobs).toHaveBeenCalledOnce();
+    expect(files.some((p) => fs.existsSync(p))).toBe(false);
+  });
+
+  it("never unlinks an old row's source path outside the photosets folder", async () => {
+    const original = path.join(tmpDir, 'card-a', 'DSCF0001.jpg');
+    fs.mkdirSync(path.dirname(original), { recursive: true });
+    fs.writeFileSync(original, 'x');
+    const out = legacyFile('DSCF0001_640.jpg');
+    const ps = createPhotoset();
+    addImages(ps.id, [{ name: 'DSCF0001', originalPath: original, outputs: [output(out)] }]);
+
+    await deletePhotoset(ps.id, deps());
+
+    expect(fs.existsSync(original)).toBe(true);
+    expect(fs.existsSync(out)).toBe(false);
   });
 });

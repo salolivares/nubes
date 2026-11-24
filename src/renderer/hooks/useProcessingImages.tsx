@@ -18,7 +18,7 @@ export interface ProcessingImage {
  * Runs the image processing job for the upload flow and tracks it by jobId. The job's progress
  * lives in useImageJobStore, so leaving the page and coming back picks it up where it is.
  */
-export const useProcessingImages = () => {
+export const useProcessingImages = (photosetId: number) => {
   const files = useImageStore((state) => state.files);
   const jobId = useImageStore((state) => state.jobId);
   const processed = useImageStore((state) => state.processed);
@@ -45,7 +45,7 @@ export const useProcessingImages = () => {
     setProcessed(false);
     setProcessedImages([]);
     try {
-      const started = await useImageJobStore.getState().start(imagePaths);
+      const started = await useImageJobStore.getState().start(photosetId, imagePaths);
       // The user may have changed the selection or started over while main was replying.
       if (useImageStore.getState().selectionVersion === selectionVersion) {
         setJobId(started.jobId);
@@ -59,7 +59,7 @@ export const useProcessingImages = () => {
     } finally {
       starting.current = false;
     }
-  }, [setJobId, setProcessed, setProcessedImages]);
+  }, [photosetId, setJobId, setProcessed, setProcessedImages]);
 
   // Start a job on first visit. On a remount, catch up on the job already running. If results
   // are already in, there is nothing to start.

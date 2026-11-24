@@ -265,7 +265,10 @@ describe('image picker', () => {
     await expectLocation('/photoset/7/upload');
     expect(useImageStore.getState().processedImages).toEqual([]);
     await waitFor(() =>
-      expect(window.imageProcessor.resize).toHaveBeenCalledWith({ imagePaths: ['/tmp/b.jpg'] }),
+      expect(window.imageProcessor.resize).toHaveBeenCalledWith({
+        photosetId: 7,
+        imagePaths: ['/tmp/b.jpg'],
+      }),
     );
   });
 
@@ -294,6 +297,7 @@ describe('image picker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
     await waitFor(() =>
       expect(window.imageProcessor.resize).toHaveBeenCalledWith({
+        photosetId: 7,
         imagePaths: ['/Users/me/Photos/a.jpg'],
       }),
     );

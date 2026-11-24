@@ -155,23 +155,49 @@ describe('s3:createAlbum', () => {
 });
 
 describe('image-processor:resize', () => {
-  it('forwards picked files to the worker', async () => {
+  function photoset() {
+    const [ps] = db
+      .insert(photosets)
+      .values({ name: 'S', location: 'L', year: 2026, bucketName: 'b' })
+      .returning()
+      .all();
+    return ps.id;
+  }
+
+  it("forwards picked files to the worker, writing to the photoset's own folder", async () => {
     const picked = write(path.join(outsideDir, 'IMG_0001.jpg'));
     const { allowPickedFiles } = await import('@/main/media');
     await allowPickedFiles([picked]);
-    await expect(call(IMAGE_PROCESSOR_RESIZE, { imagePaths: [picked] })).resolves.toMatchObject({
-      imagePaths: [picked],
-    });
+    const photosetId = photoset();
+
+    await expect(
+      call(IMAGE_PROCESSOR_RESIZE, { photosetId, imagePaths: [picked] }),
+    ).resolves.toMatchObject({ imagePaths: [picked] });
     expect(h.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'resize', imagePaths: [picked] }),
+      expect.objectContaining({
+        type: 'resize',
+        imagePaths: [picked],
+        outputFolder: path.join(photosetsDir, String(photosetId)),
+      }),
     );
   });
 
   it('refuses a file that was never picked, without starting a job', async () => {
     const other = write(path.join(outsideDir, 'private.jpg'));
-    await expect(call(IMAGE_PROCESSOR_RESIZE, { imagePaths: [other] })).rejects.toThrow(
-      /Refused to process/,
-    );
+    await expect(
+      call(IMAGE_PROCESSOR_RESIZE, { photosetId: photoset(), imagePaths: [other] }),
+    ).rejects.toThrow(/Refused to process/);
+    expect(h.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('refuses a photoset that does not exist, without starting a job', async () => {
+    const picked = write(path.join(outsideDir, 'IMG_0001.jpg'));
+    const { allowPickedFiles } = await import('@/main/media');
+    await allowPickedFiles([picked]);
+
+    await expect(
+      call(IMAGE_PROCESSOR_RESIZE, { photosetId: 9999, imagePaths: [picked] }),
+    ).rejects.toThrow('Photoset 9999 not found');
     expect(h.postMessage).not.toHaveBeenCalled();
   });
 });

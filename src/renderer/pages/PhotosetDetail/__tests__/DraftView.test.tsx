@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -71,5 +71,23 @@ describe('DraftView delete', () => {
 
     expect(screen.getByRole('button', { name: 'Save Draft' })).toBeDisabled();
     await expectDeleteReachable();
+  });
+});
+
+describe('DraftView add images', () => {
+  it("processes picked files into this photoset's folder", async () => {
+    vi.mocked(window.imagePicker.open).mockResolvedValueOnce([
+      { path: '/photos/IMG_0001.jpg', name: 'IMG_0001.jpg' },
+    ]);
+    renderDraft(makeDraft({ id: 42 }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Images/ }));
+
+    await waitFor(() =>
+      expect(window.imageProcessor.resize).toHaveBeenCalledWith({
+        photosetId: 42,
+        imagePaths: ['/photos/IMG_0001.jpg'],
+      }),
+    );
   });
 });

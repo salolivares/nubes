@@ -21,14 +21,14 @@ describe('useImageJobStore', () => {
 
   it('subscribes to worker events only once', async () => {
     const { start } = useImageJobStore.getState();
-    await start(['/a.jpg']);
-    await start(['/b.jpg']);
+    await start(7, ['/a.jpg']);
+    await start(7, ['/b.jpg']);
 
     expect(window.imageProcessor.onEvent).toHaveBeenCalledTimes(1);
   });
 
   it('applies events to the right job, even two in a row', async () => {
-    const job = await useImageJobStore.getState().start(['/a.jpg', '/b.jpg']);
+    const job = await useImageJobStore.getState().start(7, ['/a.jpg', '/b.jpg']);
     useImageJobStore.getState().upsertJob(createImageJob('job-2', ['/c.jpg']));
 
     emit({ type: 'started', jobId: job.jobId });
@@ -41,7 +41,7 @@ describe('useImageJobStore', () => {
   });
 
   it('shows a worker crash as a failed job', async () => {
-    await useImageJobStore.getState().start(['/a.jpg']);
+    await useImageJobStore.getState().start(7, ['/a.jpg']);
     emit({ type: 'failed', jobId: 'job-1', error: 'The image worker exited unexpectedly' });
 
     expect(useImageJobStore.getState().jobs['job-1']).toMatchObject({
@@ -52,7 +52,7 @@ describe('useImageJobStore', () => {
 
   it('run() resolves with the finished job and reports the jobId when it starts', async () => {
     const onStart = vi.fn();
-    const done = useImageJobStore.getState().run(['/a.jpg', '/b.jpg'], onStart);
+    const done = useImageJobStore.getState().run(7, ['/a.jpg', '/b.jpg'], onStart);
     await vi.waitFor(() => expect(onStart).toHaveBeenCalledWith('job-1'));
 
     let settled = false;
@@ -76,7 +76,7 @@ describe('useImageJobStore', () => {
   });
 
   it('run() resolves when the worker crashes', async () => {
-    const done = useImageJobStore.getState().run(['/a.jpg']);
+    const done = useImageJobStore.getState().run(7, ['/a.jpg']);
     await vi.waitFor(() => expect(useImageJobStore.getState().jobs['job-1']).toBeDefined());
     emit({ type: 'failed', jobId: 'job-1', error: 'The image worker stopped unexpectedly.' });
 
@@ -84,7 +84,7 @@ describe('useImageJobStore', () => {
   });
 
   it('keeps a finished job when an older snapshot arrives late', async () => {
-    const done = useImageJobStore.getState().run(['/a.jpg']);
+    const done = useImageJobStore.getState().run(7, ['/a.jpg']);
     await vi.waitFor(() => expect(useImageJobStore.getState().jobs['job-1']).toBeDefined());
     emit({ type: 'failed', jobId: 'job-1', error: 'boom' });
     useImageJobStore.getState().upsertJob({

@@ -36,6 +36,8 @@ export const imageErrorSchema = z.object({
 export type ImageError = z.infer<typeof imageErrorSchema>;
 
 export const imageProcessorResizeArgsSchema = z.object({
+  /** The photoset the outputs belong to. Main writes them to that photoset's own folder. */
+  photosetId: z.number().int().positive(),
   imagePaths: z.array(z.string()),
 });
 
@@ -255,7 +257,7 @@ export type PhotosetImageOutput = z.infer<typeof photosetImageOutputSchema>;
 
 // ── Photoset IPC arg schemas ────────────────────────────────────────
 
-export const photosetIdArgsSchema = z.object({ id: z.number() });
+export const photosetIdArgsSchema = z.object({ id: z.number().int().positive() });
 
 export const photosetListArgsSchema = z
   .object({

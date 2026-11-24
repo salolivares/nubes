@@ -1,13 +1,8 @@
-import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
-
 import baseLog from 'electron-log/main';
-import sharp from 'sharp';
 
-import type { ProcessedImage } from '@/common/types';
 import { imageWorkerRequestSchema } from '@/common/types';
 
+import { processImage } from './image-worker/process-image';
 import { createJobRunner } from './image-worker/runner';
 
 const logFile = process.env.NUBES_LOG_FILE;
@@ -17,79 +12,8 @@ if (logFile) {
 
 const log = baseLog.scope('ImageProcessor');
 
-async function processImage(
-  imagePath: string,
-  outputFolder: string,
-  dryRun = true,
-): Promise<ProcessedImage> {
-  const name = path.basename(imagePath, path.extname(imagePath));
-  const inputBuffer = fs.readFileSync(imagePath);
-
-  // Create the output folder if it doesn't exist
-  if (!dryRun && !fs.existsSync(outputFolder)) {
-    fs.mkdirSync(outputFolder, { recursive: true });
-  }
-
-  // Determine the input format
-  const image = sharp(inputBuffer);
-  const metadata = await image.metadata();
-  const inputFormat = metadata.format;
-  const width = metadata.width;
-  const height = metadata.height;
-
-  // Calculate a hash of the image content
-  const hash = crypto.createHash('sha256').update(inputBuffer).digest('hex');
-
-  // Generate a stable ID
-  const id = `${name}_${width}x${height}_${inputFormat}_${hash.substring(0, 16)}`;
-
-  log.info(
-    `"${name}": ${width}x${height} ${inputFormat}, ${(inputBuffer.byteLength / 1024).toFixed(1)} KB, id=${id}`,
-  );
-
-  const imagePaths: ProcessedImage['imagePaths'] = [];
-
-  for (const res of [128, 640, 1280, 2880]) {
-    const jpgOutputFilename = path.join(outputFolder, `${name}_${res}.jpg`);
-    const webpOutputFilename = path.join(outputFolder, `${name}_${res}.webp`);
-
-    if (!dryRun) {
-      await image.resize(res).toFormat('jpg').toFile(jpgOutputFilename);
-      await image.resize(res).toFormat('webp').toFile(webpOutputFilename);
-
-      const jpgSize = fs.readFileSync(jpgOutputFilename).byteLength;
-      const webpSize = fs.readFileSync(webpOutputFilename).byteLength;
-
-      imagePaths.push({
-        imagePath: jpgOutputFilename,
-        type: 'jpg',
-        resolution: res,
-        byteLength: jpgSize,
-      });
-
-      imagePaths.push({
-        imagePath: webpOutputFilename,
-        type: 'webp',
-        resolution: res,
-        byteLength: webpSize,
-      });
-    }
-  }
-
-  const preview = fs.readFileSync(path.join(outputFolder, `${name}_128.jpg`)).toString('base64');
-
-  if (!dryRun) {
-    const totalBytes = imagePaths.reduce((sum, p) => sum + p.byteLength, 0);
-    log.debug(
-      `"${name}": ${imagePaths.length} variants, ${(totalBytes / 1024).toFixed(1)} KB total`,
-    );
-  }
-
-  return { id, name, imagePaths, preview };
-}
-
 const runner = createJobRunner({
-  processImage: (imagePath, outputFolder) => processImage(imagePath, outputFolder, false),
+  processImage: (imagePath, outputFolder) => processImage(imagePath, outputFolder, log),
   post: (event) => process.parentPort.postMessage(event),
   log,
 });

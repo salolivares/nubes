@@ -12,12 +12,17 @@ interface ImageJobActions {
   applyEvent: (event: ImageJobEvent) => void;
   /** Store a snapshot from main, unless events already moved our copy further along. */
   upsertJob: (job: ImageJob) => void;
-  start: (imagePaths: string[]) => Promise<ImageJob>;
+  /** Start a job whose outputs belong to `photosetId`. Main writes them to its own folder. */
+  start: (photosetId: number, imagePaths: string[]) => Promise<ImageJob>;
   /**
    * Start a job and resolve once it is complete, cancelled or failed. `onStart` gets the jobId as
    * soon as main accepts the job, so a caller can show live progress from `jobs[jobId]`.
    */
-  run: (imagePaths: string[], onStart?: (jobId: string) => void) => Promise<ImageJob>;
+  run: (
+    photosetId: number,
+    imagePaths: string[],
+    onStart?: (jobId: string) => void,
+  ) => Promise<ImageJob>;
   cancel: (jobId: string) => Promise<void>;
   /** Catch up on a job after a remount, in case events went by while nothing was looking. */
   refresh: (jobId: string) => Promise<void>;
@@ -80,14 +85,14 @@ export const useImageJobStore = create<ImageJobState & ImageJobActions>()((set, 
       }
       return { jobs: pruneFinished({ ...state.jobs, [job.jobId]: job }) };
     }),
-  start: async (imagePaths) => {
+  start: async (photosetId, imagePaths) => {
     ensureSubscribed();
-    const job = await window.imageProcessor.resize({ imagePaths });
+    const job = await window.imageProcessor.resize({ photosetId, imagePaths });
     get().upsertJob(job);
     return job;
   },
-  run: async (imagePaths, onStart) => {
-    const job = await get().start(imagePaths);
+  run: async (photosetId, imagePaths, onStart) => {
+    const job = await get().start(photosetId, imagePaths);
     onStart?.(job.jobId);
     return waitForJob(job.jobId);
   },
