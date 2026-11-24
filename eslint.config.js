@@ -50,21 +50,41 @@ export default defineConfig(
       'import-x/first': 'error',
       'import-x/newline-after-import': 'error',
       'import-x/no-duplicates': 'error',
-      // Every eslint-disable must say why, after a `--`.
+      // Every eslint-disable must say why, after a `--`, and name the rules it turns off.
       '@eslint-community/eslint-comments/require-description': 'error',
+      '@eslint-community/eslint-comments/no-unlimited-disable': 'error',
       // Main-process IPC handlers must go through handle() and on() in src/main/ipc.ts, which
       // validate arguments with Zod. Tests that need ipcMain mock the whole module with
       // vi.mock('electron'), so they don't import it and need no exception.
+      // The default import is banned too, since `electron.ipcMain` would slip past the rule.
       'no-restricted-imports': [
         'error',
         {
-          paths: [
-            {
-              name: 'electron',
-              importNames: ['ipcMain'],
-              message: 'Register IPC handlers with handle() or on() from src/main/ipc.ts.',
-            },
-          ],
+          paths: ['electron', 'electron/main'].map((name) => ({
+            name,
+            importNames: ['ipcMain', 'default'],
+            message:
+              'Use named imports from electron, and register IPC handlers with handle() or on() from src/main/ipc.ts.',
+          })),
+        },
+      ],
+      // no-restricted-imports only sees static imports, so close the require() and import()
+      // routes to electron as well.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.name='require'][arguments.0.value=/^electron(\\/main)?$/]",
+          message: 'Import electron with a static named import.',
+        },
+        {
+          selector: 'ImportExpression[source.value=/^electron(\\/main)?$/]',
+          message: 'Import electron with a static named import.',
+        },
+        {
+          selector:
+            'TSImportEqualsDeclaration[moduleReference.expression.value=/^electron(\\/main)?$/]',
+          message: 'Import electron with a static named import.',
         },
       ],
     },
