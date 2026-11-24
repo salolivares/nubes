@@ -340,6 +340,60 @@ describe('image picker', () => {
     expect(useImageStore.getState().files).toEqual([]);
   });
 
+  function deferredDrop() {
+    let resolve!: (value: { entries: { path: string; name: string }[]; missing: string[] }) => void;
+    vi.mocked(window.imagePicker.addDroppedFiles).mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    return resolve;
+  }
+
+  it('shows an error when the dropped files cannot be added', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    vi.mocked(window.imagePicker.addDroppedFiles).mockRejectedValue(new Error('Too many files'));
+
+    await dropOnPicker([new File(['jpg'], 'a.jpg', { type: 'image/jpeg' })]);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Couldn't add the dropped files", {
+        description: 'Too many files',
+      }),
+    );
+    expect(useImageStore.getState().files).toEqual([]);
+  });
+
+  it('ignores a drop that finishes after the queue was cleared', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    useImageStore.getState().addFilesFromPaths([{ path: '/Users/me/old.jpg', name: 'old.jpg' }]);
+    const finishDrop = deferredDrop();
+
+    await dropOnPicker([new File(['jpg'], 'late.jpg', { type: 'image/jpeg' })]);
+    await waitFor(() => expect(window.imagePicker.addDroppedFiles).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    finishDrop({ entries: [{ path: '/Users/me/late.jpg', name: 'late.jpg' }], missing: [] });
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(useImageStore.getState().files).toEqual([]);
+  });
+
+  it('does not touch the queue when a drop finishes after leaving the picker', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    const finishDrop = deferredDrop();
+
+    await dropOnPicker([new File(['jpg'], 'late.jpg', { type: 'image/jpeg' })]);
+    await waitFor(() => expect(window.imagePicker.addDroppedFiles).toHaveBeenCalled());
+    cleanup();
+    const versionBefore = useImageStore.getState().selectionVersion;
+    finishDrop({ entries: [{ path: '/Users/me/late.jpg', name: 'late.jpg' }], missing: [] });
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(useImageStore.getState().files).toEqual([]);
+    // A late addFilesFromPaths would bump this and cancel a processing job that already started.
+    expect(useImageStore.getState().selectionVersion).toBe(versionBefore);
+  });
+
   it('skips dropped files that are not JPG or PNG and says so', async () => {
     vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
 

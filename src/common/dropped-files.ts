@@ -1,8 +1,20 @@
-export interface DroppedFiles {
-  /** Files main put on the `nubes-media://` allowlist, ready to queue by path. */
-  entries: { path: string; name: string }[];
-  /** Names of files that were not added, because they have no path on disk or main refused them. */
-  missing: string[];
+import type { DroppedFiles } from './types';
+
+/**
+ * Copies a drop's files into a new array, checking each one is a real File. The page calls
+ * preload with whatever it likes, and contextBridge passes an object's methods through as
+ * functions, so `{ map: () => [...] }` could otherwise hand preload made-up paths. A real File
+ * can't be given a disk path by page code.
+ */
+export function toDroppedFileList(value: unknown): File[] {
+  if (!Array.isArray(value)) throw new TypeError('Expected an array of dropped files');
+  const files: File[] = [];
+  for (let i = 0; i < value.length; i++) {
+    const file: unknown = value[i];
+    if (!(file instanceof File)) throw new TypeError('Expected an array of dropped files');
+    files.push(file);
+  }
+  return files;
 }
 
 /**

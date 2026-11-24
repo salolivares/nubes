@@ -1,7 +1,9 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { type FileRejection, useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+
+import type { DroppedFiles } from '@/common/types';
 
 import { Button } from '../components/ui/button';
 import { WizardStep } from '../components/wizard-step';
@@ -67,6 +69,14 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
 
   const navigate = useNavigate();
 
+  // Goes up when the picker unmounts or the queue is cleared. A dialog or drop that finishes after
+  // that drops its result, so it can't refill a cleared queue or cancel a job that already started.
+  const epoch = useRef(0);
+  const handleClear = () => {
+    epoch.current += 1;
+    removeAllFiles();
+  };
+
   const handleUpload = () => {
     // Drop results from an earlier run so the processing step runs on the files picked now.
     clearResults();
@@ -74,7 +84,9 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
   };
 
   const handleBrowse = useCallback(async () => {
+    const started = epoch.current;
     const entries = await window.imagePicker.open();
+    if (epoch.current !== started) return;
     if (entries.length > 0) {
       addFilesFromPaths(entries);
     }
@@ -94,7 +106,21 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
 
       // Queued by path like Browse, so the worker can read them and previews load over
       // nubes-media://. Don't read `file.path`: react-dropzone sets it to the bare file name.
-      const { entries, missing } = await window.imagePicker.addDroppedFiles(droppedFiles);
+      const started = epoch.current;
+      let result: DroppedFiles;
+      try {
+        result = await window.imagePicker.addDroppedFiles(droppedFiles);
+      } catch (err) {
+        if (epoch.current === started) {
+          toast.error("Couldn't add the dropped files", {
+            description: err instanceof Error ? err.message : 'Unknown error',
+          });
+        }
+        return;
+      }
+      if (epoch.current !== started) return;
+
+      const { entries, missing } = result;
       if (entries.length > 0) addFilesFromPaths(entries);
       if (missing.length > 0) {
         toast.error(
@@ -126,7 +152,10 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
 
   useEffect(() => {
     // Revoke the data uris to avoid memory leaks, will run on unmount
-    return () => unloadPreviews();
+    return () => {
+      epoch.current += 1;
+      unloadPreviews();
+    };
   }, []);
 
   return (
@@ -156,7 +185,7 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
         <div className="grid gap-4">
           <div>
             <h3>Queued for upload</h3>
-            <Button onClick={removeAllFiles}>Clear</Button>
+            <Button onClick={handleClear}>Clear</Button>
             <Button onClick={handleUpload}>Upload</Button>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">

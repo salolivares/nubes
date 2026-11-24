@@ -18,7 +18,8 @@ export const mediaAccess = new MediaAccess(() => [
 
 /**
  * Add files the user picked to the `nubes-media://` allowlist. This is the one place a dialog or a
- * drop registers a source file. Only call it with paths from a user action handled in main.
+ * drop registers a source file. Call it with paths from the open dialog, or with drop paths from
+ * preload (`IMAGE_PICKER_ALLOW_DROPPED`), never with a path page code supplied.
  */
 export function allowPickedFiles(filePaths: string[]): Promise<string[]> {
   return mediaAccess.allowPickedFiles(filePaths);

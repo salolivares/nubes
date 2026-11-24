@@ -43,6 +43,8 @@ test.beforeEach(async () => {
   electronApp.process().stderr?.on('data', (chunk) => appOutput.push(String(chunk)));
 
   page = await electronApp.firstWindow();
+  // Let the router mount before changing the hash, so it sees the change.
+  await expect(page.getByRole('heading', { name: 'Photosets' })).toBeVisible();
   const photoset = await page.evaluate(() =>
     (window as Window & { photosets?: TestPhotosetsContext }).photosets!.create({
       name: 'Drop test',
@@ -73,9 +75,23 @@ test.afterEach(async ({}, testInfo) => {
   // A stuck utility process can keep close() from returning (see #129). Kill the app rather than
   // hang the run.
   if (app) {
-    const closed = app.close().then(() => true);
-    const timedOut = new Promise<false>((resolve) => setTimeout(() => resolve(false), 5_000));
-    if (!(await Promise.race([closed, timedOut]))) app.process().kill('SIGKILL');
+    // Take the process handle first: Playwright can't return it once close() has run.
+    const proc = app.process();
+    let timer: NodeJS.Timeout | undefined;
+    const closed = app.close().then(
+      () => true,
+      () => false,
+    );
+    const timedOut = new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), 5_000);
+    });
+    const closedInTime = await Promise.race([closed, timedOut]);
+    clearTimeout(timer);
+    if (!closedInTime && proc.exitCode === null && proc.signalCode === null) {
+      const exited = new Promise((resolve) => proc.once('exit', resolve));
+      proc.kill('SIGKILL');
+      await exited;
+    }
   }
   if (dataPath) await fs.rm(dataPath, { recursive: true, force: true });
 });

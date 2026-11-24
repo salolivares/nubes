@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { resolveDroppedFiles } from '../dropped-files';
+import { resolveDroppedFiles, toDroppedFileList } from '../dropped-files';
 
 const file = (name: string, path = '') => ({ name, path });
 const getPath = (f: { path: string }) => f.path;
@@ -61,5 +61,31 @@ describe('resolveDroppedFiles', () => {
 
     expect(allow).not.toHaveBeenCalled();
     expect(result).toEqual({ entries: [], missing: ['a.jpg', 'b.jpg'] });
+  });
+});
+
+describe('toDroppedFileList', () => {
+  it('copies an array of real Files', () => {
+    const files = [new File(['a'], 'a.jpg'), new File(['b'], 'b.png')];
+
+    const copy = toDroppedFileList(files);
+
+    expect(copy).toEqual(files);
+    expect(copy).not.toBe(files);
+  });
+
+  it('rejects an object with its own map, so page code cannot hand preload made-up paths', () => {
+    const fake = { map: () => [{ file: { name: 'x.jpg' }, path: '/Users/me/secret.jpg' }] };
+
+    expect(() => toDroppedFileList(fake)).toThrow(TypeError);
+  });
+
+  it.each([
+    ['a string', '/Users/me/a.jpg'],
+    ['null', null],
+    ['an array with a plain object', [{ name: 'a.jpg', path: '/Users/me/a.jpg' }]],
+    ['an array with null', [null]],
+  ])('rejects %s', (_, value) => {
+    expect(() => toDroppedFileList(value)).toThrow(TypeError);
   });
 });

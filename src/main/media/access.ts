@@ -60,8 +60,9 @@ async function realFile(filePath: string): Promise<string | null> {
  *
  * The allowlist lives only in main. It grows from the open dialog and from drops. A drop is
  * resolved in preload, which looks up the disk paths of the dropped File objects and sends them
- * over `IMAGE_PICKER_ALLOW_DROPPED`. The page can't send paths itself: it only hands preload File
- * objects, and it can't give a File a path on disk.
+ * over `IMAGE_PICKER_ALLOW_DROPPED`. Page code can't name paths that way: preload only accepts real
+ * File objects, and page code can't give a File a disk path. A compromised renderer process can
+ * still call that channel directly, so allowPickedFiles() treats its input as untrusted.
  */
 export class MediaAccess {
   /** Real paths of picked files. */

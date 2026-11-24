@@ -41,6 +41,16 @@ export const imageProcessorResizeArgsSchema = z.object({
 
 export type ImageProcessorResizeArgs = z.infer<typeof imageProcessorResizeArgsSchema>;
 
+/** Paths preload found for dropped files, sent to main to allowlist (`IMAGE_PICKER_ALLOW_DROPPED`). */
+export const imagePickerAllowDroppedArgsSchema = z.array(z.string().min(1).max(4096)).max(10_000);
+
+export interface DroppedFiles {
+  /** Files main put on the `nubes-media://` allowlist, ready to queue by path. */
+  entries: { path: string; name: string }[];
+  /** Names of files that were not added, because they have no path on disk or main refused them. */
+  missing: string[];
+}
+
 export const imageJobIdArgsSchema = z.object({ jobId: z.string() });
 
 export type ImageJobIdArgs = z.infer<typeof imageJobIdArgsSchema>;
