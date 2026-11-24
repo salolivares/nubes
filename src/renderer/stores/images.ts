@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { MEDIA_THUMBNAIL_WIDTH, mediaUrl } from '@/common/media-url';
 import type { ProcessedImage } from '@/common/types';
 
 import { useImageJobStore } from './image-jobs';
@@ -22,7 +23,6 @@ interface State {
 interface Action {
   addFiles: (files: CustomFile[]) => void;
   addFilesFromPaths: (entries: { path: string; name: string }[]) => void;
-  setFilePreview: (filePath: string, preview: string) => void;
   removeFile: (index: number) => void;
   removeAllFiles: () => void;
   unloadPreviews: () => void;
@@ -83,15 +83,10 @@ export const useImageStore = create<State & Action>()((set) => ({
         ...entries.map((entry) => {
           const file = new File([], entry.name);
           Object.defineProperty(file, 'path', { value: entry.path, writable: false });
-          return file as CustomFile;
+          // Main resizes the picked file for this URL. It only serves files the dialog returned.
+          return createCustomFile(file, mediaUrl(entry.path, { width: MEDIA_THUMBNAIL_WIDTH }));
         }),
       ],
-    })),
-  setFilePreview: (filePath: string, preview: string) =>
-    set((state) => ({
-      files: state.files.map((file) =>
-        file.path === filePath ? Object.assign(file, { preview }) : file,
-      ),
     })),
   removeFile: (index: number) =>
     set((state) => {
@@ -116,7 +111,7 @@ export const useImageStore = create<State & Action>()((set) => ({
           URL.revokeObjectURL(file.preview);
           return createCustomFile(file);
         }
-        // Preserve data URL previews (e.g. from dialog-selected files)
+        // Keep nubes-media:// previews (dialog-selected files). They hold no memory to free.
         return createCustomFile(file, file.preview);
       }),
     })),

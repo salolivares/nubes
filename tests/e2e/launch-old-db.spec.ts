@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
+import type { Page } from '@playwright/test';
 import { _electron as electron, expect, test } from '@playwright/test';
 
 // A database left at migration 0000, with two photosets. See scripts/create-e2e-fixture-db.ts.
@@ -41,6 +43,16 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
   const appOutput: string[] = [];
   electronApp.process().stdout?.on('data', (chunk) => appOutput.push(String(chunk)));
   electronApp.process().stderr?.on('data', (chunk) => appOutput.push(String(chunk)));
+
+  // The CSP (src/common/csp.ts) must not block anything the app itself loads. Listen from the
+  // first window event so boot-time violations count too.
+  const cspViolations: string[] = [];
+  const watchConsole = (window: Page) =>
+    window.on('console', (message) => {
+      if (message.text().includes('Content Security Policy')) cspViolations.push(message.text());
+    });
+  electronApp.on('window', watchConsole);
+  electronApp.windows().forEach(watchConsole);
 
   try {
     const page = await electronApp.firstWindow();
@@ -90,6 +102,33 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
       name.startsWith('nubes.db.bak-'),
     );
     expect(backups).toHaveLength(1);
+
+    // Open a photoset so thumbnails render (nubes-media:// or the base64 fallback).
+    await rows.filter({ hasText: 'Fixture Joshua Tree' }).click();
+    await expect(page.getByRole('img').first()).toBeVisible();
+    expect(cspViolations).toEqual([]);
+
+    // The page is a file:// URL, where CSP 'self' matches any file. Main cancels file:// loads
+    // outside the renderer bundle, so a valid image elsewhere on disk must not load.
+    const outsideImage = path.join(userDataPath, 'outside.png');
+    await fs.writeFile(
+      outsideImage,
+      Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        'base64',
+      ),
+    );
+    const loaded = await page.evaluate(
+      (src) =>
+        new Promise<boolean>((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = src;
+        }),
+      pathToFileURL(outsideImage).toString(),
+    );
+    expect(loaded).toBe(false);
   } catch (error) {
     console.error(`Electron output:\n${appOutput.join('')}`);
     throw error;

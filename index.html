@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta content="script-src 'self' blob:" http-equiv="Content-Security-Policy" />
+    <!-- vite.renderer.config.ts fills in the policy. -->
+    <meta http-equiv="Content-Security-Policy" content="__NUBES_CSP__" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Nubes</title>
   </head>

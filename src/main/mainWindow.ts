@@ -5,6 +5,11 @@ import { BrowserWindow } from 'electron';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** The folder the packaged-style renderer loads from. Not used in dev, which loads over http. */
+export function rendererDir() {
+  return path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
+}
+
 interface WindowOptions {
   /** Show the window without activating the app or taking focus. */
   background?: boolean;
@@ -65,9 +70,7 @@ async function createWindow({ background = false }: WindowOptions) {
      * @see https://github.com/nodejs/node/issues/12682
      * @see https://github.com/electron/electron/issues/6869
      */
-    await browserWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    );
+    await browserWindow.loadFile(path.join(rendererDir(), 'index.html'));
   }
 
   return browserWindow;

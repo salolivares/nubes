@@ -142,12 +142,13 @@ describe('useImageStore', () => {
     });
   });
 
-  describe('setFilePreview', () => {
-    it('sets preview on file matching path', () => {
-      useImageStore.getState().addFilesFromPaths([{ path: '/photos/a.jpg', name: 'a.jpg' }]);
-      useImageStore.getState().setFilePreview('/photos/a.jpg', 'data:image/jpeg;base64,abc');
+  describe('addFilesFromPaths previews', () => {
+    it('points the preview at a nubes-media:// thumbnail of the picked path', () => {
+      useImageStore.getState().addFilesFromPaths([{ path: '/photos/a b.jpg', name: 'a b.jpg' }]);
 
-      expect(useImageStore.getState().files[0].preview).toBe('data:image/jpeg;base64,abc');
+      expect(useImageStore.getState().files[0].preview).toBe(
+        'nubes-media://media/%2Fphotos%2Fa%20b.jpg?w=200',
+      );
     });
   });
 });

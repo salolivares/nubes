@@ -1,9 +1,30 @@
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import type { ConfigEnv, UserConfig } from 'vite';
+import type { ConfigEnv, Plugin, UserConfig } from 'vite';
 import { defineConfig } from 'vite';
 
+import { contentSecurityPolicy } from './src/common/csp';
 import { pluginExposeRenderer } from './vite.base.config';
+
+/** Fills the `__NUBES_CSP__` placeholder in index.html. The policy is in src/common/csp.ts. */
+function pluginContentSecurityPolicy(): Plugin {
+  let dev = false;
+  return {
+    name: 'nubes-csp',
+    configResolved(config) {
+      dev = config.command === 'serve';
+    },
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        if (!html.includes('__NUBES_CSP__')) {
+          throw new Error('index.html is missing the __NUBES_CSP__ placeholder');
+        }
+        return html.replace('__NUBES_CSP__', contentSecurityPolicy(dev));
+      },
+    },
+  };
+}
 
 // https://vitejs.dev/config
 export default defineConfig((env) => {
@@ -18,7 +39,7 @@ export default defineConfig((env) => {
     build: {
       outDir: `.vite/renderer/${name}`,
     },
-    plugins: [pluginExposeRenderer(name), react()],
+    plugins: [pluginContentSecurityPolicy(), pluginExposeRenderer(name), react()],
     resolve: {
       preserveSymlinks: true,
       alias: {

@@ -2,6 +2,7 @@ import { Calendar, Camera, CheckCircle2, MapPin } from 'lucide-react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { PhotoThumbnail } from '../components/PhotoThumbnail';
 import { Button } from '../components/ui/button';
 import { WizardRedirect, WizardStep } from '../components/wizard-step';
 import { paths } from '../lib/paths';
@@ -87,13 +88,12 @@ const S3SummaryStep = ({ photoset }: { photoset: PhotosetWithImages }) => {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {photoset.images.map((image) => (
               <div key={image.id} className="space-y-1">
-                {image.preview && (
-                  <img
-                    src={`data:image/jpeg;base64,${image.preview}`}
-                    alt={image.name}
-                    className="aspect-square w-full rounded-md object-cover"
-                  />
-                )}
+                <PhotoThumbnail
+                  outputs={image.outputs}
+                  preview={image.preview}
+                  alt={image.name}
+                  className="aspect-square w-full rounded-md object-cover"
+                />
                 <p className="truncate text-xs text-muted-foreground">{image.name}</p>
               </div>
             ))}

@@ -1,9 +1,11 @@
 import type { ColumnDef } from '@tanstack/react-table';
+import { ImageIcon } from 'lucide-react';
 import { useMemo } from 'react';
 
 import type { ProcessedImage } from '@/common/types';
 
 import { CameraCombobox } from '../../components/CameraCombobox';
+import { PhotoThumbnail } from '../../components/PhotoThumbnail';
 import { RowDragHandleCell } from '../../components/SortableTable';
 import { Input } from '../../components/ui/input';
 import type { CameraEntry } from '../../hooks/useCameras';
@@ -31,12 +33,18 @@ export function useImageColumns(opts: {
         size: 80,
         cell: ({ row }) => (
           <button type="button" className="cursor-pointer" onClick={() => onPreview(row.original)}>
-            <img
-              src={`data:image/jpeg;base64,${row.original.preview}`}
+            <PhotoThumbnail
+              outputs={row.original.imagePaths}
+              preview={row.original.preview}
               alt={row.original.name}
               width={64}
               height={64}
               className="aspect-square object-cover rounded-md"
+              placeholder={
+                <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
+                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+              }
             />
           </button>
         ),
