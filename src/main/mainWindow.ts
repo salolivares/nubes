@@ -5,7 +5,12 @@ import { BrowserWindow } from 'electron';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-async function createWindow() {
+interface WindowOptions {
+  /** Show the window without activating the app or taking focus. */
+  background?: boolean;
+}
+
+async function createWindow({ background = false }: WindowOptions) {
   const browserWindow = new BrowserWindow({
     title: 'Nubes',
     show: false, // Use the 'ready-to-show' event to show the instantiated BrowserWindow.
@@ -29,9 +34,15 @@ async function createWindow() {
    * @see https://github.com/electron/electron/issues/25012 for the afford mentioned issue.
    */
   browserWindow.on('ready-to-show', () => {
-    browserWindow?.show();
+    // show() activates the app and takes focus from whatever window the user is in.
+    if (background) {
+      browserWindow?.showInactive();
+    } else {
+      browserWindow?.show();
+    }
 
-    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    // DevTools opens in its own window, which would take focus too.
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL && !background) {
       browserWindow?.webContents.openDevTools();
     }
   });
@@ -64,13 +75,16 @@ async function createWindow() {
 
 /**
  * Restore an existing BrowserWindow or Create a new BrowserWindow.
+ * With `background`, a new window opens without taking focus and an existing one is left alone.
  */
-export async function restoreOrCreateWindow() {
+export async function restoreOrCreateWindow(options: WindowOptions = {}) {
   let window = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
 
   if (window === undefined) {
-    window = await createWindow();
+    window = await createWindow(options);
   }
+
+  if (options.background) return;
 
   if (window.isMinimized()) {
     window.restore();
