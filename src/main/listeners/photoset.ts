@@ -16,7 +16,6 @@ import {
   PHOTOSET_REMOVE_FILES,
   PHOTOSET_SHOW_IN_FOLDER,
   PHOTOSET_UPDATE,
-  PHOTOSETS_DIR,
 } from '@/common/constants';
 import { photosetImageOutputs, photosetImages, photosets } from '@/common/db/schema';
 import {
@@ -25,11 +24,15 @@ import {
   photosetIdArgsSchema,
   photosetListArgsSchema,
   photosetRemoveFilesArgsSchema,
+  photosetShowInFolderArgsSchema,
   photosetUpdateArgsSchema,
 } from '@/common/types';
 import { metadataFilename, slugify } from '@/common/utils';
 import { Database } from '@/main/drivers/database';
 import { handle } from '@/main/ipc';
+import { mediaAccess } from '@/main/media';
+import type { MediaAccess } from '@/main/media/access';
+import { assertStoredPaths, deletablePaths } from '@/main/media/guards';
 
 function getDb() {
   return Database.instance.db;
@@ -74,6 +77,17 @@ export async function deleteFiles(filePaths: string[]): Promise<void> {
       }),
     ),
   );
+}
+
+/** Files main wrote outside the photosets folder this session (metadata exports). */
+const exportedFiles = new Set<string>();
+
+/**
+ * Reveal only files in the photosets folder, or files main itself exported. Exports match exactly,
+ * not after normalizing, so `<dir>/<symlink>/../export.json` can't pass as one.
+ */
+export function canReveal(access: MediaAccess, filePath: string, exported: Set<string>): boolean {
+  return access.isInRoots(filePath) || exported.has(filePath);
 }
 
 export function addPhotosetEventListeners() {
@@ -128,12 +142,14 @@ export function addPhotosetEventListeners() {
 
   handle(PHOTOSET_DELETE, photosetIdArgsSchema, async (_, args) => {
     const db = getDb();
-    const filePaths = getPhotosetFilePaths(db, args.id);
+    // Rows written before addImages checked paths could point anywhere. Only unlink photoset files.
+    const filePaths = await deletablePaths(mediaAccess, getPhotosetFilePaths(db, args.id));
     await deleteFiles(filePaths);
     db.delete(photosets).where(eq(photosets.id, args.id)).run();
   });
 
   handle(PHOTOSET_ADD_IMAGES, photosetAddImagesArgsSchema, (_, args) => {
+    assertStoredPaths(mediaAccess, args.images);
     const db = getDb();
     return db.transaction((tx) => {
       const insertedImages = [];
@@ -220,20 +236,19 @@ export function addPhotosetEventListeners() {
     const filename = metadataFilename(photoset.year, photoset.name);
     const filePath = path.join(app.getPath('downloads'), filename);
     await fsp.writeFile(filePath, JSON.stringify(metadata, null, 2), 'utf-8');
+    exportedFiles.add(filePath);
 
     return { filePath };
   });
 
   handle(PHOTOSET_REMOVE_FILES, photosetRemoveFilesArgsSchema, async (_, args) => {
-    const allowedDir = path.join(app.getPath('userData'), PHOTOSETS_DIR);
-    const safePaths = args.filePaths.filter((p) => {
-      const resolved = path.resolve(p);
-      return resolved.startsWith(allowedDir + path.sep);
-    });
-    await deleteFiles(safePaths);
+    await deleteFiles(await deletablePaths(mediaAccess, args.filePaths));
   });
 
-  handle(PHOTOSET_SHOW_IN_FOLDER, (_, args) => {
-    shell.showItemInFolder((args as { filePath: string }).filePath);
+  handle(PHOTOSET_SHOW_IN_FOLDER, photosetShowInFolderArgsSchema, (_, { filePath }) => {
+    if (!canReveal(mediaAccess, filePath, exportedFiles)) {
+      throw new Error(`Refused to reveal a file outside the allowed folders: ${filePath}`);
+    }
+    shell.showItemInFolder(filePath);
   });
 }

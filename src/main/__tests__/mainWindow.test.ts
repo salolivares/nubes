@@ -7,6 +7,7 @@ import {
   STORAGE_CHANGE,
 } from '@/common';
 import type { ImageJob } from '@/common/types';
+import type * as Guards from '@/main/media/guards';
 
 /**
  * Covers the macOS reopen path: close the window (the app keeps running), then
@@ -134,6 +135,12 @@ vi.mock('@/main/drivers/storage', () => ({
 }));
 
 vi.mock('@/main/drivers/database', () => ({ Database: { instance: {} } }));
+
+// These tests use made-up source paths. The path checks have their own tests.
+vi.mock('@/main/media/guards', async (importOriginal) => ({
+  ...(await importOriginal<typeof Guards>()),
+  assertResizePaths: vi.fn(async () => {}),
+}));
 
 vi.stubGlobal('MAIN_WINDOW_VITE_DEV_SERVER_URL', '');
 vi.stubGlobal('MAIN_WINDOW_VITE_NAME', 'main_window');

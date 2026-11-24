@@ -13,6 +13,7 @@ import type {
   PhotosetImageOutput,
   PhotosetListArgs,
   PhotosetRemoveFilesArgs,
+  PhotosetShowInFolderArgs,
   PhotosetUpdateArgs,
   S3CreateAlbumArgs,
   SecureStorageKey,
@@ -82,7 +83,7 @@ declare global {
     markUploaded: (args: { id: number }) => Promise<Photoset>;
     exportMetadata: (args: { id: number }) => Promise<{ filePath: string }>;
     removeFiles: (args: PhotosetRemoveFilesArgs) => Promise<void>;
-    showInFolder: (args: { filePath: string }) => Promise<void>;
+    showInFolder: (args: PhotosetShowInFolderArgs) => Promise<void>;
   }
 
   interface CacheContext {
