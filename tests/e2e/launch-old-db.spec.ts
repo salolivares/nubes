@@ -82,6 +82,12 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
         outputs: 8,
       },
     ]);
+
+    // Migrations were pending, so startup snapshotted the 0000 database first.
+    const backups = (await fs.readdir(userDataPath)).filter((name) =>
+      name.startsWith('nubes.db.bak-'),
+    );
+    expect(backups).toHaveLength(1);
   } catch (error) {
     console.error(`Electron output:\n${appOutput.join('')}`);
     throw error;
