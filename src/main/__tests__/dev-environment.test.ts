@@ -94,7 +94,7 @@ describe('resolveDevEnvironment', () => {
       resolveDevEnvironment(
         input({
           isPackaged: true,
-          env: { NUBES_USER_DATA: '/tmp/x', NUBES_MOCK_S3: '1' },
+          env: { NUBES_USER_DATA: '/tmp/x', NUBES_MOCK_S3: '1', NUBES_BACKGROUND: '1' },
           dotGitFile: WORKTREE_GIT_FILE,
         }),
       ),
@@ -103,6 +103,7 @@ describe('resolveDevEnvironment', () => {
       userDataSource: 'packaged',
       mockS3: false,
       mockS3Source: 'packaged',
+      background: false,
     });
   });
 
@@ -160,6 +161,14 @@ describe('resolveDevEnvironment', () => {
       mockS3: true,
       mockS3Source: 'dev-default',
     });
+  });
+
+  it('runs in the background only for NUBES_BACKGROUND=1', () => {
+    expect(resolveDevEnvironment(input()).background).toBe(false);
+    expect(resolveDevEnvironment(input({ env: { NUBES_BACKGROUND: '1' } })).background).toBe(true);
+    expect(resolveDevEnvironment(input({ env: { NUBES_BACKGROUND: 'yes' } })).background).toBe(
+      false,
+    );
   });
 
   it('no longer lets NUBES_E2E change anything', () => {

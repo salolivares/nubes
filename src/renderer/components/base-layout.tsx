@@ -2,6 +2,7 @@ import { Home, Package2, Plus, Settings } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
+import { paths } from '../lib/paths';
 import { DebugBar } from './debug-bar';
 import { RouteErrorFallback } from './error-fallback';
 import { ModeToggle } from './mode-toggle';
@@ -23,8 +24,8 @@ import {
 } from './ui/sidebar';
 
 const navLinks = [
-  { name: 'Photosets', href: '/', icon: Home },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Photosets', href: paths.home(), icon: Home },
+  { name: 'Settings', href: paths.settings.general(), icon: Settings },
 ];
 
 export function BaseLayout() {
@@ -42,7 +43,7 @@ export function BaseLayout() {
           {/* New Upload CTA */}
           <div className="px-4 pb-4">
             <Button
-              render={<Link to="/new" />}
+              render={<Link to={paths.newUpload()} />}
               nativeButton={false}
               className="w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
             >
@@ -57,7 +58,9 @@ export function BaseLayout() {
               <SidebarMenu>
                 {navLinks.map(({ name, href, icon: Icon }) => {
                   const isActive =
-                    href === '/' ? location.pathname === '/' : location.pathname.startsWith(href);
+                    href === paths.home()
+                      ? location.pathname === paths.home()
+                      : location.pathname.startsWith(href);
 
                   return (
                     <SidebarMenuItem key={href}>

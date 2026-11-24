@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { PhotoThumbnail } from '../../components/PhotoThumbnail';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { paths } from '../../lib/paths';
 import type { PhotosetWithImages } from './utils';
 import { formatBytes, formatDate } from './utils';
 
@@ -43,7 +44,7 @@ export function UploadedView({ photoset }: { photoset: PhotosetWithImages }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(paths.home())}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

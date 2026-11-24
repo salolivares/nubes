@@ -7,8 +7,9 @@ import type { ProcessedImage } from '@/common/types';
 
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
-import { wizardPath, WizardRedirect, WizardStep } from '../components/wizard-step';
+import { WizardRedirect, WizardStep } from '../components/wizard-step';
 import { useProcessingImages } from '../hooks/useProcessingImages';
+import { paths } from '../lib/paths';
 import { photosetKeys } from '../lib/photoset-queries';
 import { useImageStore } from '../stores/images';
 import type { PhotosetWithImages } from './PhotosetDetail/utils';
@@ -33,10 +34,10 @@ const ImageProcessingGate = ({ photoset }: { photoset: PhotosetWithImages }) => 
 
   if (!hasWork) {
     return photoset.images.length > 0 ? (
-      <WizardRedirect to={wizardPath(photoset.id, 's3')} />
+      <WizardRedirect to={paths.wizard.s3(photoset.id)} />
     ) : (
       <WizardRedirect
-        to={wizardPath(photoset.id, 'picker')}
+        to={paths.wizard.picker(photoset.id)}
         message="No images to process. Pick some images first."
       />
     );
@@ -62,7 +63,7 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
   const inFlight = job?.status === 'queued' || job?.status === 'running';
 
   const goToNext = useCallback(() => {
-    navigate(wizardPath(photosetId, 's3'));
+    navigate(paths.wizard.s3(photosetId));
   }, [navigate, photosetId]);
 
   // Persist processed images to the photoset in the DB
@@ -186,7 +187,7 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(wizardPath(photosetId, 'picker'))}
+                onClick={() => navigate(paths.wizard.picker(photosetId))}
               >
                 Pick images again
               </Button>
@@ -229,7 +230,7 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(wizardPath(photosetId, 'picker'))}
+              onClick={() => navigate(paths.wizard.picker(photosetId))}
             >
               Pick images again
             </Button>

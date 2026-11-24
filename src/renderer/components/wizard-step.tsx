@@ -1,28 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Fragment, useEffect } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { paths, type WizardStepName } from '../lib/paths';
 import { photosetQuery } from '../lib/photoset-queries';
+import { photosetRouteParams, useRouteParams } from '../lib/route-params';
 import type { PhotosetWithImages } from '../pages/PhotosetDetail/utils';
 import { Button } from './ui/button';
 
-export type WizardStepName = 'picker' | 'upload' | 's3' | 'summary';
-
-export const wizardPath = (photosetId: number, step: WizardStepName) =>
-  `/photoset/${photosetId}/${step}`;
-
-/** Parse the `:photosetId` route param. Anything but a positive integer is `null`. */
-export function parsePhotosetId(raw: string | undefined): number | null {
-  if (!raw || !/^\d+$/.test(raw)) return null;
-  const id = Number(raw);
-  return Number.isSafeInteger(id) && id > 0 ? id : null;
-}
-
 /**
  * Navigate away and explain why in a toast. Used when a wizard step is reached without what it
- * needs, e.g. after a reload or from a stale link.
+ * needs, e.g. after a reload or from a stale link, or when its route params don't parse.
  */
 export function WizardRedirect({ to, message }: { to: string; message?: string }) {
   useEffect(() => {
@@ -42,8 +32,7 @@ export function WizardStep({
   step: WizardStepName;
   children: (photoset: PhotosetWithImages) => ReactNode;
 }) {
-  const { photosetId: raw } = useParams<{ photosetId: string }>();
-  const photosetId = parsePhotosetId(raw);
+  const photosetId = useRouteParams(photosetRouteParams)?.photosetId ?? null;
   const { data, isPending, isFetching, isFetchedAfterMount, error, refetch } = useQuery({
     ...photosetQuery(photosetId ?? 0),
     enabled: photosetId !== null,
@@ -54,7 +43,9 @@ export function WizardStep({
   });
 
   if (photosetId === null) {
-    return <WizardRedirect to="/new" message="Photoset not found. Start a new upload." />;
+    return (
+      <WizardRedirect to={paths.newUpload()} message="Photoset not found. Start a new upload." />
+    );
   }
 
   // Wait for a fresh read. Cached data can predate a write made elsewhere (upload, draft save,
@@ -83,12 +74,14 @@ export function WizardStep({
   }
 
   if (!data) {
-    return <WizardRedirect to="/new" message="Photoset not found. Start a new upload." />;
+    return (
+      <WizardRedirect to={paths.newUpload()} message="Photoset not found. Start a new upload." />
+    );
   }
 
   // An uploaded photoset can't go back through the wizard, or it would upload twice.
   if (data.uploadedAt && step !== 'summary') {
-    return <WizardRedirect to={wizardPath(data.id, 'summary')} />;
+    return <WizardRedirect to={paths.wizard.summary(data.id)} />;
   }
 
   // Key on the id so step state (refs, retry state, form) never carries over between photosets.

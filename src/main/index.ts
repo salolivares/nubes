@@ -53,6 +53,11 @@ log.info(
   `userData: ${app.getPath('userData')} (${devEnvironment.userDataSource}); ` +
     `S3: ${devEnvironment.mockS3 ? 'mock' : 'real'} (${devEnvironment.mockS3Source})`,
 );
+if (devEnvironment.background) {
+  log.info('Running in the background (NUBES_BACKGROUND=1): no dock icon, no focus.');
+  // An accessory app has no dock icon and never becomes the frontmost app on its own.
+  if (platform === 'darwin') app.setActivationPolicy('accessory');
+}
 if (!app.isPackaged && process.env.NUBES_MOCK_S3 && devEnvironment.mockS3Source !== 'env') {
   log.warn(`Ignoring NUBES_MOCK_S3=${process.env.NUBES_MOCK_S3}. Use 1 or 0.`);
 }
@@ -86,7 +91,7 @@ if (!isSingleInstance) {
   app.quit();
   process.exit(0);
 }
-app.on('second-instance', restoreOrCreateWindow);
+app.on('second-instance', () => restoreOrCreateWindow());
 
 /**
  * Disable Hardware Acceleration to save more system resources.
@@ -120,9 +125,9 @@ app
      * Registered after the IPC handlers so a reopened window always has them.
      * @see https://www.electronjs.org/docs/latest/api/app#event-activate-macos Event: 'activate'.
      */
-    app.on('activate', restoreOrCreateWindow);
+    app.on('activate', () => restoreOrCreateWindow());
 
-    return restoreOrCreateWindow();
+    return restoreOrCreateWindow({ background: devEnvironment.background });
   })
   .catch((e) => console.error('Failed create window:', e));
 

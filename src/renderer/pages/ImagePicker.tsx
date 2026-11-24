@@ -3,7 +3,8 @@ import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '../components/ui/button';
-import { wizardPath, WizardStep } from '../components/wizard-step';
+import { WizardStep } from '../components/wizard-step';
+import { paths } from '../lib/paths';
 import type { CustomFile } from '../stores/images';
 import { useImageStore } from '../stores/images';
 
@@ -70,7 +71,7 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
   const handleUpload = () => {
     // Drop results from an earlier run so the processing step runs on the files picked now.
     clearResults();
-    navigate(wizardPath(photosetId, 'upload'));
+    navigate(paths.wizard.upload(photosetId));
   };
 
   const handleBrowse = useCallback(async () => {

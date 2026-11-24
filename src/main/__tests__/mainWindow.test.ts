@@ -21,6 +21,8 @@ const electron = vi.hoisted(() => {
   class FakeWindow {
     destroyed = false;
     shown = false;
+    shownInactive = false;
+    focused = false;
     listeners = new Map<string, () => void>();
     contentsListeners = new Map<string, () => void>();
     webContents = {
@@ -58,6 +60,9 @@ const electron = vi.hoisted(() => {
     show() {
       this.shown = true;
     }
+    showInactive() {
+      this.shownInactive = true;
+    }
     destroy() {
       this.destroyed = true;
     }
@@ -68,7 +73,9 @@ const electron = vi.hoisted(() => {
       return false;
     }
     restore() {}
-    focus() {}
+    focus() {
+      this.focused = true;
+    }
   }
 
   return {
@@ -177,6 +184,17 @@ describe('restoreOrCreateWindow', () => {
     await expect(restoreOrCreateWindow()).resolves.toBeUndefined();
     expect(electron.windows).toHaveLength(2);
     expect(electron.windows[1].shown).toBe(true);
+  });
+
+  it('opens a background window without showing it active or focusing it', async () => {
+    const { restoreOrCreateWindow } = await import('@/main/mainWindow');
+
+    await restoreOrCreateWindow({ background: true });
+
+    const [window] = electron.windows;
+    expect(window.shownInactive).toBe(true);
+    expect(window.shown).toBe(false);
+    expect(window.focused).toBe(false);
   });
 
   it('registers IPC handlers and the image worker once across windows', async () => {

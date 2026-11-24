@@ -32,6 +32,8 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
     env: {
       ...process.env,
       NUBES_MOCK_S3: '1',
+      // Don't take focus from whatever the person running the tests is doing.
+      NUBES_BACKGROUND: '1',
       NUBES_USER_DATA: userDataPath,
     },
   });

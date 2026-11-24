@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { PhotoThumbnail } from '../components/PhotoThumbnail';
 import { Button } from '../components/ui/button';
 import { WizardRedirect, WizardStep } from '../components/wizard-step';
+import { paths } from '../lib/paths';
 import { useImageStore } from '../stores/images';
 import type { PhotosetWithImages } from './PhotosetDetail/utils';
 
@@ -21,7 +22,7 @@ export const S3Summary = () => (
       photoset.uploadedAt ? (
         <S3SummaryStep photoset={photoset} />
       ) : (
-        <WizardRedirect to={`/photoset/${photoset.id}`} />
+        <WizardRedirect to={paths.photoset(photoset.id)} />
       )
     }
   </WizardStep>
@@ -45,7 +46,7 @@ const S3SummaryStep = ({ photoset }: { photoset: PhotosetWithImages }) => {
 
   const handleStartOver = () => {
     reset();
-    navigate('/');
+    navigate(paths.home());
   };
 
   return (

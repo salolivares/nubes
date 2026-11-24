@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@client/components/ui/card';
-import { wizardPath } from '@client/components/wizard-step';
+import { paths } from '@client/lib/paths';
 import { photosetKeys, s3Keys } from '@client/lib/photoset-queries';
 import { useImageStore } from '@client/stores/images';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -65,7 +65,7 @@ export const NewUpload = () => {
           year: new Date().getFullYear(),
         });
         void queryClient.invalidateQueries({ queryKey: photosetKeys.lists() });
-        navigate(wizardPath(photoset.id, 'picker'));
+        navigate(paths.wizard.picker(photoset.id));
       } catch (err) {
         toast.error('Failed to create photoset', {
           description: err instanceof Error ? err.message : 'Unknown error',
@@ -92,7 +92,7 @@ export const NewUpload = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Link to="/settings" className={buttonVariants()}>
+            <Link to={paths.settings.general()} className={buttonVariants()}>
               Go to Settings
             </Link>
           </CardContent>

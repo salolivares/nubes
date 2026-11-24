@@ -1,10 +1,11 @@
+import { paths } from '@client/lib/paths';
 import { cn } from '@client/lib/utils';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 const links = [
-  { name: 'General', href: '/settings' },
-  { name: 'Cameras', href: '/settings/cameras' },
-  { name: 'Storage', href: '/settings/storage' },
+  { name: 'General', href: paths.settings.general() },
+  { name: 'Cameras', href: paths.settings.cameras() },
+  { name: 'Storage', href: paths.settings.storage() },
 ];
 
 export const Settings = () => {
