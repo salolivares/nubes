@@ -27,6 +27,10 @@ albums to S3 with metadata.
   `IS3Provider`. When you change one, check whether the other needs the same change.
 - Validate IPC arguments with Zod. Register main-process handlers with `handle()` (invoke) or
   `on()` (one-way send) from `src/main/ipc.ts`, which parse the schema and log errors.
+- IPC handlers and the image worker start once, in `registerListeners()` after `app.whenReady()`.
+  Never per window: on macOS the window closes and reopens while the app keeps running. To push an
+  event, reply to `event.sender` or use `broadcast()` from `src/main/ipc.ts`. Don't hold on to a
+  `BrowserWindow`.
 - Shared shapes (Zod schemas, inferred types, row types) live in `src/common/types.ts`. Main-process
   listeners and `types/api.d.ts` both import from there. Don't redefine them elsewhere.
 - In `src/main/index.ts`, the dev userData setup (`resolveDevEnvironment()` from
@@ -54,7 +58,7 @@ src/
 │   │   ├── storage.ts         # Singleton: electron-store, safeStorage-encrypted credentials
 │   │   ├── image-processor.ts # utilityProcess worker entry: sharp resize loop
 │   │   └── s3/                # IS3Provider, real S3, MockS3, get/setS3Provider
-│   └── listeners/         # IPC handlers, registered per window in listeners/index.ts
+│   └── listeners/         # IPC handlers, registered once at startup in listeners/index.ts
 ├── preload/               # contextBridge APIs, one file per listener (vite.preload.config.ts)
 ├── renderer/              # React UI (vite.renderer.config.ts)
 │   ├── routes.tsx         # Hash router
@@ -81,7 +85,7 @@ have `@` and `@common`.
   processing and storage change events) and expose an API on `window`
   (`s3`, `photosets`, `storage`, `themeMode`, `imagePicker`, `imageProcessor`, `cache`, and `debug`
   in dev only). The renderer calls S3 through React Query.
-- **Image processing.** When the window is created, `listeners/image-processor.ts` forks
+- **Image processing.** At startup, `listeners/image-processor.ts` forks
   `image-processor.js` as a `utilityProcess` and connects it with a `MessageChannelMain`.
   `window.imageProcessor.resize()` sends a one-way message that main forwards over that port.
   Progress and completion go back to the renderer with `webContents.send()`.

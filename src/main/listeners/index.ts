@@ -1,5 +1,3 @@
-import type { BrowserWindow } from 'electron';
-
 import { addCacheEventListeners } from './cache';
 import { addDebugEventListeners } from './debug';
 import { addImagePickerEventListeners } from './image-picker';
@@ -9,14 +7,18 @@ import { addS3EventListeners } from './s3';
 import { addStorageEventListeners } from './storage';
 import { addThemeEventListeners } from './theme';
 
-export function registerListeners(mainWindow: BrowserWindow) {
-  // Register listeners here
+/**
+ * Register every IPC handler and start the image worker. Call this once, after
+ * `app.whenReady()`, not per window: `ipcMain.handle` throws on a second handler
+ * for the same channel, and each call would fork another worker.
+ */
+export function registerListeners() {
   addCacheEventListeners();
   addDebugEventListeners();
   addImagePickerEventListeners();
   addPhotosetEventListeners();
   addS3EventListeners();
   addThemeEventListeners();
-  addStorageEventListeners(mainWindow);
-  addImageProcessorEventListeners(mainWindow);
+  addStorageEventListeners();
+  addImageProcessorEventListeners();
 }

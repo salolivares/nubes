@@ -1,7 +1,6 @@
-import type { BrowserWindow } from 'electron';
 import { z } from 'zod';
 
-import { handle } from '@/main/ipc';
+import { broadcast, handle } from '@/main/ipc';
 
 import {
   ACCESS_KEY_ID,
@@ -29,7 +28,7 @@ const writeArgsSchema = z.object({
 
 const argsSchema = z.union([readArgsSchema, writeArgsSchema]);
 
-export function addStorageEventListeners(mainWindow: BrowserWindow) {
+export function addStorageEventListeners() {
   handle(STORAGE_CHANNEL, argsSchema, async (_, args) => {
     const { action, key } = args;
 
@@ -56,7 +55,7 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
   Storage.instance.store.onDidChange(ACCESS_KEY_ID, (newValue, oldValue) => {
     if (!newValue) return;
     try {
-      mainWindow.webContents.send(STORAGE_CHANGE, {
+      broadcast(STORAGE_CHANGE, {
         key: ACCESS_KEY_ID,
         newValue: Storage.instance.decrypt(newValue),
         oldValue: Storage.instance.decrypt(oldValue ?? ''),
@@ -69,7 +68,7 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
   Storage.instance.store.onDidChange(SECRET_ACCESS_KEY, (newValue, oldValue) => {
     if (!newValue) return;
     try {
-      mainWindow.webContents.send(STORAGE_CHANGE, {
+      broadcast(STORAGE_CHANGE, {
         key: SECRET_ACCESS_KEY,
         newValue: Storage.instance.decrypt(newValue),
         oldValue: Storage.instance.decrypt(oldValue ?? ''),
@@ -80,7 +79,7 @@ export function addStorageEventListeners(mainWindow: BrowserWindow) {
   });
 
   Storage.instance.store.onDidChange(AWS_REGION, (newValue, oldValue) => {
-    mainWindow.webContents.send(STORAGE_CHANGE, {
+    broadcast(STORAGE_CHANGE, {
       key: AWS_REGION,
       newValue: newValue ?? '',
       oldValue: oldValue ?? '',

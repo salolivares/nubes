@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { BrowserWindow } from 'electron';
+import type { WebContents } from 'electron';
 import { app, MessageChannelMain, utilityProcess } from 'electron';
 import baseLog from 'electron-log/main';
 
@@ -53,14 +53,24 @@ function createImageProcessor() {
   };
 }
 
-export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
+export function addImageProcessorEventListeners() {
   const { imageProcessor, port1, port2 } = createImageProcessor();
+
+  // The window that sent the last resize request. Progress goes back to it, not
+  // to a window captured at startup, which may have been closed since.
+  let requester: WebContents | null = null;
+  const reply = (channel: string, payload: unknown) => {
+    if (requester && !requester.isDestroyed()) {
+      requester.send(channel, payload);
+    }
+  };
 
   // Transfer port2 to the worker once at startup
   imageProcessor.postMessage({ type: 'init' }, [port2]);
 
   // Pass along message to image worker process via port1
-  on(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, (_, args) => {
+  on(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, (event, args) => {
+    requester = event.sender;
     port1.postMessage({
       type: IMAGE_PROCESSOR_RESIZE,
       imagePaths: args.imagePaths,
@@ -72,7 +82,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
   // send progress updates back to renderer
   port1.on('message', (message) => {
     if (message.data.type === IMAGE_PROCESSOR_PROGRESS) {
-      mainWindow.webContents.send(IMAGE_PROCESSOR_PROGRESS, {
+      reply(IMAGE_PROCESSOR_PROGRESS, {
         current: message.data.current,
         total: message.data.total,
         path: message.data.path,
@@ -82,7 +92,7 @@ export function addImageProcessorEventListeners(mainWindow: BrowserWindow) {
     }
 
     if (message.data.type === IMAGE_PROCESSOR_COMPLETE) {
-      mainWindow.webContents.send(IMAGE_PROCESSOR_COMPLETE, {
+      reply(IMAGE_PROCESSOR_COMPLETE, {
         processedImages: message.data.processedImages,
         erroredImagePaths: message.data.erroredImagePaths,
       });

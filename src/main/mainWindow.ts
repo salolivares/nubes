@@ -3,8 +3,6 @@ import { fileURLToPath } from 'node:url';
 
 import { BrowserWindow } from 'electron';
 
-import { registerListeners } from './listeners';
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function createWindow() {
@@ -21,8 +19,6 @@ async function createWindow() {
       preload: path.join(__dirname, 'preload.mjs'),
     },
   });
-
-  registerListeners(browserWindow);
 
   /**
    * If the 'show' property of the BrowserWindow's constructor is omitted from the initialization options,
