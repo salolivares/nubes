@@ -44,9 +44,13 @@ export function WizardStep({
 }) {
   const { photosetId: raw } = useParams<{ photosetId: string }>();
   const photosetId = parsePhotosetId(raw);
-  const { data, isPending, isFetchedAfterMount, error, refetch } = useQuery({
+  const { data, isPending, isFetching, isFetchedAfterMount, error, refetch } = useQuery({
     ...photosetQuery(photosetId ?? 0),
     enabled: photosetId !== null,
+    // Steps read the row once, on mount. A refetch on window focus gains nothing, and if it failed
+    // the error screen would replace the step and drop its in-progress state, such as S3Upload's
+    // unsaved metadata form. Reads happen on mount, on Retry and after the step's own writes.
+    refetchOnWindowFocus: false,
   });
 
   if (photosetId === null) {
@@ -54,8 +58,9 @@ export function WizardStep({
   }
 
   // Wait for a fresh read. Cached data can predate a write made elsewhere (upload, draft save,
-  // delete), and acting on it would redirect the wrong way.
-  if (isPending || (!isFetchedAfterMount && !error)) {
+  // delete), and acting on it would redirect the wrong way. The same goes for a cached error from
+  // an earlier visit, and for Retry, which refetches without going back to pending.
+  if (isPending || !isFetchedAfterMount || (error && isFetching)) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
         Loading...
@@ -63,6 +68,7 @@ export function WizardStep({
     );
   }
 
+  // An error wins over cached data: rendering the step on an old row would hide that the read failed.
   if (error) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
