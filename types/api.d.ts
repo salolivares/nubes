@@ -2,6 +2,7 @@ import type { Bucket } from '@aws-sdk/client-s3';
 
 import type {
   CredentialsStatus,
+  DroppedFiles,
   ImageJob,
   ImageJobEvent,
   ImageProcessorResizeArgs,
@@ -58,6 +59,11 @@ declare global {
 
   interface ImagePickerContext {
     open: () => Promise<ImagePickerFile[]>;
+    /**
+     * Allows dropped files that are on disk. Returns them by path, plus the names of files with no
+     * path on disk (e.g. dragged from a browser) or that main refused.
+     */
+    addDroppedFiles: (files: File[]) => Promise<DroppedFiles>;
   }
 
   interface PhotosetContext {

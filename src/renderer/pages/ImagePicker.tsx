@@ -1,11 +1,13 @@
-import { useCallback, useEffect } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useCallback, useEffect, useRef } from 'react';
+import { type FileRejection, useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+
+import type { DroppedFiles } from '@/common/types';
 
 import { Button } from '../components/ui/button';
 import { WizardStep } from '../components/wizard-step';
 import { paths } from '../lib/paths';
-import type { CustomFile } from '../stores/images';
 import { useImageStore } from '../stores/images';
 
 // TODO: move icons to own component
@@ -59,7 +61,6 @@ export const ImagePicker = () => (
 
 const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
   const files = useImageStore((s) => s.files);
-  const addFiles = useImageStore((s) => s.addFiles);
   const addFilesFromPaths = useImageStore((s) => s.addFilesFromPaths);
   const removeFile = useImageStore((s) => s.removeFile);
   const removeAllFiles = useImageStore((s) => s.removeAllFiles);
@@ -68,6 +69,14 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
 
   const navigate = useNavigate();
 
+  // Goes up when the picker unmounts or the queue is cleared. A dialog or drop that finishes after
+  // that drops its result, so it can't refill a cleared queue or cancel a job that already started.
+  const epoch = useRef(0);
+  const handleClear = () => {
+    epoch.current += 1;
+    removeAllFiles();
+  };
+
   const handleUpload = () => {
     // Drop results from an earlier run so the processing step runs on the files picked now.
     clearResults();
@@ -75,25 +84,78 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
   };
 
   const handleBrowse = useCallback(async () => {
+    const started = epoch.current;
     const entries = await window.imagePicker.open();
+    if (epoch.current !== started) return;
     if (entries.length > 0) {
       addFilesFromPaths(entries);
     }
   }, [addFilesFromPaths]);
 
+  const handleDrop = useCallback(
+    async (droppedFiles: File[], rejections: FileRejection[]) => {
+      if (rejections.length > 0) {
+        toast.error(
+          rejections.length === 1
+            ? `Skipped ${rejections[0].file.name}`
+            : `Skipped ${rejections.length} files`,
+          { description: 'Only JPG and PNG images can be added.' },
+        );
+      }
+      if (droppedFiles.length === 0) return;
+
+      // Queued by path like Browse, so the worker can read them and previews load over
+      // nubes-media://. Don't read `file.path`: react-dropzone sets it to the bare file name.
+      const started = epoch.current;
+      let result: DroppedFiles;
+      try {
+        result = await window.imagePicker.addDroppedFiles(droppedFiles);
+      } catch (err) {
+        if (epoch.current === started) {
+          toast.error("Couldn't add the dropped files", {
+            description: err instanceof Error ? err.message : 'Unknown error',
+          });
+        }
+        return;
+      }
+      if (epoch.current !== started) return;
+
+      const { entries, missing } = result;
+      if (entries.length > 0) addFilesFromPaths(entries);
+      if (missing.length > 0) {
+        toast.error(
+          missing.length === 1
+            ? `Couldn't add ${missing[0]}`
+            : `Couldn't add ${missing.length} images`,
+          {
+            description:
+              'Nubes can only process images saved on this computer. Save them to a folder first, then drop them from there.',
+          },
+        );
+      }
+    },
+    [addFilesFromPaths],
+  );
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    // The same formats the Browse dialog allows.
     accept: {
-      'image/*': [],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
     },
     noClick: true,
-    onDrop: (acceptedFiles) => {
-      addFiles(acceptedFiles as CustomFile[]);
-    },
+    // Space and Enter would open react-dropzone's own file picker, whose files have no disk path.
+    // Browse files is the only way to open a dialog.
+    noKeyboard: true,
+    onDrop: (files, rejections) => void handleDrop(files, rejections),
   });
 
   useEffect(() => {
     // Revoke the data uris to avoid memory leaks, will run on unmount
-    return () => unloadPreviews();
+    return () => {
+      epoch.current += 1;
+      unloadPreviews();
+    };
   }, []);
 
   return (
@@ -101,6 +163,7 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
       <h1>Upload</h1>
       <div
         {...getRootProps()}
+        data-testid="drop-zone"
         className="flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/20 transition-colors hover:border-primary/30 hover:bg-muted/30"
       >
         <input {...getInputProps()} />
@@ -122,7 +185,7 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
         <div className="grid gap-4">
           <div>
             <h3>Queued for upload</h3>
-            <Button onClick={removeAllFiles}>Clear</Button>
+            <Button onClick={handleClear}>Clear</Button>
             <Button onClick={handleUpload}>Upload</Button>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">

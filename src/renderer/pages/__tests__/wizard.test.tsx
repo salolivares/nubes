@@ -104,6 +104,7 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.mocked(window.photosets.get).mockResolvedValue(undefined);
+  vi.mocked(window.imagePicker.addDroppedFiles).mockResolvedValue({ entries: [], missing: [] });
 });
 
 describe('wizard steps', () => {
@@ -266,6 +267,145 @@ describe('image picker', () => {
     await waitFor(() =>
       expect(window.imageProcessor.resize).toHaveBeenCalledWith({ imagePaths: ['/tmp/b.jpg'] }),
     );
+  });
+
+  async function dropOnPicker(files: File[]) {
+    renderAt('/photoset/7/picker');
+    fireEvent.drop(await screen.findByTestId('drop-zone'), {
+      dataTransfer: { files, types: ['Files'] },
+    });
+  }
+
+  it('queues a dropped file under its path on disk and processes it from there', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    vi.mocked(window.imagePicker.addDroppedFiles).mockResolvedValue({
+      entries: [{ path: '/Users/me/Photos/a.jpg', name: 'a.jpg' }],
+      missing: [],
+    });
+    const dropped = new File(['jpg'], 'a.jpg', { type: 'image/jpeg' });
+
+    await dropOnPicker([dropped]);
+
+    await waitFor(() => expect(useImageStore.getState().files).toHaveLength(1));
+    expect(window.imagePicker.addDroppedFiles).toHaveBeenCalledWith([dropped]);
+    expect(useImageStore.getState().files[0].path).toBe('/Users/me/Photos/a.jpg');
+    expect(useImageStore.getState().files[0].preview).toMatch(/^nubes-media:/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+    await waitFor(() =>
+      expect(window.imageProcessor.resize).toHaveBeenCalledWith({
+        imagePaths: ['/Users/me/Photos/a.jpg'],
+      }),
+    );
+  });
+
+  it('rejects a dropped file with no path on disk and says why', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    vi.mocked(window.imagePicker.addDroppedFiles).mockResolvedValue({
+      entries: [{ path: '/Users/me/Photos/local.jpg', name: 'local.jpg' }],
+      missing: ['from-browser.jpg'],
+    });
+
+    await dropOnPicker([
+      new File(['jpg'], 'local.jpg', { type: 'image/jpeg' }),
+      new File(['jpg'], 'from-browser.jpg', { type: 'image/jpeg' }),
+    ]);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Couldn't add from-browser.jpg",
+        expect.objectContaining({ description: expect.stringContaining('saved on this computer') }),
+      ),
+    );
+    expect(useImageStore.getState().files.map((f) => f.path)).toEqual([
+      '/Users/me/Photos/local.jpg',
+    ]);
+  });
+
+  it('counts the rejected files when several have no path on disk', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    vi.mocked(window.imagePicker.addDroppedFiles).mockResolvedValue({
+      entries: [],
+      missing: ['one.jpg', 'two.jpg'],
+    });
+
+    await dropOnPicker([
+      new File(['jpg'], 'one.jpg', { type: 'image/jpeg' }),
+      new File(['jpg'], 'two.jpg', { type: 'image/jpeg' }),
+    ]);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Couldn't add 2 images", expect.anything()),
+    );
+    expect(useImageStore.getState().files).toEqual([]);
+  });
+
+  function deferredDrop() {
+    let resolve!: (value: { entries: { path: string; name: string }[]; missing: string[] }) => void;
+    vi.mocked(window.imagePicker.addDroppedFiles).mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    return resolve;
+  }
+
+  it('shows an error when the dropped files cannot be added', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    vi.mocked(window.imagePicker.addDroppedFiles).mockRejectedValue(new Error('Too many files'));
+
+    await dropOnPicker([new File(['jpg'], 'a.jpg', { type: 'image/jpeg' })]);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Couldn't add the dropped files", {
+        description: 'Too many files',
+      }),
+    );
+    expect(useImageStore.getState().files).toEqual([]);
+  });
+
+  it('ignores a drop that finishes after the queue was cleared', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    useImageStore.getState().addFilesFromPaths([{ path: '/Users/me/old.jpg', name: 'old.jpg' }]);
+    const finishDrop = deferredDrop();
+
+    await dropOnPicker([new File(['jpg'], 'late.jpg', { type: 'image/jpeg' })]);
+    await waitFor(() => expect(window.imagePicker.addDroppedFiles).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    finishDrop({ entries: [{ path: '/Users/me/late.jpg', name: 'late.jpg' }], missing: [] });
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(useImageStore.getState().files).toEqual([]);
+  });
+
+  it('does not touch the queue when a drop finishes after leaving the picker', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    const finishDrop = deferredDrop();
+
+    await dropOnPicker([new File(['jpg'], 'late.jpg', { type: 'image/jpeg' })]);
+    await waitFor(() => expect(window.imagePicker.addDroppedFiles).toHaveBeenCalled());
+    cleanup();
+    const versionBefore = useImageStore.getState().selectionVersion;
+    finishDrop({ entries: [{ path: '/Users/me/late.jpg', name: 'late.jpg' }], missing: [] });
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(useImageStore.getState().files).toEqual([]);
+    // A late addFilesFromPaths would bump this and cancel a processing job that already started.
+    expect(useImageStore.getState().selectionVersion).toBe(versionBefore);
+  });
+
+  it('skips dropped files that are not JPG or PNG and says so', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+
+    await dropOnPicker([new File(['pdf'], 'notes.pdf', { type: 'application/pdf' })]);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Skipped notes.pdf', {
+        description: 'Only JPG and PNG images can be added.',
+      }),
+    );
+    expect(window.imagePicker.addDroppedFiles).not.toHaveBeenCalled();
+    expect(useImageStore.getState().files).toEqual([]);
   });
 });
 

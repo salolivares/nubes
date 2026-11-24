@@ -1,0 +1,174 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import {
+  _electron as electron,
+  type ElectronApplication,
+  expect,
+  type Page,
+  test,
+} from '@playwright/test';
+import sharp from 'sharp';
+
+interface TestPhotosetsContext {
+  create: (args: {
+    name: string;
+    bucketName: string;
+    location: string;
+    year: number;
+  }) => Promise<{ id: number }>;
+}
+
+let userDataPath: string | undefined;
+let electronApp: ElectronApplication | undefined;
+let page: Page;
+let appOutput: string[] = [];
+
+test.beforeEach(async () => {
+  userDataPath = await fs.mkdtemp(path.join(os.tmpdir(), 'nubes-e2e-'));
+  appOutput = [];
+  electronApp = await electron.launch({
+    args: ['.'],
+    cwd: path.resolve(import.meta.dirname, '../..'),
+    env: {
+      ...process.env,
+      NUBES_BACKGROUND: '1',
+      NUBES_MOCK_S3: '1',
+      NUBES_USER_DATA: userDataPath,
+    },
+  });
+  // Main-process output goes into the test report on failure, so a CI run shows what went wrong.
+  electronApp.process().stdout?.on('data', (chunk) => appOutput.push(String(chunk)));
+  electronApp.process().stderr?.on('data', (chunk) => appOutput.push(String(chunk)));
+
+  page = await electronApp.firstWindow();
+  // Let the router mount before changing the hash, so it sees the change.
+  await expect(page.getByRole('heading', { name: 'Photosets' })).toBeVisible();
+  const photoset = await page.evaluate(() =>
+    (window as Window & { photosets?: TestPhotosetsContext }).photosets!.create({
+      name: 'Drop test',
+      bucketName: 'mock-photos-bucket',
+      location: 'Drop test',
+      year: 2026,
+    }),
+  );
+  await page.evaluate((id) => (window.location.hash = `#/photoset/${id}/picker`), photoset.id);
+  await expect(page.getByText('Drag and drop files here')).toBeVisible();
+});
+
+// eslint-disable-next-line no-empty-pattern -- Playwright requires an object pattern for fixtures.
+test.afterEach(async ({}, testInfo) => {
+  const app = electronApp;
+  const dataPath = userDataPath;
+  electronApp = undefined;
+  userDataPath = undefined;
+
+  if (testInfo.status !== testInfo.expectedStatus) {
+    await testInfo.attach('app-output.txt', { body: appOutput.join('') });
+    const logsDir = dataPath && path.join(dataPath, 'logs');
+    for (const name of logsDir ? await fs.readdir(logsDir).catch(() => []) : []) {
+      await testInfo.attach(name, { path: path.join(logsDir!, name) });
+    }
+  }
+
+  // A stuck utility process can keep close() from returning (see #129). Kill the app rather than
+  // hang the run.
+  if (app) {
+    // Take the process handle first: Playwright can't return it once close() has run.
+    const proc = app.process();
+    let timer: NodeJS.Timeout | undefined;
+    const closed = app.close().then(
+      () => true,
+      () => false,
+    );
+    const timedOut = new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), 5_000);
+    });
+    const closedInTime = await Promise.race([closed, timedOut]);
+    clearTimeout(timer);
+    if (!closedInTime && proc.exitCode === null && proc.signalCode === null) {
+      const exited = new Promise((resolve) => proc.once('exit', resolve));
+      proc.kill('SIGKILL');
+      await exited;
+    }
+  }
+  if (dataPath) await fs.rm(dataPath, { recursive: true, force: true });
+});
+
+/** Fires the drag events Chromium sends for a drop, with the files staged in #e2e-drop-source. */
+async function dropStagedFiles() {
+  await page.evaluate(() => {
+    const source = document.getElementById('e2e-drop-source') as HTMLInputElement;
+    const dataTransfer = new DataTransfer();
+    for (const file of Array.from(source.files ?? [])) dataTransfer.items.add(file);
+    source.remove();
+
+    const dropZone = document.querySelector('[data-testid=drop-zone]');
+    if (!dropZone) throw new Error('drop zone not found');
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      dropZone.dispatchEvent(
+        new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer }),
+      );
+    }
+  });
+}
+
+function addStagingInput() {
+  return page.evaluate(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.id = 'e2e-drop-source';
+    input.style.display = 'none';
+    document.body.append(input);
+  });
+}
+
+/**
+ * Drops files the way Chromium delivers a drop from Finder: File objects backed by files on disk.
+ * Playwright can't start an OS drag, so the files go through a hidden file input first, which
+ * gives them their disk backing, and then into the drop event's DataTransfer.
+ */
+async function dropFilesFromDisk(filePaths: string[]) {
+  await addStagingInput();
+  await page.setInputFiles('#e2e-drop-source', filePaths);
+  await dropStagedFiles();
+}
+
+/** Drops a File built in memory, with no file on disk behind it, like an image from a browser. */
+async function dropInMemoryFile(name: string) {
+  await addStagingInput();
+  await page.setInputFiles('#e2e-drop-source', {
+    name,
+    mimeType: 'image/jpeg',
+    buffer: Buffer.from('not really a jpg'),
+  });
+  await dropStagedFiles();
+}
+
+// Stops at the queue: processing hangs on GitHub's Linux runner (#129).
+test('a jpg dropped from disk is queued with a thumbnail served over nubes-media', async () => {
+  const imagePath = path.join(userDataPath!, 'dropped.jpg');
+  await sharp({ create: { width: 64, height: 48, channels: 3, background: '#3366cc' } })
+    .jpeg()
+    .toFile(imagePath);
+
+  await dropFilesFromDisk([imagePath]);
+
+  await expect(page.getByText('Queued for upload')).toBeVisible();
+  // nubes-media:// only serves files main put on its allowlist, so a decoded thumbnail means the
+  // dropped path was allowed.
+  const thumbnail = page.getByRole('img', { name: 'dropped.jpg' });
+  await expect(thumbnail).toHaveAttribute('src', /^nubes-media:/);
+  await expect
+    .poll(() => thumbnail.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+});
+
+test('a dropped file with no path on disk is rejected with a message', async () => {
+  await dropInMemoryFile('from-browser.jpg');
+
+  await expect(page.getByText("Couldn't add from-browser.jpg")).toBeVisible();
+  await expect(page.getByText('Queued for upload')).not.toBeVisible();
+});
