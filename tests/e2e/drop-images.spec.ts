@@ -9,6 +9,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import sharp from 'sharp';
 
 interface TestPhotosetsContext {
   create: (args: {
@@ -108,6 +109,17 @@ function addStagingInput() {
   });
 }
 
+/**
+ * Drops files the way Chromium delivers a drop from Finder: File objects backed by files on disk.
+ * Playwright can't start an OS drag, so the files go through a hidden file input first, which
+ * gives them their disk backing, and then into the drop event's DataTransfer.
+ */
+async function dropFilesFromDisk(filePaths: string[]) {
+  await addStagingInput();
+  await page.setInputFiles('#e2e-drop-source', filePaths);
+  await dropStagedFiles();
+}
+
 /** Drops a File built in memory, with no file on disk behind it, like an image from a browser. */
 async function dropInMemoryFile(name: string) {
   await addStagingInput();
@@ -118,6 +130,25 @@ async function dropInMemoryFile(name: string) {
   });
   await dropStagedFiles();
 }
+
+// Stops at the queue: processing hangs on GitHub's Linux runner (#129).
+test('a jpg dropped from disk is queued with a thumbnail served over nubes-media', async () => {
+  const imagePath = path.join(userDataPath!, 'dropped.jpg');
+  await sharp({ create: { width: 64, height: 48, channels: 3, background: '#3366cc' } })
+    .jpeg()
+    .toFile(imagePath);
+
+  await dropFilesFromDisk([imagePath]);
+
+  await expect(page.getByText('Queued for upload')).toBeVisible();
+  // nubes-media:// only serves files main put on its allowlist, so a decoded thumbnail means the
+  // dropped path was allowed.
+  const thumbnail = page.getByRole('img', { name: 'dropped.jpg' });
+  await expect(thumbnail).toHaveAttribute('src', /^nubes-media:/);
+  await expect
+    .poll(() => thumbnail.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+});
 
 test('a dropped file with no path on disk is rejected with a message', async () => {
   await dropInMemoryFile('from-browser.jpg');
