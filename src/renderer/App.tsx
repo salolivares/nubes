@@ -18,7 +18,7 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <TooltipProvider>
-            <RouterProvider router={router} />
+            <RouterProvider router={router} future={{ v7_startTransition: true }} />
             <Toaster />
           </TooltipProvider>
         </ThemeProvider>
