@@ -87,7 +87,9 @@ export function pluginHotRestart(command: 'reload' | 'restart'): Plugin {
     name: '@electron-forge/plugin-vite:hot-restart',
     closeBundle() {
       if (command === 'reload') {
-        for (const server of Object.values(process.viteDevServers)) {
+        // No dev servers exist in a production build. Forge hides the TypeError this would
+        // otherwise throw, but scripts/build-app.ts doesn't.
+        for (const server of Object.values(process.viteDevServers ?? {})) {
           // Preload scripts hot reload.
           server.ws.send({ type: 'full-reload' });
         }
