@@ -48,6 +48,19 @@ export class Database {
 
   private static open(dbPath: string): BetterSQLite3Database<typeof schema> {
     const sqlite = new BetterSqlite3(dbPath);
+    try {
+      return Database.migrateOpen(sqlite, dbPath);
+    } catch (error) {
+      // Release the file, so the user can replace it with a backup while the dialog is up.
+      sqlite.close();
+      throw error;
+    }
+  }
+
+  private static migrateOpen(
+    sqlite: BetterSqlite3.Database,
+    dbPath: string,
+  ): BetterSQLite3Database<typeof schema> {
     applyPragmas(sqlite);
     const db = drizzle(sqlite, { schema });
 
@@ -63,9 +76,10 @@ export class Database {
       if (!isEmpty) {
         const backup = backupDatabase(sqlite, dbPath, new Date());
         log.info(`Backed up database to ${backup} before migrating`);
-        for (const stale of pruneBackups(dbPath)) {
-          log.info(`Deleted old backup ${stale}`);
-        }
+        const { deleted, failed } = pruneBackups(dbPath);
+        for (const file of deleted) log.info(`Deleted old backup ${file}`);
+        for (const { file, error } of failed)
+          log.warn(`Could not delete old backup ${file}`, error);
       }
     }
 

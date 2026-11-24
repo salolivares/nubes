@@ -3,11 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 
 import BetterSqlite3 from 'better-sqlite3';
+import { DrizzleError } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   backupDatabase,
   backupPath,
+  corruptionMessage,
   isCorruptionError,
   listBackups,
   MAX_BACKUPS,
@@ -69,6 +71,20 @@ async function openDatabase(): Promise<BetterSqlite3.Database> {
 
 function closeAll() {
   for (const sqlite of opened.splice(0)) sqlite.close();
+}
+
+/** Overwrite the root page of `table` with garbage, leaving page 1 (the schema) intact. */
+function corruptTablePage(file: string, table: string) {
+  const sqlite = new BetterSqlite3(file);
+  const pageSize = sqlite.pragma('page_size', { simple: true }) as number;
+  const { rootpage } = sqlite
+    .prepare('SELECT rootpage FROM sqlite_master WHERE name = ?')
+    .get(table) as { rootpage: number };
+  sqlite.close();
+  expect(rootpage).toBeGreaterThan(1);
+  const fd = fs.openSync(file, 'r+');
+  fs.writeSync(fd, Buffer.alloc(pageSize, 0xff), 0, pageSize, (rootpage - 1) * pageSize);
+  fs.closeSync(fd);
 }
 
 function writeFakeBackups(stamps: string[]) {
@@ -148,6 +164,41 @@ describe('Database', () => {
     expect(message).toContain(backupPath(dbPath, new Date('2020-01-02T00:00:00Z')));
     expect(electron.quit).toHaveBeenCalledOnce();
   });
+
+  it('leaves no partial backup when the snapshot hits a corrupt page', async () => {
+    fs.copyFileSync(FIXTURE_DB, dbPath);
+    corruptTablePage(dbPath, 'photoset_images');
+    writeFakeBackups(['2020-01-01T00:00:00Z']);
+
+    await expect(openDatabase()).rejects.toSatisfy(isCorruptionError);
+
+    // Only the older good backup remains, no staging file, and the dialog points at it.
+    expect(fs.readdirSync(userData).filter((name) => name.includes('.bak-'))).toEqual([
+      path.basename(backupPath(dbPath, new Date('2020-01-01T00:00:00Z'))),
+    ]);
+    const [, message] = electron.showErrorBox.mock.calls[0];
+    expect(message).toContain(backupPath(dbPath, new Date('2020-01-01T00:00:00Z')));
+  });
+});
+
+describe('isCorruptionError', () => {
+  it('matches SqliteError codes and Drizzle-wrapped ones', () => {
+    const corrupt = Object.assign(new Error('malformed'), { code: 'SQLITE_CORRUPT' });
+
+    expect(isCorruptionError(corrupt)).toBe(true);
+    expect(isCorruptionError({ code: 'SQLITE_CORRUPT_INDEX' })).toBe(true);
+    expect(isCorruptionError({ code: 'SQLITE_NOTADB' })).toBe(true);
+    expect(isCorruptionError(new DrizzleError({ message: 'migrate', cause: corrupt }))).toBe(true);
+    expect(isCorruptionError({ code: 'SQLITE_BUSY' })).toBe(false);
+    expect(isCorruptionError(new Error('nope'))).toBe(false);
+    expect(isCorruptionError(undefined)).toBe(false);
+  });
+});
+
+describe('corruptionMessage', () => {
+  it('says when there is no backup', () => {
+    expect(corruptionMessage(dbPath, undefined)).toContain('No backup was found');
+  });
 });
 
 describe('backupDatabase', () => {
@@ -181,9 +232,14 @@ describe('pruneBackups', () => {
     fs.writeFileSync(dbPath, '');
     fs.writeFileSync(`${dbPath}-wal`, '');
     fs.writeFileSync(path.join(userData, 'other.db.bak-2000-01-01T00-00-00-000Z'), '');
+    // Not backups: a sidecar from opening one, a hand-made copy, and a folder.
+    fs.writeFileSync(path.join(userData, 'nubes.db.bak-2026-01-05T00-00-00-000Z-wal'), '');
+    fs.writeFileSync(path.join(userData, 'nubes.db.bak-manual'), '');
+    fs.mkdirSync(path.join(userData, 'nubes.db.bak-old'));
 
-    const deleted = pruneBackups(dbPath, 3);
+    const { deleted, failed } = pruneBackups(dbPath, 3);
 
+    expect(failed).toEqual([]);
     expect(deleted.map((file) => path.basename(file))).toEqual([
       'nubes.db.bak-2026-01-01T00-00-00-000Z',
       'nubes.db.bak-2026-01-02T00-00-00-000Z',
@@ -194,6 +250,9 @@ describe('pruneBackups', () => {
       'nubes.db.bak-2026-01-03T00-00-00-000Z',
       'nubes.db.bak-2026-01-04T00-00-00-000Z',
       'nubes.db.bak-2026-01-05T00-00-00-000Z',
+      'nubes.db.bak-2026-01-05T00-00-00-000Z-wal',
+      'nubes.db.bak-manual',
+      'nubes.db.bak-old',
       'other.db.bak-2000-01-01T00-00-00-000Z',
     ]);
   });
@@ -201,7 +260,7 @@ describe('pruneBackups', () => {
   it('does nothing when there are fewer backups than the limit', () => {
     writeFakeBackups(['2026-01-01T00:00:00Z']);
 
-    expect(pruneBackups(dbPath, 3)).toEqual([]);
+    expect(pruneBackups(dbPath, 3)).toEqual({ deleted: [], failed: [] });
     expect(listBackups(dbPath)).toHaveLength(1);
   });
 });

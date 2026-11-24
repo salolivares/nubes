@@ -8,14 +8,17 @@ import type { MigrationMeta } from 'drizzle-orm/migrator';
 export const MAX_BACKUPS = 3;
 
 const BACKUP_SUFFIX = '.bak-';
+/** The timestamp part of a backup name, as written by backupPath(). */
+const BACKUP_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/;
 
 export function applyPragmas(sqlite: BetterSqlite3.Database): void {
+  // Wait up to 5s for a lock instead of failing right away with SQLITE_BUSY. Set first, since
+  // switching to WAL needs a lock too.
+  sqlite.pragma('busy_timeout = 5000');
   // WAL lets reads run alongside a write instead of blocking on it, and survives crashes better.
   sqlite.pragma('journal_mode = WAL');
   // In WAL mode NORMAL is still crash-safe for the database file and skips an fsync per commit.
   sqlite.pragma('synchronous = NORMAL');
-  // Wait up to 5s for a lock instead of failing right away with SQLITE_BUSY.
-  sqlite.pragma('busy_timeout = 5000');
 }
 
 /**
@@ -58,8 +61,10 @@ export function listBackups(dbPath: string): string[] {
   } catch {
     return [];
   }
+  // Match the exact stamp, so a `-wal` left by opening a backup, or a hand-made
+  // `nubes.db.bak-old`, is never listed, pruned or offered as the backup to restore.
   return entries
-    .filter((name) => name.startsWith(prefix))
+    .filter((name) => name.startsWith(prefix) && BACKUP_STAMP.test(name.slice(prefix.length)))
     .sort()
     .map((name) => path.join(dir, name));
 }
@@ -73,26 +78,60 @@ export function listBackups(dbPath: string): string[] {
  */
 export function backupDatabase(sqlite: BetterSqlite3.Database, dbPath: string, now: Date): string {
   const target = backupPath(dbPath, now);
-  sqlite.prepare('VACUUM INTO ?').run(target);
+  // Write under a name listBackups() ignores, and rename once complete. A failed VACUUM INTO
+  // (corrupt page, full disk) leaves a partial file behind, which must never be offered as the
+  // backup to restore or push a good one out of the retention window.
+  const staging = path.join(path.dirname(target), `.${path.basename(target)}.tmp`);
+  try {
+    sqlite.prepare('VACUUM INTO ?').run(staging);
+    fs.renameSync(staging, target);
+  } catch (error) {
+    fs.rmSync(staging, { force: true });
+    throw error;
+  }
   return target;
 }
 
-/** Delete all but the newest `keep` backups. Returns the deleted paths. */
-export function pruneBackups(dbPath: string, keep = MAX_BACKUPS): string[] {
+/**
+ * Delete all but the newest `keep` backups. Best effort: a file that can't be removed (locked,
+ * read-only) is reported in `failed` and must not stop migrations from running.
+ */
+export function pruneBackups(
+  dbPath: string,
+  keep = MAX_BACKUPS,
+): { deleted: string[]; failed: Array<{ file: string; error: unknown }> } {
   const backups = listBackups(dbPath);
   const stale = backups.slice(0, Math.max(0, backups.length - keep));
+  const deleted: string[] = [];
+  const failed: Array<{ file: string; error: unknown }> = [];
   for (const file of stale) {
-    fs.rmSync(file, { force: true });
+    try {
+      fs.rmSync(file, { force: true });
+      deleted.push(file);
+    } catch (error) {
+      failed.push({ file, error });
+    }
   }
-  return stale;
+  return { deleted, failed };
 }
 
-/** SQLITE_CORRUPT (and its extended codes) or SQLITE_NOTADB, which a mangled header gives. */
+/**
+ * SQLITE_CORRUPT (and its extended codes) or SQLITE_NOTADB, which a mangled header gives.
+ * Follows `cause`, since Drizzle rethrows SqliteErrors from migrate() as a DrizzleError.
+ */
 export function isCorruptionError(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-  return (
-    typeof code === 'string' && (code.startsWith('SQLITE_CORRUPT') || code === 'SQLITE_NOTADB')
-  );
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current; depth++) {
+    const { code, cause } = current as { code?: unknown; cause?: unknown };
+    if (
+      typeof code === 'string' &&
+      (code.startsWith('SQLITE_CORRUPT') || code === 'SQLITE_NOTADB')
+    ) {
+      return true;
+    }
+    current = cause;
+  }
+  return false;
 }
 
 export function corruptionMessage(dbPath: string, latestBackup: string | undefined): string {
