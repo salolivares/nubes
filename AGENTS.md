@@ -113,7 +113,7 @@ Both rely on `asar.unpack: '**/*.{node,dll,dylib,so}'`.
 React 19 and Tailwind CSS 4. Versions to watch for, since APIs differ from the latest:
 
 - shadcn/ui is built on `@base-ui/react`, not Radix. Use the `render` prop, not `asChild`.
-- React Query is v4 (`isLoading`, not v5's `isPending`). Zod is v4.
+- React Query is v5 (`isPending` for mutations and first loads, `gcTime` not `cacheTime`, object-only hook signatures). Zod is v4.
 - React Router 6 with a hash router, because the packaged app loads from `file://`.
 - Dark mode is the custom `src/renderer/components/theme-provider.tsx`, synced with Electron's
   `nativeTheme` through `window.themeMode`. There is no `next-themes`.

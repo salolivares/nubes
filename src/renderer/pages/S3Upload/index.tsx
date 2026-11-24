@@ -66,7 +66,7 @@ export const S3Upload = () => {
     },
   });
 
-  const { mutate, isLoading: isUploading } = useMutation({
+  const { mutate, isPending: isUploading } = useMutation({
     mutationFn: window.s3.createAlbum,
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to upload album');

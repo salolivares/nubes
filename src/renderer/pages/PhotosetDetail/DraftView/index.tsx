@@ -98,7 +98,7 @@ export function DraftView({
     },
   });
 
-  const { mutate: uploadMutate, isLoading: isUploading } = useMutation({
+  const { mutate: uploadMutate, isPending: isUploading } = useMutation({
     mutationFn: window.s3.createAlbum,
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to upload album');
