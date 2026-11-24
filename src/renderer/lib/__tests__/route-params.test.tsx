@@ -27,6 +27,9 @@ describe('idParam', () => {
     'NaN',
     '7abc',
     '99999999999999999999',
+    String(Number.MAX_SAFE_INTEGER + 1),
+    '7 ',
+    '+7',
   ])('rejects %s', (raw) => {
     expect(idParam.safeParse(raw).success).toBe(false);
   });
@@ -61,6 +64,10 @@ describe('useRouteParams', () => {
 
   it('returns null when a param does not parse', () => {
     expect(renderAt('/photoset/abc')).toBeNull();
+  });
+
+  it('returns null for an encoded slash in the id', () => {
+    expect(renderAt('/photoset/7%2F8')).toBeNull();
   });
 
   it('returns null when a param is missing', () => {

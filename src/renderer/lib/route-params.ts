@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { z } from 'zod';
 
@@ -20,6 +21,9 @@ type RouteParamsSchema = z.ZodType<unknown, Record<string, string | undefined>>;
  */
 export function useRouteParams<S extends RouteParamsSchema>(schema: S): z.output<S> | null {
   const params = useParams();
-  const result = schema.safeParse(params);
-  return result.success ? result.data : null;
+  // Keep the result's identity stable while the params are, so it is safe in effect dependencies.
+  return useMemo(() => {
+    const result = schema.safeParse(params);
+    return result.success ? result.data : null;
+  }, [schema, params]);
 }

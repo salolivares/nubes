@@ -1,6 +1,7 @@
-import { matchPath } from 'react-router-dom';
+import { matchPath, matchRoutes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
+import { routeTree } from '../../routes';
 import { paths, routePatterns, WIZARD_STEPS, wizardPath } from '../paths';
 
 describe('paths', () => {
@@ -37,5 +38,30 @@ describe('paths', () => {
 
   it('does not match a wizard path to the photoset detail route', () => {
     expect(matchPath(routePatterns.photoset, paths.wizard.picker(3))).toBeNull();
+  });
+});
+
+describe('routeTree', () => {
+  // The leaf route each built path should land on, by its registered pattern.
+  const cases: Array<[string, string]> = [
+    [paths.home(), '/'],
+    [paths.newUpload(), routePatterns.newUpload],
+    [paths.photoset(3), routePatterns.photoset],
+    ...WIZARD_STEPS.map((step): [string, string] => [
+      paths.wizard[step](3),
+      routePatterns.wizard[step],
+    ]),
+    [paths.settings.general(), routePatterns.settings.general],
+    [paths.settings.cameras(), routePatterns.settings.cameras],
+    [paths.settings.storage(), routePatterns.settings.storage],
+  ];
+
+  it.each(cases)('routes %s to %s', (url, pattern) => {
+    const matches = matchRoutes(routeTree, url);
+    expect(matches).not.toBeNull();
+    const leaf = matches!.at(-1)!.route;
+    // Index routes have no path of their own. Their parent holds the pattern.
+    const matched = leaf.index ? matches!.at(-2)!.route.path : leaf.path;
+    expect(matched).toBe(pattern);
   });
 });

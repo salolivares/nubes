@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { photosetKeys } from '../../lib/photoset-queries';
@@ -25,6 +26,7 @@ describe('PhotosetDetail', () => {
     renderRoutes(`/photoset/${id}`, { '/photoset/:photosetId': <PhotosetDetail /> });
 
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
+    expect(toast.info).toHaveBeenCalledWith('Photoset not found.', expect.anything());
     expect(window.photosets.get).not.toHaveBeenCalled();
   });
 
