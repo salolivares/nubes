@@ -31,6 +31,11 @@ export interface DevEnvironment {
   userDataSource: UserDataSource;
   mockS3: boolean;
   mockS3Source: MockS3Source;
+  /**
+   * Launch without taking focus: no dock icon, window shown inactive. For agents and e2e tests
+   * driving the app while someone works in another window. Set with NUBES_BACKGROUND=1.
+   */
+  background: boolean;
 }
 
 /**
@@ -73,6 +78,7 @@ export function resolveDevEnvironment(input: DevEnvironmentInput): DevEnvironmen
       userDataSource: 'packaged',
       mockS3: false,
       mockS3Source: 'packaged',
+      background: false,
     };
   }
 
@@ -97,5 +103,6 @@ export function resolveDevEnvironment(input: DevEnvironmentInput): DevEnvironmen
     userDataSource,
     mockS3: mockFlag ?? true,
     mockS3Source: mockFlag === null ? 'dev-default' : 'env',
+    background: env.NUBES_BACKGROUND === '1',
   };
 }

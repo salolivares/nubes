@@ -22,6 +22,8 @@ test('renderer can list buckets through Electron IPC', async () => {
     env: {
       ...process.env,
       NUBES_MOCK_S3: '1',
+      // Don't take focus from whatever the person running the tests is doing.
+      NUBES_BACKGROUND: '1',
       NUBES_USER_DATA: userDataPath,
     },
   });
@@ -64,6 +66,8 @@ test('renderer can create an album through Electron IPC', async () => {
     env: {
       ...process.env,
       NUBES_MOCK_S3: '1',
+      // Don't take focus from whatever the person running the tests is doing.
+      NUBES_BACKGROUND: '1',
       NUBES_USER_DATA: userDataPath,
     },
   });
@@ -105,6 +109,8 @@ test('album creation rejects invalid input at the IPC boundary', async () => {
     env: {
       ...process.env,
       NUBES_MOCK_S3: '1',
+      // Don't take focus from whatever the person running the tests is doing.
+      NUBES_BACKGROUND: '1',
       NUBES_USER_DATA: userDataPath,
     },
   });

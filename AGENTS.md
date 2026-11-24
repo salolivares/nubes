@@ -15,6 +15,10 @@ albums to S3 with metadata.
   clears it. The main checkout keeps using `nubes-dev/` under the OS app data folder. Mock S3 is on
   by default in dev. `NUBES_USER_DATA` overrides the folder and `NUBES_MOCK_S3=1|0` forces the S3
   mode.
+- When you launch the app to drive or check the GUI yourself, set `NUBES_BACKGROUND=1` (for example
+  `NUBES_BACKGROUND=1 pnpm start`). The window opens without taking focus, with no dock icon and no
+  DevTools window, so it doesn't pull the user out of what they are doing. The e2e tests set it too.
+  Packaged builds ignore it.
 - Never run `pnpm package` or `make package` unless asked. `make package` also replaces the
   installed app in `/Applications`.
 - `pnpm test:e2e` runs `pnpm build` (Vite bundles into `.vite/`, no packaging), then the Playwright
