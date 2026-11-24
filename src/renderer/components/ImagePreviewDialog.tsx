@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
+import { mediaUrl } from '@/common/media-url';
+
+import { previewDataUrl } from '../lib/media';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
 export function pickPreviewPath(
@@ -20,25 +23,11 @@ export function ImagePreviewDialog({
   previewPath?: string;
   onClose: () => void;
 }) {
-  const [hiResSrc, setHiResSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!previewPath) {
-      setHiResSrc(null);
-      return;
-    }
-
-    let cancelled = false;
-    window.imagePicker.readPreview(previewPath).then((dataUrl) => {
-      if (!cancelled) setHiResSrc(dataUrl);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [previewPath]);
-
-  const thumbnailSrc = image?.preview ? `data:image/jpeg;base64,${image.preview}` : null;
-  const src = hiResSrc ?? thumbnailSrc;
+  // The hi-res jpg streams from the photosets folder over nubes-media://. If it's gone from disk,
+  // fall back to the 128px preview saved in the DB.
+  const [failedPath, setFailedPath] = useState<string | null>(null);
+  const hiResSrc = previewPath && previewPath !== failedPath ? mediaUrl(previewPath) : undefined;
+  const src = hiResSrc ?? previewDataUrl(image?.preview);
 
   return (
     <Dialog open={!!image} onOpenChange={(open) => !open && onClose()}>
@@ -47,6 +36,9 @@ export function ImagePreviewDialog({
         {src && (
           <img
             src={src}
+            onError={() => {
+              if (hiResSrc) setFailedPath(previewPath ?? null);
+            }}
             alt={image?.name ?? 'Image preview'}
             className="w-full rounded-lg object-contain"
           />

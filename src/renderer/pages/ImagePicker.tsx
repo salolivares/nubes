@@ -60,7 +60,6 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
   const files = useImageStore((s) => s.files);
   const addFiles = useImageStore((s) => s.addFiles);
   const addFilesFromPaths = useImageStore((s) => s.addFilesFromPaths);
-  const setFilePreview = useImageStore((s) => s.setFilePreview);
   const removeFile = useImageStore((s) => s.removeFile);
   const removeAllFiles = useImageStore((s) => s.removeAllFiles);
   const unloadPreviews = useImageStore((s) => s.unloadPreviews);
@@ -78,14 +77,8 @@ const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
     const entries = await window.imagePicker.open();
     if (entries.length > 0) {
       addFilesFromPaths(entries);
-      // Lazy-load thumbnails for newly added files
-      for (const entry of entries) {
-        window.imagePicker.readThumbnail(entry.path).then((dataUrl) => {
-          setFilePreview(entry.path, dataUrl);
-        });
-      }
     }
-  }, [addFilesFromPaths, setFilePreview]);
+  }, [addFilesFromPaths]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {

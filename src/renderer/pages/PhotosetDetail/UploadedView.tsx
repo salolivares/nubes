@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { PhotoThumbnail } from '../../components/PhotoThumbnail';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import type { PhotosetWithImages } from './utils';
@@ -91,17 +92,17 @@ export function UploadedView({ photoset }: { photoset: PhotosetWithImages }) {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {photoset.images.map((image) => (
           <div key={image.id} className="space-y-1.5">
-            {image.preview ? (
-              <img
-                src={`data:image/jpeg;base64,${image.preview}`}
-                alt={image.name}
-                className="aspect-square w-full rounded-md object-cover"
-              />
-            ) : (
-              <div className="flex aspect-square w-full items-center justify-center rounded-md bg-muted">
-                <ImageIcon className="h-8 w-8 text-muted-foreground" />
-              </div>
-            )}
+            <PhotoThumbnail
+              outputs={image.outputs}
+              preview={image.preview}
+              alt={image.name}
+              className="aspect-square w-full rounded-md object-cover"
+              placeholder={
+                <div className="flex aspect-square w-full items-center justify-center rounded-md bg-muted">
+                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+              }
+            />
             <p className="truncate text-sm font-medium">{image.name}</p>
             {image.camera && (
               <p className="truncate text-xs text-muted-foreground">{image.camera}</p>

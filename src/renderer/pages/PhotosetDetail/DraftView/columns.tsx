@@ -3,6 +3,7 @@ import { ImageIcon, X } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { CameraCombobox } from '../../../components/CameraCombobox';
+import { PhotoThumbnail } from '../../../components/PhotoThumbnail';
 import { RowDragHandleCell } from '../../../components/SortableTable';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -34,14 +35,15 @@ export function useImageColumns(opts: {
         header: 'Image',
         size: 80,
         cell: ({ row }) =>
-          row.original.preview ? (
+          row.original.preview || row.original.outputs.length > 0 ? (
             <button
               type="button"
               className="cursor-pointer"
               onClick={() => onPreview(row.original)}
             >
-              <img
-                src={`data:image/jpeg;base64,${row.original.preview}`}
+              <PhotoThumbnail
+                outputs={row.original.outputs}
+                preview={row.original.preview}
                 alt={row.original.name}
                 width={64}
                 height={64}

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import type { ProcessedImage } from '@/common/types';
 
 import { CameraCombobox } from '../../components/CameraCombobox';
+import { PhotoThumbnail } from '../../components/PhotoThumbnail';
 import { RowDragHandleCell } from '../../components/SortableTable';
 import { Input } from '../../components/ui/input';
 import type { CameraEntry } from '../../hooks/useCameras';
@@ -31,8 +32,9 @@ export function useImageColumns(opts: {
         size: 80,
         cell: ({ row }) => (
           <button type="button" className="cursor-pointer" onClick={() => onPreview(row.original)}>
-            <img
-              src={`data:image/jpeg;base64,${row.original.preview}`}
+            <PhotoThumbnail
+              outputs={row.original.imagePaths}
+              preview={row.original.preview}
               alt={row.original.name}
               width={64}
               height={64}

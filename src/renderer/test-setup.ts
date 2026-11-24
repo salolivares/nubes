@@ -40,8 +40,6 @@ window.imageProcessor = {
 
 window.imagePicker = {
   open: vi.fn().mockResolvedValue([]),
-  readThumbnail: vi.fn().mockResolvedValue(''),
-  readPreview: vi.fn().mockResolvedValue(''),
 };
 
 window.photosets = {

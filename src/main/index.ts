@@ -13,6 +13,7 @@ import { MockS3, setS3Provider } from './drivers/s3';
 import { Storage } from './drivers/storage';
 import { registerListeners } from './listeners';
 import { restoreOrCreateWindow } from './mainWindow';
+import { registerMediaProtocol, registerMediaScheme } from './media';
 
 /**
  * Pick the userData folder and S3 mode before anything else runs.
@@ -54,6 +55,11 @@ log.info(
 if (!app.isPackaged && process.env.NUBES_MOCK_S3 && devEnvironment.mockS3Source !== 'env') {
   log.warn(`Ignoring NUBES_MOCK_S3=${process.env.NUBES_MOCK_S3}. Use 1 or 0.`);
 }
+
+/**
+ * Privileged schemes must be declared before `app` is ready. The handler is registered below.
+ */
+registerMediaScheme();
 
 /**
  * Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -106,6 +112,7 @@ app
     Storage.init();
     Database.init();
     registerListeners();
+    registerMediaProtocol();
 
     /**
      * Registered after the IPC handlers so a reopened window always has them.
