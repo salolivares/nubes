@@ -105,7 +105,7 @@ describe('image-processor:resize paths', () => {
     await expect(assertResizePaths(access, [other])).rejects.toThrow(/Refused to process/);
   });
 
-  it('refuses bare file names, which is what a drop sends today', async () => {
+  it('refuses bare file names', async () => {
     await expect(assertResizePaths(access, ['dropped.jpg'])).rejects.toThrow(/Refused/);
   });
 
