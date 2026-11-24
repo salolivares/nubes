@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProcessedImage } from '@/common/types';
 
 import { parsePhotosetId } from '../../components/wizard-step';
+import { photosetKeys } from '../../lib/photoset-queries';
 import { useImageStore } from '../../stores/images';
 import { ImagePicker } from '../ImagePicker';
 import { ImageProcessing } from '../ImageProcessing';
@@ -27,8 +28,9 @@ function LocationProbe() {
   return <div data-testid="location">{location.pathname}</div>;
 }
 
-function renderAt(path: string) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const newQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+function renderAt(path: string, queryClient = newQueryClient()) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter
@@ -197,6 +199,73 @@ describe('wizard steps', () => {
 
     await expectLocation('/photoset/7');
     expect(screen.queryByText('Album Uploaded')).not.toBeInTheDocument();
+  });
+});
+
+describe('wizard step read errors', () => {
+  const pickerText = 'Drag and drop files here';
+
+  function deferredPhotoset() {
+    let resolve!: (p: PhotosetWithImages) => void;
+    vi.mocked(window.photosets.get).mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    return (p: PhotosetWithImages) => resolve(p);
+  }
+
+  // A refetch with no cached row clears the error and goes back to pending. The cases below need a
+  // cached row with a failed read on top of it: a step that loaded once, then failed to reload.
+  async function failReadOverCachedRow(queryClient = newQueryClient()) {
+    queryClient.setQueryData(photosetKeys.detail(7), makePhotoset());
+    vi.mocked(window.photosets.get).mockRejectedValueOnce(new Error('database is locked'));
+    const view = renderAt('/photoset/7/picker', queryClient);
+    expect(await screen.findByText('database is locked')).toBeInTheDocument();
+    return { queryClient, view };
+  }
+
+  it('shows the error, not the step, when a read fails with a cached row', async () => {
+    await failReadOverCachedRow();
+
+    expect(screen.queryByText(pickerText)).not.toBeInTheDocument();
+  });
+
+  it('does not flash a cached error from an earlier visit while it reads again', async () => {
+    const { queryClient, view } = await failReadOverCachedRow();
+    view.unmount();
+
+    const resolve = deferredPhotoset();
+    renderAt('/photoset/7/picker', queryClient);
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.queryByText('database is locked')).not.toBeInTheDocument();
+    resolve(makePhotoset());
+    expect(await screen.findByText(pickerText)).toBeInTheDocument();
+  });
+
+  it('shows Loading while Retry reads again', async () => {
+    await failReadOverCachedRow();
+
+    const resolve = deferredPhotoset();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(await screen.findByText('Loading...')).toBeInTheDocument();
+    expect(screen.queryByText('database is locked')).not.toBeInTheDocument();
+    expect(screen.queryByText(pickerText)).not.toBeInTheDocument();
+    resolve(makePhotoset());
+    expect(await screen.findByText(pickerText)).toBeInTheDocument();
+  });
+
+  it('does not refetch the row when the window regains focus', async () => {
+    vi.mocked(window.photosets.get).mockResolvedValue(makePhotoset());
+    renderAt('/photoset/7/picker');
+    expect(await screen.findByText(pickerText)).toBeInTheDocument();
+    expect(window.photosets.get).toHaveBeenCalledTimes(1);
+
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+    focusManager.setFocused(undefined);
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(window.photosets.get).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(pickerText)).toBeInTheDocument();
   });
 });
 
