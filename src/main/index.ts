@@ -11,8 +11,9 @@ import { readDotGitFile, resolveDevEnvironment } from './dev-environment';
 import { Database } from './drivers/database';
 import { MockS3, setS3Provider } from './drivers/s3';
 import { Storage } from './drivers/storage';
+import { restrictFileRequests } from './file-requests';
 import { registerListeners } from './listeners';
-import { restoreOrCreateWindow } from './mainWindow';
+import { rendererDir, restoreOrCreateWindow } from './mainWindow';
 import { registerMediaProtocol, registerMediaScheme } from './media';
 
 /**
@@ -113,6 +114,7 @@ app
     Database.init();
     registerListeners();
     registerMediaProtocol();
+    if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) restrictFileRequests(rendererDir());
 
     /**
      * Registered after the IPC handlers so a reopened window always has them.

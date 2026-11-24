@@ -53,8 +53,11 @@ albums to S3 with metadata.
   source files passed to `allowPickedFiles()`. Only call `allowPickedFiles()` with paths from a
   user action handled in main, never with a path the renderer sent. Don't add IPC that returns file
   contents.
-- The CSP is set in `vite.renderer.config.ts` (`contentSecurityPolicy()`), which fills the
-  `__NUBES_CSP__` placeholder in `index.html`. Dev-only relaxations stay behind its `dev` flag.
+- The CSP is `contentSecurityPolicy()` in `src/common/csp.ts`. A plugin in
+  `vite.renderer.config.ts` fills the `__NUBES_CSP__` placeholder in `index.html` with it. Dev-only
+  relaxations stay behind its `dev` flag. The packaged page is a `file://` URL, where `'self'`
+  matches any file, so `src/main/file-requests.ts` cancels `file://` loads outside the renderer
+  bundle.
 - External links only open for origins in `ALLOWED_EXTERNAL_ORIGINS` in
   `src/main/securityRestrictions.ts`. Others are silently blocked.
 
