@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import { useCameras } from '../../../hooks/useCameras';
+import { uploadAlbum } from '../../../lib/upload-album';
 import type { DbImage, PhotosetWithImages } from '../utils';
 import { toProcessedImages } from '../utils';
 import { useImageColumns } from './columns';
@@ -99,7 +100,7 @@ export function DraftView({
   });
 
   const { mutate: uploadMutate, isPending: isUploading } = useMutation({
-    mutationFn: (args: S3CreateAlbumArgs) => window.s3.createAlbum(args),
+    mutationFn: (args: S3CreateAlbumArgs) => uploadAlbum(args),
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to upload album');
     },
@@ -276,6 +277,8 @@ export function DraftView({
       { bucketName: photoset.bucketName, album: values, images: processedImages },
       {
         onSuccess: async () => {
+          // Keep the buttons disabled: isUploading is already false when this runs.
+          setIsSaving(true);
           try {
             await window.photosets.update({
               id: photoset.id,
@@ -301,14 +304,21 @@ export function DraftView({
                 })),
               });
             }
-            await window.photosets.markUploaded({ id: photoset.id });
             if (values.published) {
               await window.photosets.publish({ id: photoset.id });
             }
-          } catch {
-            // Non-fatal
+            // Last, so `uploadedAt` is only set once everything before it is saved.
+            await window.photosets.markUploaded({ id: photoset.id });
+          } catch (err) {
+            toast.error('Album uploaded to S3, but the local database was not updated', {
+              description: err instanceof Error ? err.message : 'Unknown error',
+            });
+            setIsSaving(false);
+            onUpdate();
+            return;
           }
           await flushPendingDeletes();
+          setIsSaving(false);
           toast.success('Album uploaded to S3');
           onUpdate();
         },

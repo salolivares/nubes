@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -6,27 +7,64 @@ import type { ProcessedImage } from '@/common/types';
 
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
+import { wizardPath, WizardRedirect, WizardStep } from '../components/wizard-step';
 import { useProcessingImages } from '../hooks/useProcessingImages';
+import { photosetKeys } from '../lib/photoset-queries';
 import { useImageStore } from '../stores/images';
+import type { PhotosetWithImages } from './PhotosetDetail/utils';
 
 const AUTO_NAVIGATE_SECONDS = 3;
 
-export const ImageProcessing = () => {
+export const ImageProcessing = () => (
+  <WizardStep step="upload">{(photoset) => <ImageProcessingGate photoset={photoset} />}</WizardStep>
+);
+
+/**
+ * Picked files only live in memory, so a reload leaves nothing to process. Send the user on to the
+ * S3 step if this photoset already has processed images in the DB, or back to the picker if not.
+ * Never start the worker with an empty list: it would report "complete" and auto-advance.
+ */
+const ImageProcessingGate = ({ photoset }: { photoset: PhotosetWithImages }) => {
+  // Read once on mount. Later changes come from this step's own processing run.
+  const [hasWork] = useState(() => {
+    const { files, processed } = useImageStore.getState();
+    return processed || files.some((file) => file.path !== undefined);
+  });
+
+  if (!hasWork) {
+    return photoset.images.length > 0 ? (
+      <WizardRedirect to={wizardPath(photoset.id, 's3')} />
+    ) : (
+      <WizardRedirect
+        to={wizardPath(photoset.id, 'picker')}
+        message="No images to process. Pick some images first."
+      />
+    );
+  }
+
+  return <ImageProcessingRun photosetId={photoset.id} />;
+};
+
+const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
   const { files, processingImages, processed } = useProcessingImages();
   const navigate = useNavigate();
-  const photosetId = useImageStore((s) => s.photosetId);
+  const queryClient = useQueryClient();
   const processedImages = useImageStore((s) => s.processedImages);
 
   const uploadRan = useRef(false);
   const persistRan = useRef(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  // Only move on once the results are in the DB, so a reload on the next step can find them.
+  const [persist, setPersist] = useState<'pending' | 'saved' | 'failed'>('pending');
+  // The worker finished but every image failed. Nothing to upload.
+  const nothingProcessed = processed && processedImages.length === 0;
 
   const goToNext = useCallback(() => {
-    navigate('../s3', { relative: 'path' });
-  }, [navigate]);
+    navigate(wizardPath(photosetId, 's3'));
+  }, [navigate, photosetId]);
 
   useEffect(() => {
-    if (!uploadRan.current) {
+    if (!uploadRan.current && !useImageStore.getState().processed) {
       window.imageProcessor.resize({
         imagePaths: files
           .filter((file) => file.path !== undefined)
@@ -41,7 +79,7 @@ export const ImageProcessing = () => {
 
   // Persist processed images to the photoset in the DB
   useEffect(() => {
-    if (!processed || !photosetId || persistRan.current || processedImages.length === 0) return;
+    if (!processed || persistRan.current || processedImages.length === 0) return;
     persistRan.current = true;
 
     const persist = async () => {
@@ -62,8 +100,11 @@ export const ImageProcessing = () => {
             })),
           })),
         });
+        await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
+        setPersist('saved');
         toast.success('Images processed successfully');
       } catch (err) {
+        setPersist('failed');
         toast.error('Failed to save images', {
           description: err instanceof Error ? err.message : 'Unknown error',
         });
@@ -71,11 +112,11 @@ export const ImageProcessing = () => {
     };
 
     persist();
-  }, [processed, photosetId, processedImages]);
+  }, [processed, photosetId, processedImages, queryClient]);
 
-  // Auto-navigate countdown once processing is done
+  // Auto-navigate countdown once processing is done and saved
   useEffect(() => {
-    if (!processed) return;
+    if (persist !== 'saved') return;
     setCountdown(AUTO_NAVIGATE_SECONDS);
 
     const interval = setInterval(() => {
@@ -83,7 +124,7 @@ export const ImageProcessing = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [processed]);
+  }, [persist]);
 
   useEffect(() => {
     if (countdown === 0) goToNext();
@@ -116,11 +157,34 @@ export const ImageProcessing = () => {
             </div>
           ))}
         </div>
-        {processed && countdown !== null && (
+        {persist === 'saved' && countdown !== null && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Continuing in {countdown}s…</p>
             <Button variant="outline" size="sm" onClick={goToNext}>
               Skip
+            </Button>
+          </div>
+        )}
+        {persist === 'failed' && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-destructive">
+              The images were processed but not saved. You can still continue, but a reload on the
+              next step will lose them.
+            </p>
+            <Button variant="outline" size="sm" onClick={goToNext}>
+              Continue
+            </Button>
+          </div>
+        )}
+        {nothingProcessed && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-destructive">None of the images could be processed.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(wizardPath(photosetId, 'picker'))}
+            >
+              Pick images again
             </Button>
           </div>
         )}

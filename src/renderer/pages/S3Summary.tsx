@@ -1,9 +1,11 @@
 import { Calendar, Camera, CheckCircle2, MapPin } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '../components/ui/button';
+import { WizardRedirect, WizardStep } from '../components/wizard-step';
 import { useImageStore } from '../stores/images';
+import type { PhotosetWithImages } from './PhotosetDetail/utils';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -11,48 +13,39 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-type PhotosetData = Awaited<ReturnType<Window['photosets']['get']>>;
-
-export const S3Summary = () => {
-  const navigate = useNavigate();
-  const photosetId = useImageStore((s) => s.photosetId);
-  const reset = useImageStore((s) => s.reset);
-  const [photoset, setPhotoset] = useState<PhotosetData>(undefined);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!photosetId) {
-      setLoading(false);
-      return;
+export const S3Summary = () => (
+  <WizardStep step="summary">
+    {(photoset) =>
+      // Only claim an upload the DB has recorded. Anything else is still a draft.
+      photoset.uploadedAt ? (
+        <S3SummaryStep photoset={photoset} />
+      ) : (
+        <WizardRedirect to={`/photoset/${photoset.id}`} />
+      )
     }
+  </WizardStep>
+);
 
-    window.photosets
-      .get({ id: photosetId })
-      .then(setPhotoset)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [photosetId]);
+const S3SummaryStep = ({ photoset }: { photoset: PhotosetWithImages }) => {
+  const navigate = useNavigate();
+  const reset = useImageStore((s) => s.reset);
 
-  const totalSize =
-    photoset?.images.reduce(
-      (sum, img) => sum + img.outputs.reduce((s, p) => s + p.byteLength, 0),
-      0,
-    ) ?? 0;
+  // The upload is recorded in the DB. Clear wizard state so it can't leak into another photoset.
+  useEffect(() => {
+    reset();
+  }, [reset]);
 
-  const totalFiles = photoset?.images.reduce((sum, img) => sum + img.outputs.length, 0) ?? 0;
+  const totalSize = photoset.images.reduce(
+    (sum, img) => sum + img.outputs.reduce((s, p) => s + p.byteLength, 0),
+    0,
+  );
+
+  const totalFiles = photoset.images.reduce((sum, img) => sum + img.outputs.length, 0);
 
   const handleStartOver = () => {
     reset();
     navigate('/');
   };
-
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Loading...
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8 p-6 md:p-10">
@@ -61,35 +54,33 @@ export const S3Summary = () => {
         <h1 className="text-2xl font-bold">Album Uploaded</h1>
       </div>
 
-      {photoset && (
-        <div className="rounded-lg border bg-muted/50 p-6 space-y-2">
-          <h2 className="text-lg font-semibold">{photoset.name}</h2>
-          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            {photoset.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                {photoset.location}
-              </span>
-            )}
-            {photoset.year && (
-              <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {photoset.year}
-              </span>
-            )}
+      <div className="rounded-lg border bg-muted/50 p-6 space-y-2">
+        <h2 className="text-lg font-semibold">{photoset.name}</h2>
+        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+          {photoset.location && (
             <span className="flex items-center gap-1">
-              <Camera className="h-4 w-4" />
-              {photoset.images.length} {photoset.images.length === 1 ? 'image' : 'images'}
+              <MapPin className="h-4 w-4" />
+              {photoset.location}
             </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {totalFiles} files totalling {formatBytes(totalSize)}
-            {photoset.status === 'published' ? ' · Published' : ' · Draft'}
-          </p>
+          )}
+          {photoset.year && (
+            <span className="flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              {photoset.year}
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <Camera className="h-4 w-4" />
+            {photoset.images.length} {photoset.images.length === 1 ? 'image' : 'images'}
+          </span>
         </div>
-      )}
+        <p className="text-sm text-muted-foreground">
+          {totalFiles} files totalling {formatBytes(totalSize)}
+          {photoset.status === 'published' ? ' · Published' : ' · Draft'}
+        </p>
+      </div>
 
-      {photoset && photoset.images.length > 0 && (
+      {photoset.images.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Uploaded Images</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">

@@ -14,7 +14,6 @@ export interface ProcessingImage {
 }
 
 interface State {
-  photosetId: number | null;
   files: CustomFile[];
   processingImages: ProcessingImage[];
   processedImages: ProcessedImage[];
@@ -22,7 +21,6 @@ interface State {
 }
 
 interface Action {
-  setPhotosetId: (id: number) => void;
   addFiles: (files: CustomFile[]) => void;
   addFilesFromPaths: (entries: { path: string; name: string }[]) => void;
   setFilePreview: (filePath: string, preview: string) => void;
@@ -50,12 +48,10 @@ function createCustomFile(file: File, preview?: string): CustomFile {
  * TODO(sal): figure out a way to automatically call unloadPreviews() when the component unmounts.
  */
 export const useImageStore = create<State & Action>()((set) => ({
-  photosetId: null,
   files: [],
   processingImages: [],
   processedImages: [],
   processed: false,
-  setPhotosetId: (id: number) => set({ photosetId: id }),
   addFiles: (files: File[]) =>
     set((state) => ({
       files: [
@@ -160,7 +156,6 @@ export const useImageStore = create<State & Action>()((set) => ({
         if (file.preview?.startsWith('blob:')) URL.revokeObjectURL(file.preview);
       });
       return {
-        photosetId: null,
         files: [],
         processingImages: [],
         processedImages: [],
