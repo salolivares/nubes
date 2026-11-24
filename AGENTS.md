@@ -15,8 +15,14 @@ albums to S3 with metadata.
   clears it. The main checkout keeps using `nubes-dev/` under the OS app data folder. Mock S3 is on
   by default in dev. `NUBES_USER_DATA` overrides the folder and `NUBES_MOCK_S3=1|0` forces the S3
   mode.
-- Never run `pnpm package`, `make package` or `pnpm test:e2e` (which packages) unless asked.
-  `make package` also replaces the installed app in `/Applications`.
+- Never run `pnpm package` or `make package` unless asked. `make package` also replaces the
+  installed app in `/Applications`.
+- `pnpm test:e2e` runs `pnpm build` (Vite bundles into `.vite/`, no packaging), then the Playwright
+  Electron tests in `tests/e2e/`. Each test launches the unpackaged app with a temp
+  `NUBES_USER_DATA` and mock S3. CI runs them on Linux under `xvfb-run`.
+- `tests/e2e/fixtures/nubes-0000.db` is a database left at migration `0000`. The launch test boots
+  the app on a copy of it, so a migration that breaks old data fails CI. Regenerate it with
+  `node scripts/create-e2e-fixture-db.ts` only to change its rows.
 - Main-process tests run under Electron's Node (`pnpm test:main`), because `better-sqlite3` is built
   for Electron's ABI. Running `vitest` directly on them fails with a `NODE_MODULE_VERSION` error.
 
