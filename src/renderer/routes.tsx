@@ -1,7 +1,6 @@
 import { createHashRouter, createRoutesFromElements, Route } from 'react-router-dom';
 
 import { BaseLayout } from './components/base-layout';
-import { BucketViewer } from './pages/BucketBrowser';
 import { CameraSettings } from './pages/CameraSettings';
 import { GeneralSettings } from './pages/GeneralSettings';
 import { Home } from './pages/Home';
@@ -20,7 +19,6 @@ export const router = createHashRouter(
       <Route index element={<Home />} />
       <Route path="new" element={<NewUpload />} />
       <Route path="photoset/:photosetId" element={<PhotosetDetail />} />
-      <Route path="bucket/:bucketName" element={<BucketViewer />} />
       <Route path="bucket/:bucketName/picker" element={<ImagePicker />} />
       <Route path="bucket/:bucketName/upload" element={<ImageProcessing />} />
       <Route path="bucket/:bucketName/s3" element={<S3Upload />} />
@@ -32,4 +30,15 @@ export const router = createHashRouter(
       </Route>
     </Route>,
   ),
+  {
+    // Opt in to React Router v7 behavior now. This silences the v6 deprecation warnings and
+    // makes a later v7 upgrade a no-op for these. v7_startTransition is set on RouterProvider.
+    future: {
+      v7_fetcherPersist: true,
+      v7_normalizeFormMethod: true,
+      v7_partialHydration: true,
+      v7_relativeSplatPath: true,
+      v7_skipActionErrorRevalidation: true,
+    },
+  },
 );
