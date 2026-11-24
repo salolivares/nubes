@@ -8,8 +8,9 @@ import {
   CardTitle,
 } from '@client/components/ui/card';
 import { wizardPath } from '@client/components/wizard-step';
+import { photosetKeys, s3Keys } from '@client/lib/photoset-queries';
 import { useImageStore } from '@client/stores/images';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Folder, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -19,16 +20,20 @@ export const NewUpload = () => {
   const { isSet } = useAWSCredentials();
   // Mock S3 needs no credentials, so a fresh dev checkout can browse mock buckets.
   const { data: isMock } = useQuery({
-    queryKey: ['s3', 'isMock'],
+    queryKey: s3Keys.isMock(),
     queryFn: () => window.s3.isMock(),
   });
   const canBrowse = !!isSet || isMock === true;
   const { data, error } = useQuery({
-    queryKey: ['s3', 'buckets'],
+    queryKey: s3Keys.buckets(),
     queryFn: () => window.s3.listBuckets(),
     enabled: canBrowse,
+    // Credentials only change in Settings, while this page is closed. Dropping the list on close
+    // means it never opens on another account's buckets, or on an error from a bad secret.
+    gcTime: 0,
   });
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const reset = useImageStore((s) => s.reset);
   const creatingRef = useRef(false);
   const [creatingBucket, setCreatingBucket] = useState<string | null>(null);
@@ -59,6 +64,7 @@ export const NewUpload = () => {
           location: '',
           year: new Date().getFullYear(),
         });
+        void queryClient.invalidateQueries({ queryKey: photosetKeys.lists() });
         navigate(wizardPath(photoset.id, 'picker'));
       } catch (err) {
         toast.error('Failed to create photoset', {
@@ -69,7 +75,7 @@ export const NewUpload = () => {
         setCreatingBucket(null);
       }
     },
-    [navigate],
+    [navigate, queryClient],
   );
 
   if (!canBrowse) {

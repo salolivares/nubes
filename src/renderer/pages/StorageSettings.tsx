@@ -11,62 +11,56 @@ import {
 } from '@client/components/ui/alert-dialog';
 import { Button } from '@client/components/ui/button';
 import { Skeleton } from '@client/components/ui/skeleton';
+import {
+  cacheKeys,
+  cacheUsageQuery,
+  forgetPhotosets,
+  localNetworkMode,
+  photosetKeys,
+  photosetListQuery,
+} from '@client/lib/photoset-queries';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { HardDrive, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { formatBytes, formatDate } from './PhotosetDetail/utils';
 
-type PhotosetRow = Awaited<ReturnType<Window['photosets']['list']>>[number];
-
-interface CacheUsage {
-  totalBytes: number;
-  fileCount: number;
-}
-
 export const StorageSettings = () => {
-  const [usage, setUsage] = useState<CacheUsage | null>(null);
-  const [photosets, setPhotosets] = useState<PhotosetRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const [deletingAll, setDeletingAll] = useState(false);
+  const queryClient = useQueryClient();
+  const usageQuery = useQuery(cacheUsageQuery());
+  // Same key as Home's default sort, so the two pages share one cached list.
+  const photosetsQuery = useQuery({
+    ...photosetListQuery({ sortBy: 'createdAt', sortOrder: 'desc' }),
+    select: (rows) => rows.filter((p) => p.uploadedAt),
+  });
+  const photosets = photosetsQuery.data ?? [];
+  const usage = usageQuery.data;
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [u, ps] = await Promise.all([
-        window.cache.getUsage(),
-        window.photosets.list({ sortBy: 'createdAt', sortOrder: 'desc' }),
+  const deletePhotosets = useMutation({
+    mutationFn: async ({ ids }: { ids: number[]; all: boolean }) => {
+      // Let every delete finish before reporting, so the reload below sees the final state.
+      const results = await Promise.allSettled(ids.map((id) => window.photosets.delete({ id })));
+      const failed = results.find((r) => r.status === 'rejected');
+      if (failed) throw failed.reason;
+    },
+    networkMode: localNetworkMode,
+    onSuccess: (_data, { ids }) => forgetPhotosets(queryClient, ids),
+    onError: (err) => {
+      toast.error('Failed to delete', { description: err.message || 'Unknown error' });
+      // Some deletes may have gone through. Reload the lists and usage from disk.
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: photosetKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: cacheKeys.all }),
       ]);
-      setUsage(u);
-      setPhotosets(ps.filter((p) => p.uploadedAt));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const handleDelete = async (id: number) => {
-    setDeleting(id);
-    try {
-      await window.photosets.delete({ id });
-      await refresh();
-    } finally {
-      setDeleting(null);
-    }
-  };
-
-  const handleDeleteAll = async () => {
-    setDeletingAll(true);
-    try {
-      await Promise.all(photosets.map((p) => window.photosets.delete({ id: p.id })));
-      await refresh();
-    } finally {
-      setDeletingAll(false);
-    }
-  };
+  // One mutation behind every delete button, disabled while it runs, so deletes never overlap.
+  const busy = deletePhotosets.isPending;
+  const deletingAll = busy && deletePhotosets.variables.all;
+  const handleDelete = (id: number) => deletePhotosets.mutate({ ids: [id], all: false });
+  const handleDeleteAll = () =>
+    deletePhotosets.mutate({ ids: photosets.map((p) => p.id), all: true });
 
   return (
     <div className="grid gap-6">
@@ -78,14 +72,16 @@ export const StorageSettings = () => {
           </div>
           <div>
             <h3 className="text-sm font-medium">Image Cache</h3>
-            {loading ? (
+            {usageQuery.isPending ? (
               <Skeleton className="mt-1 h-4 w-32" />
             ) : usage ? (
               <p className="text-sm text-muted-foreground">
                 {formatBytes(usage.totalBytes)} across {usage.fileCount}{' '}
                 {usage.fileCount === 1 ? 'file' : 'files'}
               </p>
-            ) : null}
+            ) : (
+              <p className="text-sm text-destructive">Couldn't read cache usage</p>
+            )}
           </div>
         </div>
       </div>
@@ -102,7 +98,7 @@ export const StorageSettings = () => {
           {photosets.length > 0 && (
             <AlertDialog>
               <AlertDialogTrigger
-                render={<Button variant="destructive" size="sm" disabled={deletingAll} />}
+                render={<Button variant="destructive" size="sm" disabled={busy} />}
               >
                 {deletingAll ? 'Deleting...' : 'Delete All'}
               </AlertDialogTrigger>
@@ -126,10 +122,19 @@ export const StorageSettings = () => {
           )}
         </div>
 
-        {loading ? (
+        {photosetsQuery.isPending || (!photosetsQuery.data && photosetsQuery.isFetching) ? (
           <div className="space-y-3 p-6">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
+          </div>
+        ) : !photosetsQuery.data ? (
+          <div className="flex flex-col items-center gap-2 p-6 text-center">
+            <p className="text-sm font-medium text-destructive">
+              {photosetsQuery.error?.message || 'Failed to load photosets'}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => photosetsQuery.refetch()}>
+              Retry
+            </Button>
           </div>
         ) : photosets.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">
@@ -147,9 +152,7 @@ export const StorageSettings = () => {
                   </p>
                 </div>
                 <AlertDialog>
-                  <AlertDialogTrigger
-                    render={<Button variant="ghost" size="sm" disabled={deleting === ps.id} />}
-                  >
+                  <AlertDialogTrigger render={<Button variant="ghost" size="sm" disabled={busy} />}>
                     <Trash2 className="h-4 w-4 text-muted-foreground" />
                   </AlertDialogTrigger>
                   <AlertDialogContent>

@@ -1,7 +1,7 @@
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowLeft, ChevronDown, ImagePlus, Loader2, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import { useCameras } from '../../../hooks/useCameras';
+import { forgetPhotosets } from '../../../lib/photoset-queries';
 import { uploadAlbum } from '../../../lib/upload-album';
 import { useImageJobStore } from '../../../stores/image-jobs';
 import type { DbImage, PhotosetWithImages } from '../utils';
@@ -80,6 +81,7 @@ export function DraftView({
   onUpdate: () => void;
 }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { cameras, addCamera, touchCamera } = useCameras();
   const [images, setImages] = useState(photoset.images);
   const [isSaving, setIsSaving] = useState(false);
@@ -332,6 +334,7 @@ export function DraftView({
     try {
       await window.photosets.delete({ id: photoset.id });
       toast.success('Photoset deleted');
+      void forgetPhotosets(queryClient, [photoset.id]);
       navigate('/');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete');
