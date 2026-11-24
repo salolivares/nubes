@@ -305,8 +305,12 @@ export function DraftView({
             if (values.published) {
               await window.photosets.publish({ id: photoset.id });
             }
-          } catch {
-            // Non-fatal
+          } catch (err) {
+            toast.error('Album uploaded to S3, but the local database was not updated', {
+              description: err instanceof Error ? err.message : 'Unknown error',
+            });
+            onUpdate();
+            return;
           }
           await flushPendingDeletes();
           toast.success('Album uploaded to S3');
