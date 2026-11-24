@@ -5,8 +5,10 @@ import path from 'node:path';
 import baseLog from 'electron-log/main';
 import sharp from 'sharp';
 
-import { IMAGE_PROCESSOR_COMPLETE, IMAGE_PROCESSOR_PROGRESS } from '@/common';
 import type { ProcessedImage } from '@/common/types';
+import { imageWorkerRequestSchema } from '@/common/types';
+
+import { createJobRunner } from './image-worker/runner';
 
 const logFile = process.env.NUBES_LOG_FILE;
 if (logFile) {
@@ -86,67 +88,19 @@ async function processImage(
   return { id, name, imagePaths, preview };
 }
 
-// Receive the MessagePort once at init, then handle resize commands on it
-process.parentPort.once('message', (e) => {
-  const [port] = e.ports;
-  port.start();
-  log.info('ImageProcessor worker ready');
-
-  port.on('message', async (msg) => {
-    const { folderPaths, imagePaths, tempFolder, dryRun } = msg.data;
-
-    if (folderPaths && folderPaths.length > 0) {
-      for (const folderPath of folderPaths) {
-        const files = fs.readdirSync(folderPath);
-        const images = files.filter((file) => file.match(/\.(png|jpe?g)$/i));
-
-        for (const image of images) {
-          const imagePath = path.join(folderPath, image);
-          imagePaths.push(imagePath);
-        }
-      }
-    }
-
-    log.info(
-      `Batch started: ${imagePaths?.length ?? 0} image(s) from ${folderPaths?.length ?? 0} folder(s), dryRun=${dryRun}`,
-    );
-
-    const processedImages: ProcessedImage[] = [];
-    const erroredImagePaths: { error: string; path: string }[] = [];
-
-    if (imagePaths && imagePaths.length > 0) {
-      for (let i = 0; i < imagePaths.length; i++) {
-        const imagePath = imagePaths[i];
-
-        try {
-          const pip = await processImage(imagePath, tempFolder, dryRun);
-          processedImages.push(pip);
-          port.postMessage({
-            type: IMAGE_PROCESSOR_PROGRESS,
-            current: i + 1,
-            total: imagePaths.length,
-            name: path.basename(imagePath),
-            id: pip.id,
-            path: imagePath,
-          });
-        } catch (error) {
-          log.error(`Error processing ${imagePath}: ${(error as Error).message}`);
-          erroredImagePaths.push({
-            error: (error as Error).message,
-            path: imagePath,
-          });
-        }
-      }
-    }
-
-    log.info(
-      `Batch complete: ${processedImages.length} succeeded, ${erroredImagePaths.length} failed`,
-    );
-
-    port.postMessage({
-      type: IMAGE_PROCESSOR_COMPLETE,
-      processedImages,
-      erroredImagePaths,
-    });
-  });
+const runner = createJobRunner({
+  processImage: (imagePath, outputFolder) => processImage(imagePath, outputFolder, false),
+  post: (event) => process.parentPort.postMessage(event),
+  log,
 });
+
+process.parentPort.on('message', (e) => {
+  const parsed = imageWorkerRequestSchema.safeParse(e.data);
+  if (!parsed.success) {
+    log.error('Dropping invalid message from main:', parsed.error.message);
+    return;
+  }
+  void runner.handle(parsed.data);
+});
+
+log.info('ImageProcessor worker ready');

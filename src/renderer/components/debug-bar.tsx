@@ -1,4 +1,4 @@
-import { Copy, FolderOpen, Trash2 } from 'lucide-react';
+import { Copy, FolderOpen, Skull, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -37,6 +37,11 @@ export function DebugBar() {
     window.location.reload();
   }, []);
 
+  const handleKillWorker = useCallback(async () => {
+    const killed = await window.debug?.killImageWorker();
+    toast(killed ? 'Image worker killed' : 'No image worker running');
+  }, []);
+
   if (process.env.NODE_ENV !== 'development' || !window.debug) {
     return null;
   }
@@ -73,6 +78,15 @@ export function DebugBar() {
       >
         <Copy className="h-3 w-3" />
         Copy DB path
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 gap-1 px-2 text-xs"
+        onClick={handleKillWorker}
+      >
+        <Skull className="h-3 w-3" />
+        Kill image worker
       </Button>
       <Button
         variant="ghost"

@@ -2,100 +2,109 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { WebContents } from 'electron';
-import { app, MessageChannelMain, utilityProcess } from 'electron';
+import { app, utilityProcess } from 'electron';
 import baseLog from 'electron-log/main';
 
 import {
-  IMAGE_PROCESSOR_COMPLETE,
-  IMAGE_PROCESSOR_PROGRESS,
+  IMAGE_PROCESSOR_CANCEL,
+  IMAGE_PROCESSOR_EVENT,
+  IMAGE_PROCESSOR_GET_JOB,
   IMAGE_PROCESSOR_RESIZE,
   PHOTOSETS_DIR,
 } from '@/common';
-import { imageProcessorResizeArgsSchema } from '@/common/types';
-import { on } from '@/main/ipc';
+import { isImageJobDone } from '@/common/image-jobs';
+import { imageJobIdArgsSchema, imageProcessorResizeArgsSchema } from '@/common/types';
+import type { WorkerHandle, WorkerHooks } from '@/main/drivers/image-worker/supervisor';
+import { ImageWorkerSupervisor } from '@/main/drivers/image-worker/supervisor';
+import { broadcast, handle } from '@/main/ipc';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const log = baseLog.scope('ImageWorkerSupervisor');
 
-function createImageProcessor() {
-  const { port1, port2 } = new MessageChannelMain();
-  port1.start();
-  port2.start();
+let supervisor: ImageWorkerSupervisor | null = null;
 
+function spawnImageWorker({ onMessage, onExit }: WorkerHooks): WorkerHandle {
   // The worker has no `app`, so electron-log can't see the main process's log path.
   // Hand it the resolved file so both processes write to the same per-userData log.
-  const imageProcessor = utilityProcess.fork(path.join(__dirname, './image-processor.js'), [], {
+  const child = utilityProcess.fork(path.join(__dirname, './image-processor.js'), [], {
+    serviceName: 'Nubes Image Worker',
     env: { ...process.env, NUBES_LOG_FILE: baseLog.transports.file.getFile().path },
   });
-
-  app.on('before-quit', () => {
-    if (imageProcessor.kill()) {
-      console.log('imageProcessor killed');
-    }
-  });
-
-  app.on('will-quit', () => {
-    if (imageProcessor.kill()) {
-      console.log('imageProcessor killed');
-    }
-  });
-
-  process.on('uncaughtException', () => {
-    if (imageProcessor.kill()) {
-      console.log('Killing image processor due to uncaught exception');
-    }
-    app.quit();
-  });
-
+  child.on('message', onMessage);
+  child.on('exit', onExit);
+  // V8 fatal errors arrive as an 'error' event before 'exit'. Without a listener, EventEmitter
+  // throws it into main, where the uncaughtException handler below would quit the app.
+  child.on('error', (type, location) => log.error(`Image worker ${type} at ${location}`));
   return {
-    imageProcessor,
-    port1,
-    port2,
+    postMessage: (message) => child.postMessage(message),
+    // kill() returns false before the process has spawned. Retry then, or the supervisor would
+    // wait forever for an exit that never comes.
+    kill: () => {
+      if (!child.kill()) child.once('spawn', () => child.kill());
+    },
   };
 }
 
-export function addImageProcessorEventListeners() {
-  const { imageProcessor, port1, port2 } = createImageProcessor();
+/** Dev only: kill the worker as if it crashed. Returns false if no worker is running. */
+export function killImageWorker(): boolean {
+  return supervisor?.killWorker() ?? false;
+}
 
-  // The window that sent the last resize request. Progress goes back to it, not
-  // to a window captured at startup, which may have been closed since.
-  let requester: WebContents | null = null;
-  const reply = (channel: string, payload: unknown) => {
-    if (requester && !requester.isDestroyed()) {
-      requester.send(channel, payload);
+export function addImageProcessorEventListeners() {
+  const imageWorker = new ImageWorkerSupervisor({
+    spawn: spawnImageWorker,
+    outputFolder: () => path.join(app.getPath('userData'), PHOTOSETS_DIR),
+    // Jobs are keyed by ID, so every window can receive every event and keep what it needs.
+    onEvent: (event) => broadcast(IMAGE_PROCESSOR_EVENT, event),
+    log,
+  });
+  supervisor = imageWorker;
+
+  // Jobs each window started. A reload wipes the renderer's store, so nothing would ever read
+  // those results, and the worker runs one job at a time: cancel them so they don't hold up the
+  // next one. Hash-route changes are in-page navigations and don't fire 'did-navigate'.
+  const jobsBySender = new WeakMap<WebContents, Set<string>>();
+  const trackJob = (sender: WebContents, jobId: string) => {
+    let jobs = jobsBySender.get(sender);
+    if (!jobs) {
+      const owned = new Set<string>();
+      const cancelAll = () => {
+        for (const id of owned) imageWorker.cancel(id);
+        owned.clear();
+      };
+      sender.on('did-navigate', cancelAll);
+      sender.once('destroyed', cancelAll);
+      jobsBySender.set(sender, owned);
+      jobs = owned;
     }
+    for (const id of jobs) {
+      const known = imageWorker.getJob(id);
+      if (!known || isImageJobDone(known)) jobs.delete(id);
+    }
+    jobs.add(jobId);
   };
 
-  // Transfer port2 to the worker once at startup
-  imageProcessor.postMessage({ type: 'init' }, [port2]);
-
-  // Pass along message to image worker process via port1
-  on(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, (event, args) => {
-    requester = event.sender;
-    port1.postMessage({
-      type: IMAGE_PROCESSOR_RESIZE,
-      imagePaths: args.imagePaths,
-      tempFolder: path.join(app.getPath('userData'), PHOTOSETS_DIR),
-      dryRun: false,
-    });
+  handle(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, (event, { imagePaths }) => {
+    const job = imageWorker.submit(imagePaths);
+    trackJob(event.sender, job.jobId);
+    return job;
   });
 
-  // send progress updates back to renderer
-  port1.on('message', (message) => {
-    if (message.data.type === IMAGE_PROCESSOR_PROGRESS) {
-      reply(IMAGE_PROCESSOR_PROGRESS, {
-        current: message.data.current,
-        total: message.data.total,
-        path: message.data.path,
-        name: message.data.name,
-        id: message.data.id,
-      });
-    }
+  handle(IMAGE_PROCESSOR_CANCEL, imageJobIdArgsSchema, (_, { jobId }) => {
+    imageWorker.cancel(jobId);
+  });
 
-    if (message.data.type === IMAGE_PROCESSOR_COMPLETE) {
-      reply(IMAGE_PROCESSOR_COMPLETE, {
-        processedImages: message.data.processedImages,
-        erroredImagePaths: message.data.erroredImagePaths,
-      });
-    }
+  handle(
+    IMAGE_PROCESSOR_GET_JOB,
+    imageJobIdArgsSchema,
+    (_, { jobId }) => imageWorker.getJob(jobId) ?? null,
+  );
+
+  app.on('before-quit', () => imageWorker.dispose());
+
+  process.on('uncaughtException', (err) => {
+    log.error('Uncaught exception in main, quitting:', err);
+    imageWorker.dispose();
+    app.quit();
   });
 }

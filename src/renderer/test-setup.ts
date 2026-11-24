@@ -22,9 +22,20 @@ window.themeMode = {
 };
 
 window.imageProcessor = {
-  resize: vi.fn(),
-  onProgressChange: vi.fn().mockReturnValue(() => {}),
-  onComplete: vi.fn().mockReturnValue(() => {}),
+  resize: vi.fn(({ imagePaths }: { imagePaths: string[] }) =>
+    Promise.resolve({
+      jobId: 'job-test',
+      status: 'queued' as const,
+      imagePaths,
+      donePaths: [],
+      processedImages: [],
+      erroredImages: [],
+      error: null,
+    }),
+  ),
+  cancel: vi.fn().mockResolvedValue(undefined),
+  getJob: vi.fn().mockResolvedValue(null),
+  onEvent: vi.fn().mockReturnValue(() => {}),
 };
 
 window.imagePicker = {

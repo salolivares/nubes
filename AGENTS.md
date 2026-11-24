@@ -33,7 +33,8 @@ albums to S3 with metadata.
   `IS3Provider`. When you change one, check whether the other needs the same change.
 - Validate IPC arguments with Zod. Register main-process handlers with `handle()` (invoke) or
   `on()` (one-way send) from `src/main/ipc.ts`, which parse the schema and log errors.
-- IPC handlers and the image worker start once, in `registerListeners()` after `app.whenReady()`.
+- IPC handlers and the image worker supervisor start once, in `registerListeners()` after
+  `app.whenReady()`.
   Never per window: on macOS the window closes and reopens while the app keeps running. To push an
   event, reply to `event.sender` or use `broadcast()` from `src/main/ipc.ts`. Don't hold on to a
   `BrowserWindow`.
@@ -62,7 +63,8 @@ src/
 │   ├── drivers/
 │   │   ├── database.ts        # Singleton: better-sqlite3 + Drizzle, runs migrations
 │   │   ├── storage.ts         # Singleton: electron-store, safeStorage-encrypted credentials
-│   │   ├── image-processor.ts # utilityProcess worker entry: sharp resize loop
+│   │   ├── image-processor.ts # utilityProcess worker entry: sharp resize
+│   │   ├── image-worker/      # runner.ts (serial jobs in the worker), supervisor.ts (main side)
 │   │   └── s3/                # IS3Provider, real S3, MockS3, get/setS3Provider
 │   └── listeners/         # IPC handlers, registered once at startup in listeners/index.ts
 ├── preload/               # contextBridge APIs, one file per listener (vite.preload.config.ts)
@@ -87,14 +89,19 @@ have `@` and `@common`.
 
 ## How the pieces talk
 
-- **Typed IPC.** Preload files wrap `ipcRenderer.invoke()` (plus `send`/`on` for image
-  processing and storage change events) and expose an API on `window`
+- **Typed IPC.** Preload files wrap `ipcRenderer.invoke()` (plus `on` for image job and storage
+  change events) and expose an API on `window`
   (`s3`, `photosets`, `storage`, `themeMode`, `imagePicker`, `imageProcessor`, `cache`, and `debug`
   in dev only). The renderer calls S3 through React Query.
-- **Image processing.** At startup, `listeners/image-processor.ts` forks
-  `image-processor.js` as a `utilityProcess` and connects it with a `MessageChannelMain`.
-  `window.imageProcessor.resize()` sends a one-way message that main forwards over that port.
-  Progress and completion go back to the renderer with `webContents.send()`.
+- **Image processing.** `window.imageProcessor.resize()` returns a job with a `jobId`.
+  `ImageWorkerSupervisor` (`drivers/image-worker/supervisor.ts`) queues jobs, forks
+  `image-processor.js` as a `utilityProcess` on the first request, and sends it one job at a time.
+  If the worker exits, the job in flight fails and the next request forks a fresh worker. Every
+  message across the process boundary is a Zod `discriminatedUnion` in `src/common/types.ts`, and
+  main parses worker messages before broadcasting them as `ImageJobEvent`s. Main and the renderer
+  fold those events into an `ImageJob` with the same `applyImageJobEvent()`
+  (`src/common/image-jobs.ts`). The renderer subscribes once, in `stores/image-jobs.ts`, and calls
+  `getJob(jobId)` to catch up after a remount.
 - **Debug.** In dev only, `window.debug` and the renderer's debug bar toggle mock S3 and inspect or
   reset dev data.
 

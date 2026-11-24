@@ -2,20 +2,19 @@ import { create } from 'zustand';
 
 import type { ProcessedImage } from '@/common/types';
 
+import { useImageJobStore } from './image-jobs';
+
 export interface CustomFile extends File {
   path?: string;
   preview?: string;
 }
 
-export interface ProcessingImage {
-  name: string;
-  progress: number;
-  file: CustomFile;
-}
-
 interface State {
   files: CustomFile[];
-  processingImages: ProcessingImage[];
+  /** The image processing job for this upload. Its progress lives in useImageJobStore. */
+  jobId: string | null;
+  /** Bumped whenever the selection changes or the store resets, so stale job replies can tell. */
+  selectionVersion: number;
   processedImages: ProcessedImage[];
   processed: boolean;
 }
@@ -28,12 +27,27 @@ interface Action {
   removeAllFiles: () => void;
   unloadPreviews: () => void;
   loadPreviews: () => void;
-  setProcessingImages: (files: ProcessingImage[]) => void;
+  setJobId: (jobId: string | null) => void;
   setProcessedImages: (files: ProcessedImage[]) => void;
   setProcessed: (processed: boolean) => void;
-  initializeProcessingImages: () => void;
   setProcessedImage: (id: string, props: Partial<Pick<ProcessedImage, 'name' | 'camera'>>) => void;
+  /** Drop the job and results so the next processing run starts fresh on the current files. */
+  clearResults: () => void;
   reset: () => void;
+}
+
+/**
+ * A new selection invalidates the old job and its results. Cancel the job too: nothing will read
+ * its results, and the worker runs one job at a time, so it would hold up the next one.
+ */
+function selectionChanged(state: State): Partial<State> {
+  if (state.jobId) void useImageJobStore.getState().cancel(state.jobId);
+  return {
+    jobId: null,
+    processed: false,
+    processedImages: [],
+    selectionVersion: state.selectionVersion + 1,
+  };
 }
 
 function createCustomFile(file: File, preview?: string): CustomFile {
@@ -49,11 +63,13 @@ function createCustomFile(file: File, preview?: string): CustomFile {
  */
 export const useImageStore = create<State & Action>()((set) => ({
   files: [],
-  processingImages: [],
+  jobId: null,
+  selectionVersion: 0,
   processedImages: [],
   processed: false,
   addFiles: (files: File[]) =>
     set((state) => ({
+      ...selectionChanged(state),
       files: [
         ...state.files,
         ...files.map((file) => createCustomFile(file, URL.createObjectURL(file))),
@@ -61,6 +77,7 @@ export const useImageStore = create<State & Action>()((set) => ({
     })),
   addFilesFromPaths: (entries: { path: string; name: string }[]) =>
     set((state) => ({
+      ...selectionChanged(state),
       files: [
         ...state.files,
         ...entries.map((entry) => {
@@ -83,14 +100,14 @@ export const useImageStore = create<State & Action>()((set) => ({
         URL.revokeObjectURL(state.files[index].preview);
       }
       updatedFiles.splice(index, 1);
-      return { files: updatedFiles };
+      return { ...selectionChanged(state), files: updatedFiles };
     }),
   removeAllFiles: () =>
     set((state) => {
       state.files.forEach((file) => {
         if (file.preview?.startsWith('blob:')) URL.revokeObjectURL(file.preview);
       });
-      return { files: [] };
+      return { ...selectionChanged(state), files: [] };
     }),
   unloadPreviews: () =>
     set((state) => ({
@@ -112,33 +129,9 @@ export const useImageStore = create<State & Action>()((set) => ({
         return createCustomFile(file);
       }),
     })),
-  setProcessingImages: (files: ProcessingImage[]) => set({ processingImages: files }),
+  setJobId: (jobId: string | null) => set({ jobId }),
   setProcessedImages: (files: ProcessedImage[]) => set({ processedImages: files }),
   setProcessed: (processed: boolean) => set({ processed }),
-  initializeProcessingImages: () =>
-    set((state) => {
-      const existingProcessingImages = state.processingImages.reduce(
-        (acc, img) => {
-          acc[img.name] = img;
-          return acc;
-        },
-        {} as Record<string, ProcessingImage>,
-      );
-
-      const updatedProcessingImages = state.files.map((file) => {
-        const existingImage = existingProcessingImages[file.name];
-        if (existingImage) {
-          return existingImage; // Preserve existing progress
-        }
-        return {
-          name: file.name,
-          file,
-          progress: 0,
-        };
-      });
-
-      return { processingImages: updatedProcessingImages };
-    }),
   setProcessedImage: (id: string, props) =>
     set((state) => {
       const processedImages = state.processedImages.map((img) => {
@@ -150,14 +143,17 @@ export const useImageStore = create<State & Action>()((set) => ({
 
       return { processedImages };
     }),
+  clearResults: () => set((state) => selectionChanged(state)),
   reset: () =>
     set((state) => {
+      if (state.jobId) void useImageJobStore.getState().cancel(state.jobId);
       state.files.forEach((file) => {
         if (file.preview?.startsWith('blob:')) URL.revokeObjectURL(file.preview);
       });
       return {
         files: [],
-        processingImages: [],
+        jobId: null,
+        selectionVersion: state.selectionVersion + 1,
         processedImages: [],
         processed: false,
       };

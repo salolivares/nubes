@@ -66,28 +66,20 @@ describe('useImageStore', () => {
     });
   });
 
-  describe('initializeProcessingImages', () => {
-    it('maps files to ProcessingImage with 0% progress', () => {
-      useImageStore.getState().addFiles([makeFile('a.jpg'), makeFile('b.jpg')]);
-      useImageStore.getState().initializeProcessingImages();
+  describe('changing the selection', () => {
+    it('drops the job and results for the previous selection', () => {
+      useImageStore.getState().addFiles([makeFile('a.jpg')]);
+      useImageStore.getState().setJobId('job-1');
+      useImageStore.getState().setProcessedImages([{ id: 'a', name: 'a', imagePaths: [] }]);
+      useImageStore.getState().setProcessed(true);
 
-      const { processingImages } = useImageStore.getState();
-      expect(processingImages).toHaveLength(2);
-      expect(processingImages[0].name).toBe('a.jpg');
-      expect(processingImages[0].progress).toBe(0);
-      expect(processingImages[1].name).toBe('b.jpg');
-    });
+      useImageStore.getState().removeAllFiles();
+      useImageStore.getState().addFilesFromPaths([{ path: '/b.jpg', name: 'b.jpg' }]);
 
-    it('preserves existing progress for known files', () => {
-      useImageStore.getState().addFiles([makeFile('a.jpg'), makeFile('b.jpg')]);
-      useImageStore
-        .getState()
-        .setProcessingImages([{ name: 'a.jpg', progress: 50, file: makeFile('a.jpg') }]);
-      useImageStore.getState().initializeProcessingImages();
-
-      const { processingImages } = useImageStore.getState();
-      expect(processingImages[0].progress).toBe(50);
-      expect(processingImages[1].progress).toBe(0);
+      const state = useImageStore.getState();
+      expect(state.jobId).toBeNull();
+      expect(state.processed).toBe(false);
+      expect(state.processedImages).toEqual([]);
     });
   });
 
@@ -122,11 +114,12 @@ describe('useImageStore', () => {
     it('returns to initial state', () => {
       useImageStore.getState().addFiles([makeFile('a.jpg')]);
       useImageStore.getState().setProcessed(true);
+      useImageStore.getState().setJobId('job-1');
       useImageStore.getState().reset();
 
       const state = useImageStore.getState();
       expect(state.files).toEqual([]);
-      expect(state.processingImages).toEqual([]);
+      expect(state.jobId).toBeNull();
       expect(state.processedImages).toEqual([]);
       expect(state.processed).toBe(false);
     });
