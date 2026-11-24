@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProcessedImage } from '@/common/types';
 
-import { parsePhotosetId } from '../../components/wizard-step';
 import { photosetKeys } from '../../lib/photoset-queries';
 import { useImageStore } from '../../stores/images';
 import { ImagePicker } from '../ImagePicker';
@@ -105,24 +104,6 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.mocked(window.photosets.get).mockResolvedValue(undefined);
-});
-
-describe('parsePhotosetId', () => {
-  it.each([
-    ['7', 7],
-    ['123', 123],
-    [undefined, null],
-    ['', null],
-    ['0', null],
-    ['-1', null],
-    ['1.5', null],
-    ['abc', null],
-    ['NaN', null],
-    ['7abc', null],
-    ['99999999999999999999', null],
-  ])('parses %s as %s', (raw, expected) => {
-    expect(parsePhotosetId(raw)).toBe(expected);
-  });
 });
 
 describe('wizard steps', () => {

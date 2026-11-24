@@ -1,6 +1,7 @@
 import { createHashRouter, createRoutesFromElements, Route } from 'react-router-dom';
 
 import { BaseLayout } from './components/base-layout';
+import { routePatterns } from './lib/paths';
 import { CameraSettings } from './pages/CameraSettings';
 import { GeneralSettings } from './pages/GeneralSettings';
 import { Home } from './pages/Home';
@@ -15,19 +16,19 @@ import { StorageSettings } from './pages/StorageSettings';
 
 export const router = createHashRouter(
   createRoutesFromElements(
-    <Route path="/" element={<BaseLayout />}>
+    <Route path={routePatterns.home} element={<BaseLayout />}>
       <Route index element={<Home />} />
-      <Route path="new" element={<NewUpload />} />
-      <Route path="photoset/:photosetId" element={<PhotosetDetail />} />
+      <Route path={routePatterns.newUpload} element={<NewUpload />} />
+      <Route path={routePatterns.photoset} element={<PhotosetDetail />} />
       {/* Upload wizard. Each step loads the photoset from the DB, so a reload keeps your place. */}
-      <Route path="photoset/:photosetId/picker" element={<ImagePicker />} />
-      <Route path="photoset/:photosetId/upload" element={<ImageProcessing />} />
-      <Route path="photoset/:photosetId/s3" element={<S3Upload />} />
-      <Route path="photoset/:photosetId/summary" element={<S3Summary />} />
-      <Route path="settings" element={<Settings />}>
+      <Route path={routePatterns.wizard.picker} element={<ImagePicker />} />
+      <Route path={routePatterns.wizard.upload} element={<ImageProcessing />} />
+      <Route path={routePatterns.wizard.s3} element={<S3Upload />} />
+      <Route path={routePatterns.wizard.summary} element={<S3Summary />} />
+      <Route path={routePatterns.settings.general} element={<Settings />}>
         <Route index element={<GeneralSettings />} />
-        <Route path="cameras" element={<CameraSettings />} />
-        <Route path="storage" element={<StorageSettings />} />
+        <Route path={routePatterns.settings.cameras} element={<CameraSettings />} />
+        <Route path={routePatterns.settings.storage} element={<StorageSettings />} />
       </Route>
     </Route>,
   ),

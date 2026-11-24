@@ -24,9 +24,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import { wizardPath, WizardRedirect, WizardStep } from '../../components/wizard-step';
+import { WizardRedirect, WizardStep } from '../../components/wizard-step';
 import { useCameras } from '../../hooks/useCameras';
 import { useProcessedImages } from '../../hooks/useProcessedImages';
+import { paths } from '../../lib/paths';
 import { photosetKeys } from '../../lib/photoset-queries';
 import { uploadAlbum } from '../../lib/upload-album';
 import { useImageStore } from '../../stores/images';
@@ -70,7 +71,7 @@ const S3UploadGate = ({ photoset }: { photoset: PhotosetWithImages }) => {
   if (storeCount === 0 && dbCount === 0) {
     return (
       <WizardRedirect
-        to={wizardPath(photoset.id, 'picker')}
+        to={paths.wizard.picker(photoset.id)}
         message="No processed images. Pick some images first."
       />
     );
@@ -203,7 +204,7 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
     // Refetch before leaving, so the summary step doesn't read the pre-upload row from the cache.
     // The refetch alone already redirects this step to the summary, so replace, don't push.
     await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
-    navigate(wizardPath(photosetId, 'summary'), { replace: true });
+    navigate(paths.wizard.summary(photosetId), { replace: true });
   };
 
   const handleRetryDbSync = () => {
@@ -236,7 +237,7 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
       }
       await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
       toast.success('Draft saved');
-      navigate(`/photoset/${photosetId}`);
+      navigate(paths.photoset(photosetId));
       // The draft is in the DB now. Clear wizard state so it can't leak into another photoset.
       reset();
     } catch (err) {
