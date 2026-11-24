@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@client/components/ui/card';
+import { wizardPath } from '@client/components/wizard-step';
 import { useImageStore } from '@client/stores/images';
 import { useQuery } from '@tanstack/react-query';
 import { Folder, KeyRound } from 'lucide-react';
@@ -29,7 +30,6 @@ export const NewUpload = () => {
   });
   const navigate = useNavigate();
   const reset = useImageStore((s) => s.reset);
-  const setPhotosetId = useImageStore((s) => s.setPhotosetId);
   const creatingRef = useRef(false);
   const [creatingBucket, setCreatingBucket] = useState<string | null>(null);
 
@@ -59,8 +59,7 @@ export const NewUpload = () => {
           location: '',
           year: new Date().getFullYear(),
         });
-        setPhotosetId(photoset.id);
-        navigate(`/bucket/${bucketName}/picker`);
+        navigate(wizardPath(photoset.id, 'picker'));
       } catch (err) {
         toast.error('Failed to create photoset', {
           description: err instanceof Error ? err.message : 'Unknown error',
@@ -70,7 +69,7 @@ export const NewUpload = () => {
         setCreatingBucket(null);
       }
     },
-    [navigate, setPhotosetId],
+    [navigate],
   );
 
   if (!canBrowse) {

@@ -120,13 +120,11 @@ describe('useImageStore', () => {
 
   describe('reset', () => {
     it('returns to initial state', () => {
-      useImageStore.getState().setPhotosetId(42);
       useImageStore.getState().addFiles([makeFile('a.jpg')]);
       useImageStore.getState().setProcessed(true);
       useImageStore.getState().reset();
 
       const state = useImageStore.getState();
-      expect(state.photosetId).toBeNull();
       expect(state.files).toEqual([]);
       expect(state.processingImages).toEqual([]);
       expect(state.processedImages).toEqual([]);

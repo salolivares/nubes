@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -6,15 +7,48 @@ import type { ProcessedImage } from '@/common/types';
 
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
+import { wizardPath, WizardRedirect, WizardStep } from '../components/wizard-step';
 import { useProcessingImages } from '../hooks/useProcessingImages';
+import { photosetKeys } from '../lib/photoset-queries';
 import { useImageStore } from '../stores/images';
+import type { PhotosetWithImages } from './PhotosetDetail/utils';
 
 const AUTO_NAVIGATE_SECONDS = 3;
 
-export const ImageProcessing = () => {
+export const ImageProcessing = () => (
+  <WizardStep step="upload">{(photoset) => <ImageProcessingGate photoset={photoset} />}</WizardStep>
+);
+
+/**
+ * Picked files only live in memory, so a reload leaves nothing to process. Send the user on to the
+ * S3 step if this photoset already has processed images in the DB, or back to the picker if not.
+ * Never start the worker with an empty list: it would report "complete" and auto-advance.
+ */
+const ImageProcessingGate = ({ photoset }: { photoset: PhotosetWithImages }) => {
+  // Read once on mount. Later changes come from this step's own processing run.
+  const [hasWork] = useState(() => {
+    const { files, processed } = useImageStore.getState();
+    return processed || files.some((file) => file.path !== undefined);
+  });
+
+  if (!hasWork) {
+    return photoset.images.length > 0 ? (
+      <WizardRedirect to={wizardPath(photoset.id, 's3')} />
+    ) : (
+      <WizardRedirect
+        to={wizardPath(photoset.id, 'picker')}
+        message="No images to process. Pick some images first."
+      />
+    );
+  }
+
+  return <ImageProcessingRun photosetId={photoset.id} />;
+};
+
+const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
   const { files, processingImages, processed } = useProcessingImages();
   const navigate = useNavigate();
-  const photosetId = useImageStore((s) => s.photosetId);
+  const queryClient = useQueryClient();
   const processedImages = useImageStore((s) => s.processedImages);
 
   const uploadRan = useRef(false);
@@ -22,11 +56,11 @@ export const ImageProcessing = () => {
   const [countdown, setCountdown] = useState<number | null>(null);
 
   const goToNext = useCallback(() => {
-    navigate('../s3', { relative: 'path' });
-  }, [navigate]);
+    navigate(wizardPath(photosetId, 's3'));
+  }, [navigate, photosetId]);
 
   useEffect(() => {
-    if (!uploadRan.current) {
+    if (!uploadRan.current && !useImageStore.getState().processed) {
       window.imageProcessor.resize({
         imagePaths: files
           .filter((file) => file.path !== undefined)
@@ -41,7 +75,7 @@ export const ImageProcessing = () => {
 
   // Persist processed images to the photoset in the DB
   useEffect(() => {
-    if (!processed || !photosetId || persistRan.current || processedImages.length === 0) return;
+    if (!processed || persistRan.current || processedImages.length === 0) return;
     persistRan.current = true;
 
     const persist = async () => {
@@ -62,6 +96,7 @@ export const ImageProcessing = () => {
             })),
           })),
         });
+        await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
         toast.success('Images processed successfully');
       } catch (err) {
         toast.error('Failed to save images', {
@@ -71,7 +106,7 @@ export const ImageProcessing = () => {
     };
 
     persist();
-  }, [processed, photosetId, processedImages]);
+  }, [processed, photosetId, processedImages, queryClient]);
 
   // Auto-navigate countdown once processing is done
   useEffect(() => {

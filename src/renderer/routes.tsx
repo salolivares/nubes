@@ -19,10 +19,11 @@ export const router = createHashRouter(
       <Route index element={<Home />} />
       <Route path="new" element={<NewUpload />} />
       <Route path="photoset/:photosetId" element={<PhotosetDetail />} />
-      <Route path="bucket/:bucketName/picker" element={<ImagePicker />} />
-      <Route path="bucket/:bucketName/upload" element={<ImageProcessing />} />
-      <Route path="bucket/:bucketName/s3" element={<S3Upload />} />
-      <Route path="bucket/:bucketName/summary" element={<S3Summary />} />
+      {/* Upload wizard. Each step loads the photoset from the DB, so a reload keeps your place. */}
+      <Route path="photoset/:photosetId/picker" element={<ImagePicker />} />
+      <Route path="photoset/:photosetId/upload" element={<ImageProcessing />} />
+      <Route path="photoset/:photosetId/s3" element={<S3Upload />} />
+      <Route path="photoset/:photosetId/summary" element={<S3Summary />} />
       <Route path="settings" element={<Settings />}>
         <Route index element={<GeneralSettings />} />
         <Route path="cameras" element={<CameraSettings />} />

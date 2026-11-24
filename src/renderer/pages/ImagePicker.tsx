@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '../components/ui/button';
+import { wizardPath, WizardStep } from '../components/wizard-step';
 import type { CustomFile } from '../stores/images';
 import { useImageStore } from '../stores/images';
 
@@ -49,7 +50,13 @@ function XIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export const ImagePicker = () => {
+export const ImagePicker = () => (
+  <WizardStep step="picker">
+    {(photoset) => <ImagePickerStep photosetId={photoset.id} />}
+  </WizardStep>
+);
+
+const ImagePickerStep = ({ photosetId }: { photosetId: number }) => {
   const files = useImageStore((s) => s.files);
   const addFiles = useImageStore((s) => s.addFiles);
   const addFilesFromPaths = useImageStore((s) => s.addFilesFromPaths);
@@ -61,7 +68,7 @@ export const ImagePicker = () => {
   const navigate = useNavigate();
 
   const handleUpload = () => {
-    navigate('../upload', { relative: 'path' });
+    navigate(wizardPath(photosetId, 'upload'));
   };
 
   const handleBrowse = useCallback(async () => {
