@@ -6,11 +6,14 @@ import { MEDIA_HOST, MEDIA_SCHEME, MEDIA_THUMBNAIL_WIDTH } from '@/common/media-
 /** File types the protocol serves. Everything it serves is an image. */
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
-export type MediaResolution =
-  | { ok: true; filePath: string; width?: number }
-  | { ok: false; status: 400 | 403 | 404; reason: string };
+export type PathDenied = { ok: false; status: 400 | 403 | 404; reason: string };
 
-function deny(status: 400 | 403 | 404, reason: string): MediaResolution {
+/** Result of checking a path. `filePath` is the real path, with symlinks resolved. */
+export type PathCheck = { ok: true; filePath: string } | PathDenied;
+
+export type MediaResolution = { ok: true; filePath: string; width?: number } | PathDenied;
+
+function deny(status: 400 | 403 | 404, reason: string): PathDenied {
   return { ok: false, status, reason };
 }
 
@@ -140,6 +143,20 @@ export class MediaAccess {
       width = MEDIA_THUMBNAIL_WIDTH;
     }
 
+    const check = await this.checkFile(requested, { picked: true });
+    return check.ok ? { ...check, width } : check;
+  }
+
+  /**
+   * Check a path that came from the renderer before main reads, uploads or deletes it. The path
+   * must be an existing image file under one of the roots, after resolving symlinks. With
+   * `picked`, files on the picked allowlist pass too. Paths outside are refused before any disk
+   * access; 404 means the path passed that gate but there is no regular file there.
+   */
+  async checkFile(
+    requested: string,
+    { picked = false }: { picked?: boolean } = {},
+  ): Promise<PathCheck> {
     if (requested.includes('\0')) return deny(400, 'NUL in path');
     if (!path.isAbsolute(requested)) return deny(403, 'path is not absolute');
     // Reject traversal outright instead of trusting normalization to land somewhere safe.
@@ -152,8 +169,7 @@ export class MediaAccess {
     const realRoots = await this.realRoots();
     const normalized = path.resolve(requested);
     const plausible =
-      this.pickedInputs.has(normalized) ||
-      this.picked.has(normalized) ||
+      (picked && (this.pickedInputs.has(normalized) || this.picked.has(normalized))) ||
       this.roots().some((root) => isWithin(path.resolve(root), normalized)) ||
       realRoots.some((root) => isWithin(root, normalized));
     if (!plausible) return deny(403, 'outside allowed roots');
@@ -163,10 +179,27 @@ export class MediaAccess {
     // A symlink named photo.jpg could point at something that isn't an image.
     if (!isImagePath(real)) return deny(403, 'not an image');
 
-    if (this.picked.has(real)) return { ok: true, filePath: real, width };
-    if (realRoots.some((root) => isWithin(root, real))) return { ok: true, filePath: real, width };
+    if (picked && this.picked.has(real)) return { ok: true, filePath: real };
+    if (realRoots.some((root) => isWithin(root, real))) return { ok: true, filePath: real };
 
     return deny(403, 'outside allowed roots');
+  }
+
+  /**
+   * True when the path as written is inside one of the roots. Any file type, no disk access, so
+   * it can't follow symlinks: use checkFile() before reading a file.
+   */
+  isInRoots(requested: string): boolean {
+    if (
+      requested.includes('\0') ||
+      !path.isAbsolute(requested) ||
+      hasTraversal(requested) ||
+      isWindowsSpecialPath(requested, this.sep)
+    ) {
+      return false;
+    }
+    const normalized = path.resolve(requested);
+    return this.roots().some((root) => isWithin(path.resolve(root), normalized));
   }
 
   /** The roots with symlinks resolved. Roots that don't exist yet are skipped. */
