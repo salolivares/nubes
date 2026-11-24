@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import type { WebContents } from 'electron';
 import { app, utilityProcess } from 'electron';
 import baseLog from 'electron-log/main';
 
@@ -11,6 +12,7 @@ import {
   IMAGE_PROCESSOR_RESIZE,
   PHOTOSETS_DIR,
 } from '@/common';
+import { isImageJobDone } from '@/common/image-jobs';
 import { imageJobIdArgsSchema, imageProcessorResizeArgsSchema } from '@/common/types';
 import type { WorkerHandle, WorkerHooks } from '@/main/drivers/image-worker/supervisor';
 import { ImageWorkerSupervisor } from '@/main/drivers/image-worker/supervisor';
@@ -58,9 +60,35 @@ export function addImageProcessorEventListeners() {
   });
   supervisor = imageWorker;
 
-  handle(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, (_, { imagePaths }) =>
-    imageWorker.submit(imagePaths),
-  );
+  // Jobs each window started. A reload wipes the renderer's store, so nothing would ever read
+  // those results, and the worker runs one job at a time: cancel them so they don't hold up the
+  // next one. Hash-route changes are in-page navigations and don't fire 'did-navigate'.
+  const jobsBySender = new WeakMap<WebContents, Set<string>>();
+  const trackJob = (sender: WebContents, jobId: string) => {
+    let jobs = jobsBySender.get(sender);
+    if (!jobs) {
+      const owned = new Set<string>();
+      const cancelAll = () => {
+        for (const id of owned) imageWorker.cancel(id);
+        owned.clear();
+      };
+      sender.on('did-navigate', cancelAll);
+      sender.once('destroyed', cancelAll);
+      jobsBySender.set(sender, owned);
+      jobs = owned;
+    }
+    for (const id of jobs) {
+      const known = imageWorker.getJob(id);
+      if (!known || isImageJobDone(known)) jobs.delete(id);
+    }
+    jobs.add(jobId);
+  };
+
+  handle(IMAGE_PROCESSOR_RESIZE, imageProcessorResizeArgsSchema, (event, { imagePaths }) => {
+    const job = imageWorker.submit(imagePaths);
+    trackJob(event.sender, job.jobId);
+    return job;
+  });
 
   handle(IMAGE_PROCESSOR_CANCEL, imageJobIdArgsSchema, (_, { jobId }) => {
     imageWorker.cancel(jobId);

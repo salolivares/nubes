@@ -22,10 +22,13 @@ const electron = vi.hoisted(() => {
     destroyed = false;
     shown = false;
     listeners = new Map<string, () => void>();
+    contentsListeners = new Map<string, () => void>();
     webContents = {
       send: vi.fn(),
       openDevTools: vi.fn(),
       isDestroyed: () => this.destroyed,
+      on: (event: string, cb: () => void) => this.contentsListeners.set(event, cb),
+      once: (event: string, cb: () => void) => this.contentsListeners.set(event, cb),
       // The app page in the main frame, so ipc.ts's sender check accepts calls from it.
       mainFrame: { url: 'file:///app/renderer/main_window/index.html', parent: null },
     };
@@ -232,6 +235,26 @@ describe('restoreOrCreateWindow', () => {
     expect(reopened.webContents.send).toHaveBeenCalledWith(
       IMAGE_PROCESSOR_EVENT,
       expect.objectContaining({ type: 'progress', jobId: job.jobId, current: 1 }),
+    );
+  });
+
+  it("cancels a window's jobs when it reloads, so they don't hold up the queue", async () => {
+    const { reopened } = await startThenReopen();
+    const resize = electron.handlers.get(IMAGE_PROCESSOR_RESIZE) as (
+      event: unknown,
+      args: unknown,
+    ) => Promise<ImageJob>;
+    const sender = { sender: reopened.webContents, senderFrame: reopened.webContents.mainFrame };
+    const running = await resize(sender, { imagePaths: ['/photos/a.jpg'] });
+    const queued = await resize(sender, { imagePaths: ['/photos/b.jpg'] });
+
+    reopened.contentsListeners.get('did-navigate')?.();
+
+    const worker = electron.fork.mock.results[0].value;
+    expect(worker.postMessage).toHaveBeenCalledWith({ type: 'cancel', jobId: running.jobId });
+    expect(reopened.webContents.send).toHaveBeenCalledWith(
+      IMAGE_PROCESSOR_EVENT,
+      expect.objectContaining({ type: 'complete', jobId: queued.jobId, cancelled: true }),
     );
   });
 });
