@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
@@ -68,9 +69,29 @@ describe('s3:createAlbum paths', () => {
     );
   });
 
-  it('refuses non-image files in the photosets folder, like the database', async () => {
+  it('refuses non-image files, inside the photosets folder or next to it', async () => {
+    const notes = write(path.join(photosetsDir, '1', 'notes.txt'));
     const db = write(path.join(tmpDir, 'userData', 'nubes.db'));
+    await expect(assertUploadPaths(access, album(notes))).rejects.toThrow(/Refused/);
     await expect(assertUploadPaths(access, album(db))).rejects.toThrow(/Refused/);
+  });
+
+  it('refuses an image-named folder or FIFO instead of passing it as missing', async () => {
+    const folder = path.join(photosetsDir, '1', 'folder.jpg');
+    fs.mkdirSync(folder, { recursive: true });
+    await expect(assertUploadPaths(access, album(folder))).rejects.toThrow(/Refused/);
+    if (process.platform !== 'win32') {
+      const fifo = path.join(photosetsDir, '1', 'fifo.jpg');
+      execFileSync('mkfifo', [fifo]);
+      await expect(assertUploadPaths(access, album(fifo))).rejects.toThrow(/Refused/);
+    }
+  });
+
+  it('refuses a symlink in the photosets folder to a device outside it', async () => {
+    if (process.platform === 'win32') return;
+    const link = path.join(photosetsDir, 'zero.jpg');
+    fs.symlinkSync('/dev/zero', link);
+    await expect(assertUploadPaths(access, album(link))).rejects.toThrow(/Refused/);
   });
 
   it('refuses a picked file, which is a source and not an output', async () => {
@@ -153,15 +174,20 @@ describe('photoset:addImages paths', () => {
     ).not.toThrow();
   });
 
-  it('refuses an output or originalPath outside the photosets folder', () => {
+  it('refuses an output outside the photosets folder', () => {
     const inRoot = path.join(photosetsDir, '1', 'a_128.jpg');
     const outside = path.join(outsideDir, 'a.jpg');
     expect(() =>
       assertStoredPaths(access, [{ name: 'a', originalPath: inRoot, outputs: [output(outside)] }]),
     ).toThrow(/Refused to save/);
+  });
+
+  it('keeps an old draft with a source path in originalPath saveable', () => {
+    const inRoot = path.join(photosetsDir, '1', 'a_128.jpg');
+    const source = path.join(outsideDir, 'DSCF0001.jpg');
     expect(() =>
-      assertStoredPaths(access, [{ name: 'a', originalPath: outside, outputs: [output(inRoot)] }]),
-    ).toThrow(/Refused to save/);
+      assertStoredPaths(access, [{ name: 'a', originalPath: source, outputs: [output(inRoot)] }]),
+    ).not.toThrow();
   });
 });
 
@@ -178,6 +204,14 @@ describe('photoset:showInFolder paths', () => {
     expect(canReveal(access, path.join(outsideDir, 'secret.txt'), set)).toBe(false);
     expect(canReveal(access, 'relative.jpg', set)).toBe(false);
     expect(canReveal(access, `${photosetsDir}${path.sep}..${path.sep}nubes.db`, set)).toBe(false);
+  });
+
+  it('matches exports exactly, so a traversal that normalizes to one is refused', () => {
+    const downloads = path.join(tmpDir, 'Downloads');
+    const exported = path.join(downloads, '2026-trip.json');
+    const set = new Set([exported]);
+    const sneaky = `${downloads}${path.sep}link${path.sep}..${path.sep}2026-trip.json`;
+    expect(canReveal(access, sneaky, set)).toBe(false);
   });
 });
 

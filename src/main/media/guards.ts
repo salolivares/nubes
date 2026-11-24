@@ -54,16 +54,14 @@ export async function deletablePaths(access: MediaAccess, filePaths: string[]): 
 }
 
 /**
- * Every path the app stores for a photoset is a worker output in the photosets folder
- * (`originalPath` is the first output, or empty when there is none). Refuse anything else, so
- * the database never holds a path that a later delete or upload would act on.
+ * Every output the app stores for a photoset is a worker output in the photosets folder, and
+ * upload reads them, so refuse anything else. `originalPath` isn't checked: nothing reads it, and
+ * older rows (and the e2e fixture) hold source paths there, which would wedge saving those drafts.
+ * Delete filters it instead.
  */
 export function assertStoredPaths(access: MediaAccess, images: PhotosetAddImagesArgs['images']) {
   const bad: string[] = [];
   for (const image of images) {
-    if (image.originalPath !== '' && !access.isInRoots(image.originalPath)) {
-      bad.push(image.originalPath);
-    }
     for (const output of image.outputs) {
       if (!access.isInRoots(output.imagePath)) bad.push(output.imagePath);
     }

@@ -82,9 +82,12 @@ export async function deleteFiles(filePaths: string[]): Promise<void> {
 /** Files main wrote outside the photosets folder this session (metadata exports). */
 const exportedFiles = new Set<string>();
 
-/** Reveal only files in the photosets folder, or files main itself exported. */
+/**
+ * Reveal only files in the photosets folder, or files main itself exported. Exports match exactly,
+ * not after normalizing, so `<dir>/<symlink>/../export.json` can't pass as one.
+ */
 export function canReveal(access: MediaAccess, filePath: string, exported: Set<string>): boolean {
-  return access.isInRoots(filePath) || exported.has(path.resolve(filePath));
+  return access.isInRoots(filePath) || exported.has(filePath);
 }
 
 export function addPhotosetEventListeners() {
@@ -233,7 +236,7 @@ export function addPhotosetEventListeners() {
     const filename = metadataFilename(photoset.year, photoset.name);
     const filePath = path.join(app.getPath('downloads'), filename);
     await fsp.writeFile(filePath, JSON.stringify(metadata, null, 2), 'utf-8');
-    exportedFiles.add(path.resolve(filePath));
+    exportedFiles.add(filePath);
 
     return { filePath };
   });

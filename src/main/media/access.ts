@@ -45,14 +45,19 @@ export function isWindowsSpecialPath(filePath: string, sep: string): boolean {
   return /^[\\/]{2}[?.][\\/]/.test(filePath) || filePath.indexOf(':', 2) !== -1;
 }
 
-/** Resolve symlinks. Returns null when the path doesn't exist or isn't a regular file. */
-async function realFile(filePath: string): Promise<string | null> {
+/**
+ * Resolve symlinks. 404 only when nothing is there (callers may let a missing file through to
+ * report it later). A folder, device, FIFO, or any other error is 403, so it can't pass as missing.
+ */
+async function realFile(filePath: string): Promise<PathCheck> {
   try {
     const real = await fsp.realpath(filePath);
     const stat = await fsp.stat(real);
-    return stat.isFile() ? real : null;
-  } catch {
-    return null;
+    return stat.isFile() ? { ok: true, filePath: real } : deny(403, 'not a regular file');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return deny(404, 'not found');
+    return deny(403, `unreadable (${code ?? 'error'})`);
   }
 }
 
@@ -95,8 +100,9 @@ export class MediaAccess {
       ) {
         continue;
       }
-      const real = await realFile(filePath);
-      if (!real || !isImagePath(real)) continue;
+      const file = await realFile(filePath);
+      if (!file.ok || !isImagePath(file.filePath)) continue;
+      const real = file.filePath;
       this.picked.add(real);
       this.pickedInputs.add(path.resolve(filePath));
       accepted.push(filePath);
@@ -174,8 +180,9 @@ export class MediaAccess {
       realRoots.some((root) => isWithin(root, normalized));
     if (!plausible) return deny(403, 'outside allowed roots');
 
-    const real = await realFile(requested);
-    if (!real) return deny(404, 'not found');
+    const file = await realFile(requested);
+    if (!file.ok) return file;
+    const real = file.filePath;
     // A symlink named photo.jpg could point at something that isn't an image.
     if (!isImagePath(real)) return deny(403, 'not an image');
 
