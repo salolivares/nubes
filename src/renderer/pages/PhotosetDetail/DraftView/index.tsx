@@ -377,7 +377,7 @@ export function DraftView({
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={<Button disabled={!canSubmit && !canUpload} className="px-2!" />}
+                render={<Button disabled={busy} aria-label="More actions" className="px-2!" />}
               >
                 <ChevronDown />
               </DropdownMenuTrigger>
