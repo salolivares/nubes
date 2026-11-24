@@ -15,11 +15,12 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "start": "electron-forge start",
+    "build": "node scripts/build-app.ts",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "test": "pnpm test:main && pnpm test:renderer",
-    "test:e2e": "pnpm package && playwright test",
+    "test:e2e": "pnpm build && playwright test",
     "test:main": "ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron ./node_modules/vitest/vitest.mjs run --config vitest.config.main.ts",
     "test:renderer": "vitest run --config vitest.config.renderer.ts --passWithNoTests",
     "test:watch": "ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron ./node_modules/vitest/vitest.mjs --config vitest.config.main.ts",

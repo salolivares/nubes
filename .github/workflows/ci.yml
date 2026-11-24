@@ -52,3 +52,50 @@ jobs:
 
       - name: Check formatting
         run: pnpm format:check
+
+  e2e:
+    name: Electron launch smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Same key as the check job, so both jobs share one cached download.
+      - name: Cache Electron binary
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Builds .vite/ only. The tests launch the unpackaged app, so there's no packaging step.
+      - name: Build app
+        run: pnpm build
+
+      # Ubuntu 24.04 blocks the unprivileged user namespaces Chromium's sandbox needs. Lift
+      # that here so the app runs with its sandbox on, as it does for users.
+      - name: Allow the Chromium sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Run Electron tests
+        run: xvfb-run --auto-servernum -- pnpm exec playwright test
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-test-results
+          path: test-results/
+          if-no-files-found: ignore
