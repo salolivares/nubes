@@ -70,6 +70,11 @@ albums to S3 with metadata.
   relaxations stay behind its `dev` flag. The packaged page is a `file://` URL, where `'self'`
   matches any file, so `src/main/file-requests.ts` cancels `file://` loads outside the renderer
   bundle.
+- The main window runs with `sandbox: true`. The preload builds to one CommonJS file,
+  `.vite/build/preload.cjs`, and may only `require('electron')` (`contextBridge`, `ipcRenderer`,
+  `webUtils`). Don't import Node built-ins or Node-only packages into `src/preload/` or the
+  `src/common/` modules it uses. `pluginSandboxedPreload()` in `vite.preload.config.ts` fails the
+  build if the output breaks either rule.
 - External links only open for origins in `ALLOWED_EXTERNAL_ORIGINS` in
   `src/main/securityRestrictions.ts`. Others are silently blocked.
 
@@ -91,7 +96,8 @@ src/
 │   │   ├── image-worker/      # runner.ts (serial jobs in the worker), supervisor.ts (main side)
 │   │   └── s3/                # IS3Provider, real S3, MockS3, get/setS3Provider
 │   └── listeners/         # IPC handlers, registered once at startup in listeners/index.ts
-├── preload/               # contextBridge APIs, one file per listener (vite.preload.config.ts)
+├── preload/               # contextBridge APIs, one file per listener, built to one sandboxed
+│                          #   CommonJS file (vite.preload.config.ts)
 ├── renderer/              # React UI (vite.renderer.config.ts)
 │   ├── routes.tsx         # Hash router
 │   ├── pages/
