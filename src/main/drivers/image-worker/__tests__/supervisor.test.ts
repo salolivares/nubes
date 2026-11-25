@@ -34,7 +34,6 @@ function setup() {
       workers.push(worker);
       return worker;
     },
-    outputFolder: () => '/out',
     onEvent: (event) => events.push(event),
     createJobId: () => `job-${++nextId}`,
     cancelGraceMs: 1000,
@@ -55,7 +54,7 @@ describe('ImageWorkerSupervisor', () => {
     const { supervisor, workers, events } = setup();
     expect(workers).toHaveLength(0);
 
-    const job = supervisor.submit(['/a.jpg']);
+    const job = supervisor.submit(['/a.jpg'], '/out');
 
     expect(job).toMatchObject({ jobId: 'job-1', status: 'running', imagePaths: ['/a.jpg'] });
     expect(workers).toHaveLength(1);
@@ -66,10 +65,75 @@ describe('ImageWorkerSupervisor', () => {
     expect(supervisor.getJob('job-1')?.status).toBe('running');
   });
 
+  it('sends each job with the output folder it was submitted with', () => {
+    const { supervisor, workers } = setup();
+    supervisor.submit(['/a.jpg'], '/photosets/1');
+    supervisor.submit(['/a.jpg'], '/photosets/2');
+    workers[0].send(complete('job-1'));
+
+    expect(workers[0].posted.map((m) => m.type === 'resize' && m.outputFolder)).toEqual([
+      '/photosets/1',
+      '/photosets/2',
+    ]);
+  });
+
+  describe('cancelFolder', () => {
+    it('resolves at once when no job writes to the folder', async () => {
+      const { supervisor, workers } = setup();
+      supervisor.submit(['/a.jpg'], '/photosets/1');
+
+      await supervisor.cancelFolder('/photosets/2');
+
+      expect(workers[0].posted.map((m) => m.type)).toEqual(['resize']);
+    });
+
+    it('drops queued jobs for the folder and leaves the others', () => {
+      const { supervisor, workers } = setup();
+      supervisor.submit(['/a.jpg'], '/photosets/1');
+      supervisor.submit(['/b.jpg'], '/photosets/2');
+      supervisor.submit(['/c.jpg'], '/photosets/3');
+
+      void supervisor.cancelFolder('/photosets/2');
+      workers[0].send(complete('job-1'));
+
+      expect(supervisor.getJob('job-2')?.status).toBe('cancelled');
+      expect(workers[0].posted.map((m) => m.jobId)).toEqual(['job-1', 'job-3']);
+    });
+
+    it('waits for the running job to stop before resolving', async () => {
+      const { supervisor, workers } = setup();
+      supervisor.submit(['/a.jpg', '/b.jpg'], '/photosets/1');
+
+      let settled = false;
+      const done = supervisor.cancelFolder('/photosets/1').then(() => (settled = true));
+      await Promise.resolve();
+
+      expect(workers[0].posted.at(-1)).toEqual({ type: 'cancel', jobId: 'job-1' });
+      expect(settled).toBe(false);
+
+      workers[0].send(complete('job-1', true));
+      await done;
+      expect(supervisor.getJob('job-1')?.status).toBe('cancelled');
+    });
+
+    it('resolves when the cancel grace runs out and the worker is killed', async () => {
+      const { supervisor, workers } = setup();
+      supervisor.submit(['/a.jpg'], '/photosets/1');
+
+      const done = supervisor.cancelFolder('/photosets/1');
+      vi.advanceTimersByTime(1000);
+      expect(workers[0].killed).toBe(true);
+      workers[0].exit(0);
+
+      await done;
+      expect(supervisor.getJob('job-1')?.status).toBe('cancelled');
+    });
+  });
+
   it('sends the next job only after the current one completes', () => {
     const { supervisor, workers } = setup();
-    supervisor.submit(['/a.jpg']);
-    const second = supervisor.submit(['/b.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
+    const second = supervisor.submit(['/b.jpg'], '/out');
 
     expect(second.status).toBe('queued');
     expect(workers[0].posted.map((m) => m.jobId)).toEqual(['job-1']);
@@ -83,7 +147,7 @@ describe('ImageWorkerSupervisor', () => {
 
   it('forwards valid worker messages', () => {
     const { supervisor, workers, events } = setup();
-    supervisor.submit(['/a.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
 
     workers[0].send({
       type: 'progress',
@@ -100,7 +164,7 @@ describe('ImageWorkerSupervisor', () => {
 
   it('logs and drops an invalid message when no job is in flight', () => {
     const { supervisor, workers, events } = setup();
-    supervisor.submit(['/a.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
     workers[0].send(complete('job-1'));
     silentLog.error.mockClear();
 
@@ -113,8 +177,8 @@ describe('ImageWorkerSupervisor', () => {
 
   it('fails the job and restarts the worker when it sends an invalid message', () => {
     const { supervisor, workers, events } = setup();
-    supervisor.submit(['/a.jpg']);
-    supervisor.submit(['/b.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
+    supervisor.submit(['/b.jpg'], '/out');
 
     workers[0].send({ type: 'complete', jobId: 'job-1', erroredImages: ['/a.jpg'] });
 
@@ -128,7 +192,7 @@ describe('ImageWorkerSupervisor', () => {
 
   it('ignores worker messages for a job that is not in flight', () => {
     const { supervisor, workers, events } = setup();
-    supervisor.submit(['/a.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
     workers[0].send(complete('job-99'));
 
     expect(events.map((e) => e.type)).toEqual(['started']);
@@ -136,7 +200,7 @@ describe('ImageWorkerSupervisor', () => {
 
   it('fails the in-flight job when the worker exits and forks a fresh one next time', () => {
     const { supervisor, workers, events } = setup();
-    supervisor.submit(['/a.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
 
     workers[0].exit(9);
 
@@ -147,15 +211,15 @@ describe('ImageWorkerSupervisor', () => {
     });
     expect(supervisor.getJob('job-1')?.status).toBe('failed');
 
-    supervisor.submit(['/b.jpg']);
+    supervisor.submit(['/b.jpg'], '/out');
     expect(workers).toHaveLength(2);
     expect(workers[1].posted.map((m) => m.jobId)).toEqual(['job-2']);
   });
 
   it('moves queued jobs to a fresh worker after a crash', () => {
     const { supervisor, workers } = setup();
-    supervisor.submit(['/a.jpg']);
-    supervisor.submit(['/b.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
+    supervisor.submit(['/b.jpg'], '/out');
 
     workers[0].exit(1);
 
@@ -166,8 +230,8 @@ describe('ImageWorkerSupervisor', () => {
 
   it('cancels a queued job without sending it to the worker', () => {
     const { supervisor, workers, events } = setup();
-    supervisor.submit(['/a.jpg']);
-    supervisor.submit(['/b.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
+    supervisor.submit(['/b.jpg'], '/out');
 
     supervisor.cancel('job-2');
     workers[0].send(complete('job-1'));
@@ -179,7 +243,7 @@ describe('ImageWorkerSupervisor', () => {
 
   it('asks the worker to cancel the running job', () => {
     const { supervisor, workers } = setup();
-    supervisor.submit(['/a.jpg', '/b.jpg']);
+    supervisor.submit(['/a.jpg', '/b.jpg'], '/out');
 
     supervisor.cancel('job-1');
     expect(workers[0].posted.at(-1)).toEqual({ type: 'cancel', jobId: 'job-1' });
@@ -193,14 +257,14 @@ describe('ImageWorkerSupervisor', () => {
 
   it('kills a worker that ignores a cancel past the grace period', () => {
     const { supervisor, workers, events } = setup();
-    supervisor.submit(['/a.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
     supervisor.cancel('job-1');
 
     vi.advanceTimersByTime(1000);
     expect(workers[0].killed).toBe(true);
 
     // Not forgotten until it actually exits, so a new request waits for it.
-    supervisor.submit(['/b.jpg']);
+    supervisor.submit(['/b.jpg'], '/out');
     expect(workers).toHaveLength(1);
 
     workers[0].exit(0);
@@ -213,11 +277,11 @@ describe('ImageWorkerSupervisor', () => {
 
   it('does not hand a new job to a worker that is shutting down', () => {
     const { supervisor, workers } = setup();
-    supervisor.submit(['/a.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
     workers[0].send(complete('job-1'));
 
     supervisor.killWorker();
-    supervisor.submit(['/b.jpg']);
+    supervisor.submit(['/b.jpg'], '/out');
     expect(workers[0].posted.map((m) => m.jobId)).toEqual(['job-1']);
 
     workers[0].exit(0);
@@ -226,7 +290,7 @@ describe('ImageWorkerSupervisor', () => {
 
   it('still reports a crash as failed if a cancel arrives while the worker is dying', () => {
     const { supervisor, workers } = setup();
-    supervisor.submit(['/a.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
 
     supervisor.killWorker();
     supervisor.cancel('job-1');
@@ -240,7 +304,7 @@ describe('ImageWorkerSupervisor', () => {
     const { supervisor, workers, events } = setup();
     supervisor.dispose();
 
-    const job = supervisor.submit(['/a.jpg']);
+    const job = supervisor.submit(['/a.jpg'], '/out');
 
     expect(job.status).toBe('failed');
     expect(events.at(-1)).toMatchObject({ type: 'failed', jobId: job.jobId });
@@ -249,8 +313,8 @@ describe('ImageWorkerSupervisor', () => {
 
   it('does not fork again after dispose', () => {
     const { supervisor, workers } = setup();
-    supervisor.submit(['/a.jpg']);
-    supervisor.submit(['/b.jpg']);
+    supervisor.submit(['/a.jpg'], '/out');
+    supervisor.submit(['/b.jpg'], '/out');
 
     supervisor.dispose();
     expect(workers[0].killed).toBe(true);

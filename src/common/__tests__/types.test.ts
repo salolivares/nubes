@@ -268,9 +268,18 @@ describe('IPC arg schemas', () => {
     expect(result.images[0].outputs).toHaveLength(1);
   });
 
-  it('imageProcessorResizeArgsSchema requires imagePaths array', () => {
+  it('imageProcessorResizeArgsSchema requires a photoset id and an imagePaths array', () => {
     expect(() => imageProcessorResizeArgsSchema.parse({})).toThrow();
-    const result = imageProcessorResizeArgsSchema.parse({ imagePaths: ['/a.jpg', '/b.jpg'] });
+    expect(() => imageProcessorResizeArgsSchema.parse({ imagePaths: ['/a.jpg'] })).toThrow();
+    for (const photosetId of [0, -1, 1.5, '1', '../1']) {
+      expect(() =>
+        imageProcessorResizeArgsSchema.parse({ photosetId, imagePaths: ['/a.jpg'] }),
+      ).toThrow();
+    }
+    const result = imageProcessorResizeArgsSchema.parse({
+      photosetId: 3,
+      imagePaths: ['/a.jpg', '/b.jpg'],
+    });
     expect(result.imagePaths).toHaveLength(2);
   });
 });

@@ -29,6 +29,7 @@ albums to S3 with metadata.
   `node scripts/create-e2e-fixture-db.ts` only to change its rows.
 - Main-process tests run under Electron's Node (`pnpm test:main`), because `better-sqlite3` is built
   for Electron's ABI. Running `vitest` directly on them fails with a `NODE_MODULE_VERSION` error.
+  Mock `sharp` in them. On Linux its libvips clashes with Electron's GLib and the test worker hangs.
 
 ## Rules
 
@@ -60,6 +61,10 @@ albums to S3 with metadata.
   code can't supply a path string. A compromised renderer process can still call that channel, so
   `allowPickedFiles()` validates every path. Never call it with a path the page sent. Don't add IPC
   that returns file contents.
+- Each photoset's processed images go in `photosets/<photosetId>/`. Main builds that folder from
+  the id in `image-processor:resize` (`src/main/photoset-folders.ts`), never from a renderer path.
+  Photosets made before this keep flat paths under `photosets/`, and some share files, so deletes
+  skip any file another photoset still points at.
 - The CSP is `contentSecurityPolicy()` in `src/common/csp.ts`. A plugin in
   `vite.renderer.config.ts` fills the `__NUBES_CSP__` placeholder in `index.html` with it. Dev-only
   relaxations stay behind its `dev` flag. The packaged page is a `file://` URL, where `'self'`

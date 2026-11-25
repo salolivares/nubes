@@ -134,7 +134,14 @@ vi.mock('@/main/drivers/storage', () => ({
   Storage: { instance: { store: { onDidChange: vi.fn() } } },
 }));
 
-vi.mock('@/main/drivers/database', () => ({ Database: { instance: {} } }));
+// The resize handler checks the photoset exists. Every id does here unless a test says otherwise.
+const photosetLookup = vi.hoisted(() => ({
+  get: vi.fn((): { id: number } | undefined => ({ id: 7 })),
+}));
+vi.mock('@/main/drivers/database', () => {
+  const query = { from: () => query, where: () => query, get: () => photosetLookup.get() };
+  return { Database: { instance: { db: { select: () => query } } } };
+});
 
 // These tests use made-up source paths. The path checks have their own tests.
 vi.mock('@/main/media/guards', async (importOriginal) => ({
@@ -241,8 +248,8 @@ describe('restoreOrCreateWindow', () => {
     ) => Promise<ImageJob>;
 
     const sender = { sender: reopened.webContents, senderFrame: reopened.webContents.mainFrame };
-    const job = await resize(sender, { imagePaths: ['/photos/a.jpg'] });
-    await resize(sender, { imagePaths: ['/photos/b.jpg'] });
+    const job = await resize(sender, { photosetId: 7, imagePaths: ['/photos/a.jpg'] });
+    await resize(sender, { photosetId: 7, imagePaths: ['/photos/b.jpg'] });
     expect(electron.fork).toHaveBeenCalledTimes(1);
 
     const worker = electron.fork.mock.results[0].value;
@@ -263,6 +270,21 @@ describe('restoreOrCreateWindow', () => {
     );
   });
 
+  it('refuses to process images for a photoset that does not exist', async () => {
+    const { reopened } = await startThenReopen();
+    const resize = electron.handlers.get(IMAGE_PROCESSOR_RESIZE) as (
+      event: unknown,
+      args: unknown,
+    ) => Promise<ImageJob>;
+    const sender = { sender: reopened.webContents, senderFrame: reopened.webContents.mainFrame };
+    photosetLookup.get.mockReturnValueOnce(undefined);
+
+    await expect(resize(sender, { photosetId: 99, imagePaths: ['/photos/a.jpg'] })).rejects.toThrow(
+      'Photoset 99 not found',
+    );
+    expect(electron.fork).not.toHaveBeenCalled();
+  });
+
   it("cancels a window's jobs when it reloads, so they don't hold up the queue", async () => {
     const { reopened } = await startThenReopen();
     const resize = electron.handlers.get(IMAGE_PROCESSOR_RESIZE) as (
@@ -270,8 +292,8 @@ describe('restoreOrCreateWindow', () => {
       args: unknown,
     ) => Promise<ImageJob>;
     const sender = { sender: reopened.webContents, senderFrame: reopened.webContents.mainFrame };
-    const running = await resize(sender, { imagePaths: ['/photos/a.jpg'] });
-    const queued = await resize(sender, { imagePaths: ['/photos/b.jpg'] });
+    const running = await resize(sender, { photosetId: 7, imagePaths: ['/photos/a.jpg'] });
+    const queued = await resize(sender, { photosetId: 7, imagePaths: ['/photos/b.jpg'] });
 
     reopened.contentsListeners.get('did-navigate')?.();
 

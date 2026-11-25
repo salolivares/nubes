@@ -47,7 +47,8 @@ const ImageProcessingGate = ({ photoset }: { photoset: PhotosetWithImages }) => 
 };
 
 const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
-  const { processingImages, processed, job, erroredImages, cancel, retry } = useProcessingImages();
+  const { processingImages, processed, job, erroredImages, cancel, retry } =
+    useProcessingImages(photosetId);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const processedImages = useImageStore((s) => s.processedImages);
@@ -127,7 +128,7 @@ const ImageProcessingRun = ({ photosetId }: { photosetId: number }) => {
         </div>
         <div className="grid gap-6">
           {processingImages.map((item) => (
-            <div key={item.name} className="flex items-center gap-4">
+            <div key={item.file.path ?? item.name} className="flex items-center gap-4">
               <img
                 src={item.file.preview}
                 alt={`Image ${item.name}`}

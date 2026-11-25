@@ -23,7 +23,6 @@ export interface SupervisorLog {
 export interface ImageWorkerSupervisorOptions {
   /** Start a worker process. The supervisor calls this lazily, at most one live worker at a time. */
   spawn: (hooks: WorkerHooks) => WorkerHandle;
-  outputFolder: () => string;
   onEvent: (event: ImageJobEvent) => void;
   createJobId?: () => string;
   /** How long a running job gets to stop after a cancel before the worker is killed. */
@@ -48,10 +47,16 @@ const DEFAULT_MAX_FINISHED_JOBS = 20;
 export class ImageWorkerSupervisor {
   private readonly jobs = new Map<string, ImageJob>();
   private readonly queue: string[] = [];
+  /** Where each queued job writes its outputs. Dropped once the job goes to the worker. */
+  private readonly outputFolders = new Map<string, string>();
   private worker: WorkerHandle | null = null;
   /** True between asking the worker to die and its exit event. */
   private workerStopping = false;
   private currentJobId: string | null = null;
+  /** The folder the job in flight writes to. */
+  private currentOutputFolder: string | null = null;
+  /** Callers waiting for the job in flight to settle. */
+  private currentJobWaiters: Array<() => void> = [];
   private cancelRequested = false;
   private cancelTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
@@ -68,7 +73,8 @@ export class ImageWorkerSupervisor {
     this.log = options.log ?? console;
   }
 
-  submit(imagePaths: string[]): ImageJob {
+  /** Queue a job that writes its outputs to `outputFolder`. */
+  submit(imagePaths: string[], outputFolder: string): ImageJob {
     const job = createImageJob(this.createJobId(), imagePaths);
     this.jobs.set(job.jobId, job);
     if (this.disposed) {
@@ -76,6 +82,7 @@ export class ImageWorkerSupervisor {
       return this.jobs.get(job.jobId) ?? job;
     }
     this.queue.push(job.jobId);
+    this.outputFolders.set(job.jobId, outputFolder);
     this.pruneFinishedJobs();
     this.dispatchNext();
     // Return the latest snapshot. Any 'started' event already went out before this reply, so the
@@ -91,6 +98,7 @@ export class ImageWorkerSupervisor {
     const queuedIndex = this.queue.indexOf(jobId);
     if (queuedIndex !== -1) {
       this.queue.splice(queuedIndex, 1);
+      this.outputFolders.delete(jobId);
       this.emit({
         type: 'complete',
         jobId,
@@ -120,6 +128,21 @@ export class ImageWorkerSupervisor {
     }, this.cancelGraceMs);
   }
 
+  /**
+   * Cancel every job that writes to `outputFolder` and resolve once none of them can write to it
+   * any more. Queued jobs are dropped at once. A running job stops after the image in progress, or
+   * when the cancel grace period kills the worker.
+   */
+  cancelFolder(outputFolder: string): Promise<void> {
+    for (const jobId of [...this.queue]) {
+      if (this.outputFolders.get(jobId) === outputFolder) this.cancel(jobId);
+    }
+    if (!this.currentJobId || this.currentOutputFolder !== outputFolder) return Promise.resolve();
+    const settled = new Promise<void>((resolve) => this.currentJobWaiters.push(resolve));
+    this.cancel(this.currentJobId);
+    return settled;
+  }
+
   /** Kill the worker as if it crashed. The job in flight fails. Returns false if none is running. */
   killWorker(): boolean {
     if (!this.worker) return false;
@@ -136,6 +159,7 @@ export class ImageWorkerSupervisor {
       this.emit({ type: 'failed', jobId, error: 'The app is shutting down.' });
     }
     this.queue.length = 0;
+    this.outputFolders.clear();
     this.finishCurrentJob();
   }
 
@@ -146,15 +170,18 @@ export class ImageWorkerSupervisor {
     if (!jobId) return;
 
     const job = this.jobs.get(jobId);
-    if (!job) return this.dispatchNext();
+    const outputFolder = this.outputFolders.get(jobId);
+    this.outputFolders.delete(jobId);
+    if (!job || outputFolder === undefined) return this.dispatchNext();
 
     const worker = this.worker ?? this.spawnWorker();
     this.currentJobId = jobId;
+    this.currentOutputFolder = outputFolder;
     worker.postMessage({
       type: 'resize',
       jobId,
       imagePaths: job.imagePaths,
-      outputFolder: this.options.outputFolder(),
+      outputFolder,
     });
     this.emit({ type: 'started', jobId });
   }
@@ -244,6 +271,10 @@ export class ImageWorkerSupervisor {
     this.cancelTimer = null;
     this.cancelRequested = false;
     this.currentJobId = null;
+    this.currentOutputFolder = null;
+    const waiters = this.currentJobWaiters;
+    this.currentJobWaiters = [];
+    for (const resolve of waiters) resolve();
   }
 
   private emit(event: ImageJobEvent): void {
