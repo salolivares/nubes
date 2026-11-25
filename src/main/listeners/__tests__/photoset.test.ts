@@ -5,7 +5,6 @@ import path from 'node:path';
 
 import { eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import sharp from 'sharp';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as schema from '@/common/db/schema';
@@ -21,6 +20,24 @@ import {
 } from '@/main/listeners/photoset';
 import { MediaAccess } from '@/main/media/access';
 import { photosetOutputFolder } from '@/main/photoset-folders';
+
+// Real sharp can't run here: under Electron's Node on Linux, libvips clashes with Electron's own
+// GLib and the test worker hangs (it did on CI). The fake writes each output as the input bytes
+// plus its file name, which is all these tests need from processImage.
+vi.mock('sharp', () => ({
+  default: (input: Buffer) => {
+    const image = {
+      metadata: async () => ({ format: 'jpeg', width: 64, height: 48 }),
+      resize: () => image,
+      toFormat: () => image,
+      toFile: async (filePath: string) => {
+        fs.writeFileSync(filePath, Buffer.concat([input, Buffer.from(filePath)]));
+        return {};
+      },
+    };
+    return image;
+  },
+}));
 
 let db: BetterSQLite3Database<typeof schema>;
 let close: () => void;
@@ -402,15 +419,11 @@ describe('photosets made from same-named sources', () => {
 
   afterEach(() => fsp.rm(tmpDir, { recursive: true, force: true }));
 
-  /** Write a small solid-color jpg at `<tmpDir>/<folder>/<name>`, like a camera card would. */
-  async function source(folder: string, name: string, red: number): Promise<string> {
+  /** Write a stand-in source image at `<tmpDir>/<folder>/<name>`, like a camera card would. */
+  function source(folder: string, name: string, shade: number): string {
     const filePath = path.join(tmpDir, folder, name);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    await sharp({
-      create: { width: 64, height: 48, channels: 3, background: { r: red, g: 0, b: 0 } },
-    })
-      .jpeg()
-      .toFile(filePath);
+    fs.writeFileSync(filePath, Buffer.from([shade]));
     return filePath;
   }
 
@@ -435,13 +448,13 @@ describe('photosets made from same-named sources', () => {
     const trip2 = createPhotoset({ name: 'Trip 2' });
 
     const trip1Files = await processInto(trip1.id, [
-      await source('card-a', 'IMG_0001.jpg', 10),
-      await source('card-a', 'IMG_0002.jpg', 20),
-      await source('card-a', 'IMG_0003.jpg', 30),
+      source('card-a', 'IMG_0001.jpg', 10),
+      source('card-a', 'IMG_0002.jpg', 20),
+      source('card-a', 'IMG_0003.jpg', 30),
     ]);
     const trip2Files = await processInto(trip2.id, [
-      await source('card-b', 'IMG_0001.jpg', 200),
-      await source('card-b', 'IMG_0002.jpg', 210),
+      source('card-b', 'IMG_0001.jpg', 200),
+      source('card-b', 'IMG_0002.jpg', 210),
     ]);
 
     expect(trip1Files).toHaveLength(24);
@@ -462,8 +475,8 @@ describe('photosets made from same-named sources', () => {
   it('gives same-named sources in one photoset their own files', async () => {
     const ps = createPhotoset();
     const files = await processInto(ps.id, [
-      await source('card-a', 'IMG_0001.jpg', 10),
-      await source('card-b', 'IMG_0001.jpg', 200),
+      source('card-a', 'IMG_0001.jpg', 10),
+      source('card-b', 'IMG_0001.jpg', 200),
     ]);
 
     expect(new Set(files).size).toBe(16);
@@ -473,7 +486,7 @@ describe('photosets made from same-named sources', () => {
 
   it('keeps files from a re-run apart, and delete clears the leftovers with the folder', async () => {
     const ps = createPhotoset();
-    const src = await source('card-a', 'IMG_0001.jpg', 10);
+    const src = source('card-a', 'IMG_0001.jpg', 10);
     const firstRun = await processInto(ps.id, [src]);
     // A second run replaces the rows, so the first run's files are now on disk but unreferenced.
     const secondRun = await processInto(ps.id, [src]);
@@ -508,7 +521,7 @@ describe('photosets made from same-named sources', () => {
 
   it('removeFiles skips files a photoset still points at and drops the empty folder', async () => {
     const ps = createPhotoset();
-    const files = await processInto(ps.id, [await source('card-a', 'IMG_0001.jpg', 10)]);
+    const files = await processInto(ps.id, [source('card-a', 'IMG_0001.jpg', 10)]);
     const outside = path.join(tmpDir, 'outside.jpg');
     fs.writeFileSync(outside, 'x');
 
@@ -559,7 +572,7 @@ describe('photosets made from same-named sources', () => {
 
   it('removeFiles normalizes paths before checking whether they are in use', async () => {
     const ps = createPhotoset();
-    const [file] = await processInto(ps.id, [await source('card-a', 'IMG_0001.jpg', 10)]);
+    const [file] = await processInto(ps.id, [source('card-a', 'IMG_0001.jpg', 10)]);
     // Not path.join: it would normalize the `.` away.
     const sneaky = [path.dirname(file), '.', path.basename(file)].join(path.sep);
 
@@ -579,7 +592,7 @@ describe('photosets made from same-named sources', () => {
 
   it("stops the photoset's image jobs before it touches the row or the files", async () => {
     const ps = createPhotoset();
-    const files = await processInto(ps.id, [await source('card-a', 'IMG_0001.jpg', 10)]);
+    const files = await processInto(ps.id, [source('card-a', 'IMG_0001.jpg', 10)]);
     const stopJobs = vi.fn(async (id: number) => {
       expect(id).toBe(ps.id);
       expect(db.select().from(photosets).where(eq(photosets.id, ps.id)).get()).toBeDefined();

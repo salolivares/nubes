@@ -29,6 +29,7 @@ albums to S3 with metadata.
   `node scripts/create-e2e-fixture-db.ts` only to change its rows.
 - Main-process tests run under Electron's Node (`pnpm test:main`), because `better-sqlite3` is built
   for Electron's ABI. Running `vitest` directly on them fails with a `NODE_MODULE_VERSION` error.
+  Mock `sharp` in them. On Linux its libvips clashes with Electron's GLib and the test worker hangs.
 
 ## Rules
 
