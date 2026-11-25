@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
 
 import { _electron as electron, expect, test } from '@playwright/test';
 
@@ -12,10 +13,14 @@ test('the preload bundle is one CommonJS file that only requires electron', asyn
   expect(preloads).toEqual(['preload.cjs']);
 
   const code = await fs.readFile(path.join(buildDir, 'preload.cjs'), 'utf8');
-  const requires = Array.from(code.matchAll(/\brequire\(\s*([^)]*?)\s*\)/g), (m) => m[1]);
+  const requires = Array.from(code.matchAll(/\brequire\(\s*([^)]*?)\s*\)/g), (m) =>
+    m[1].replace(/^(["'`])(.*)\1$/, '$2'),
+  );
   expect(requires.length).toBeGreaterThan(0);
-  expect(new Set(requires)).toEqual(new Set(['"electron"']));
-  expect(code).not.toMatch(/^\s*(import|export)\s/m);
+  expect(new Set(requires)).toEqual(new Set(['electron']));
+  // Compiling as a classic script throws on any import or export statement.
+  expect(() => new vm.Script(code)).not.toThrow();
+  expect(code).not.toMatch(/\bimport\s*\(/);
 });
 
 test('the main window runs sandboxed and the preload still exposes its APIs', async () => {
