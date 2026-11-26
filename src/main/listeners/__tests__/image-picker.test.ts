@@ -19,7 +19,7 @@ vi.mock('electron-log/main', () => {
 });
 vi.mock('@/main/media', () => media);
 
-const mainFrame = { url: 'file:///app/renderer/main_window/index.html', parent: null };
+const mainFrame = { url: 'nubes://app/index.html', parent: null };
 const trustedEvent = { sender: { mainFrame }, senderFrame: mainFrame };
 
 function invoke(channel: string, args: unknown) {

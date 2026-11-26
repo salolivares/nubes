@@ -3,6 +3,8 @@ import { URL } from 'node:url';
 import type { Session } from 'electron';
 import { app, shell } from 'electron';
 
+import { isAppUrl } from './ipc';
+
 /**
  * Union for all existing permissions in electron
  */
@@ -11,15 +13,20 @@ type Permission = Parameters<
 >[1];
 
 /**
- * A list of origins that you allow open INSIDE the application and permissions for them.
- *
- * In development mode you need allow open `VITE_DEV_SERVER_URL`.
+ * Permissions the app's own page may have. None today. Only the app page (`isAppUrl()`: the Vite
+ * dev server in dev, `nubes://app` otherwise) can be navigated to or granted anything.
  */
-const ALLOWED_ORIGINS_AND_PERMISSIONS = new Map<string, Set<Permission>>(
-  MAIN_WINDOW_VITE_DEV_SERVER_URL
-    ? [[new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin, new Set()]]
-    : [],
-);
+const APP_PERMISSIONS = new Set<Permission>();
+
+/** The origin to show in warnings. `URL.origin` is `"null"` for `nubes:` and `file:`. */
+function describeOrigin(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === 'null' ? `${parsed.protocol}//${parsed.host}` : parsed.origin;
+  } catch {
+    return url;
+  }
+}
 
 /**
  * A list of origins that you allow open IN BROWSER.
@@ -46,8 +53,7 @@ app.on('web-contents-created', (_, contents) => {
    * @see https://www.electronjs.org/docs/latest/tutorial/security#13-disable-or-limit-navigation
    */
   contents.on('will-navigate', (event, url) => {
-    const { origin } = new URL(url);
-    if (ALLOWED_ORIGINS_AND_PERMISSIONS.has(origin)) {
+    if (isAppUrl(url)) {
       return;
     }
 
@@ -55,7 +61,7 @@ app.on('web-contents-created', (_, contents) => {
     event.preventDefault();
 
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-      console.warn(`Blocked navigating to disallowed origin: ${origin}`);
+      console.warn(`Blocked navigating to disallowed origin: ${describeOrigin(url)}`);
     }
   });
 
@@ -66,13 +72,14 @@ app.on('web-contents-created', (_, contents) => {
    * @see https://www.electronjs.org/docs/latest/tutorial/security#5-handle-session-permission-requests-from-remote-content
    */
   contents.session.setPermissionRequestHandler((webContents, permission, callback) => {
-    const { origin } = new URL(webContents.getURL());
-
-    const permissionGranted = !!ALLOWED_ORIGINS_AND_PERMISSIONS.get(origin)?.has(permission);
+    const url = webContents?.getURL() ?? '';
+    const permissionGranted = isAppUrl(url) && APP_PERMISSIONS.has(permission);
     callback(permissionGranted);
 
     if (!permissionGranted && MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-      console.warn(`${origin} requested permission for '${permission}', but was rejected.`);
+      console.warn(
+        `${describeOrigin(url)} requested permission for '${permission}', but was rejected.`,
+      );
     }
   });
 
@@ -87,7 +94,12 @@ app.on('web-contents-created', (_, contents) => {
    * @see https://www.electronjs.org/docs/latest/tutorial/security#15-do-not-use-openexternal-with-untrusted-content
    */
   contents.setWindowOpenHandler(({ url }) => {
-    const { origin } = new URL(url);
+    let origin: string;
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      return { action: 'deny' };
+    }
 
     if (ALLOWED_EXTERNAL_ORIGINS.has(origin as `https://${string}`)) {
       // Open url in default browser.
@@ -108,8 +120,7 @@ app.on('web-contents-created', (_, contents) => {
    * @see https://www.electronjs.org/docs/latest/tutorial/security#12-verify-webview-options-before-creation
    */
   contents.on('will-attach-webview', (event, webPreferences, params) => {
-    const { origin } = new URL(params.src);
-    if (!ALLOWED_ORIGINS_AND_PERMISSIONS.has(origin)) {
+    if (!isAppUrl(params.src)) {
       if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
         console.warn(`A webview tried to attach ${params.src}, but was blocked.`);
       }

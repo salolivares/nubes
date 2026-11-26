@@ -3,9 +3,11 @@ import { fileURLToPath } from 'node:url';
 
 import { BrowserWindow } from 'electron';
 
+import { APP_ENTRY_URL } from '@/common/app-url';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** The folder the packaged-style renderer loads from. Not used in dev, which loads over http. */
+/** The renderer bundle `nubes://app/` serves. Not used in dev, which loads over http. */
 export function rendererDir() {
   return path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
 }
@@ -62,15 +64,10 @@ async function createWindow({ background = false }: WindowOptions) {
     await browserWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
     /**
-     * Load from the local file system for production and test.
-     *
-     * Use BrowserWindow.loadFile() instead of BrowserWindow.loadURL() for WhatWG URL API limitations
-     * when path contains special characters like `#`.
-     * Let electron handle the path quirks.
-     * @see https://github.com/nodejs/node/issues/12682
-     * @see https://github.com/electron/electron/issues/6869
+     * Packaged and built (e2e) runs load the bundle over `nubes://app/`, served by
+     * src/main/app-protocol/. Never file://, where CSP 'self' would match the whole disk.
      */
-    await browserWindow.loadFile(path.join(rendererDir(), 'index.html'));
+    await browserWindow.loadURL(APP_ENTRY_URL);
   }
 
   return browserWindow;

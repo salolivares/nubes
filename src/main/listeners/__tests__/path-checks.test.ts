@@ -27,7 +27,7 @@ const h = vi.hoisted(() => {
   const sender = {
     on: () => {},
     once: () => {},
-    mainFrame: { url: 'file:///app/renderer/main_window/index.html', parent: null },
+    mainFrame: { url: 'nubes://app/index.html', parent: null },
   };
   const window = { webContents: sender, isDestroyed: () => false };
   return {

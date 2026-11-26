@@ -65,11 +65,17 @@ albums to S3 with metadata.
   the id in `image-processor:resize` (`src/main/photoset-folders.ts`), never from a renderer path.
   Photosets made before this keep flat paths under `photosets/`, and some share files, so deletes
   skip any file another photoset still points at.
-- The CSP is `contentSecurityPolicy()` in `src/common/csp.ts`. A plugin in
-  `vite.renderer.config.ts` fills the `__NUBES_CSP__` placeholder in `index.html` with it. Dev-only
-  relaxations stay behind its `dev` flag. The packaged page is a `file://` URL, where `'self'`
-  matches any file, so `src/main/file-requests.ts` cancels `file://` loads outside the renderer
-  bundle.
+- Packaged and built runs (including e2e) load the renderer from `nubes://app/index.html`, never
+  `file://`. `src/main/app-protocol/` serves only regular files inside the renderer bundle, after
+  resolving symlinks, and answers 404 to anything else. Dev loads from the Vite dev server.
+  `nubes` and `nubes-media` are declared in one `protocol.registerSchemesAsPrivileged()` call in
+  `src/main/index.ts`, because a second call replaces the first.
+- The CSP is `contentSecurityPolicy()` in `src/common/csp.ts`, sent as a response header: by the
+  `nubes://app` handler, and in dev by Vite's `server.headers` in `vite.renderer.config.ts`.
+  `index.html` has no meta CSP; don't add one. Dev-only relaxations stay behind its `dev` flag.
+- `isAppUrl()` in `src/main/ipc.ts` decides which page may call IPC, navigate, or get permissions:
+  the dev server origin in dev, `nubes://app` otherwise. Never `file:`. Don't compare `URL.origin`
+  for `nubes:` URLs: Node gives non-special schemes the opaque origin `"null"`.
 - The main window runs with `sandbox: true`. The preload builds to one CommonJS file,
   `.vite/build/preload.cjs`, and may only `require('electron')` (`contextBridge`, `ipcRenderer`,
   `webUtils`). Don't import Node built-ins or Node-only packages into `src/preload/` or the
@@ -88,7 +94,8 @@ src/
 │   │                      #   index.ts and drivers/image-processor.ts)
 │   ├── index.ts           # App lifecycle, dev userData path, single-instance lock
 │   ├── dev-environment.ts # Picks the dev userData folder and S3 mode
-│   ├── ipc.ts             # handle() and on(): Zod-validated ipcMain wrappers
+│   ├── ipc.ts             # handle() and on(): Zod-validated ipcMain wrappers, isAppUrl()
+│   ├── app-protocol/      # nubes://app: serves the packaged renderer bundle with the CSP header
 │   ├── drivers/
 │   │   ├── database.ts        # Singleton: better-sqlite3 + Drizzle, runs migrations
 │   │   ├── storage.ts         # Singleton: electron-store, safeStorage-encrypted credentials
@@ -170,7 +177,8 @@ React 19 and Tailwind CSS 4. Versions to watch for, since APIs differ from the l
   On queries, `isPending` is also true while `enabled: false`, so gate spinners on `isLoading`.
   Wrap preload calls in arrow functions for `queryFn`/`mutationFn`, so Query's context object
   never crosses `contextBridge`. Zod is v4.
-- React Router 6 with a hash router, because the packaged app loads from `file://`.
+- React Router 6 with a hash router, so routes live in the fragment and `nubes://app` only ever
+  serves `index.html` and its assets.
 - Dark mode is the custom `src/renderer/components/theme-provider.tsx`, synced with Electron's
   `nativeTheme` through `window.themeMode`. There is no `next-themes`.
 

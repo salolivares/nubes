@@ -68,7 +68,7 @@ const SECRET = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
 const SECRET_FORMS = [SECRET, Buffer.from(SECRET).toString('base64')];
 
 const send = vi.fn();
-const mainFrame = { url: 'file:///app/renderer/main_window/index.html', parent: null };
+const mainFrame = { url: 'nubes://app/index.html', parent: null };
 const trustedEvent = { sender: { mainFrame }, senderFrame: mainFrame };
 
 type Handler = (event: unknown, args?: unknown) => Promise<unknown>;

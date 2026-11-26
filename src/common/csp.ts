@@ -1,11 +1,13 @@
 /**
- * The renderer's Content-Security-Policy. Replaces `__NUBES_CSP__` in index.html's meta tag.
+ * The renderer's Content-Security-Policy, sent as a response header: by the `nubes://app` handler
+ * (src/main/app-protocol/) in packaged and built runs, and by the Vite dev server in dev
+ * (vite.renderer.config.ts). index.html has no meta CSP.
  *
  * - `img-src` allows `nubes-media:` (photos served by main, see src/main/media/), `data:` (the base64
  *   previews saved in the DB) and `blob:` (dropped files before they have a path).
  * - `style-src 'unsafe-inline'`: sonner and Base UI insert <style> tags at runtime.
- * - In the packaged app the page is a file:// URL, and Chromium lets `'self'` match every file:
- *   URL. Main blocks file:// requests outside the renderer folder (src/main/file-requests.ts).
+ * - `'self'` is `nubes://app` in packaged builds, which only serves the renderer bundle.
+ * - `frame-ancestors 'none'`: nothing may frame the app. Only works as a header, not a meta tag.
  * - Dev only: Vite's dev server injects an inline script (React Refresh preamble) and inline
  *   <style> tags, and HMR talks over a websocket to the dev server. No 'unsafe-eval' in either.
  */
@@ -23,6 +25,7 @@ export function contentSecurityPolicy(dev: boolean): string {
     'worker-src': ["'none'"],
     'media-src': ["'none'"],
     'manifest-src': ["'none'"],
+    'frame-ancestors': ["'none'"],
   };
   return Object.entries(directives)
     .map(([name, values]) => `${name} ${values.join(' ')}`)

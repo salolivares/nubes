@@ -33,7 +33,7 @@ const electron = vi.hoisted(() => {
       on: (event: string, cb: () => void) => this.contentsListeners.set(event, cb),
       once: (event: string, cb: () => void) => this.contentsListeners.set(event, cb),
       // The app page in the main frame, so ipc.ts's sender check accepts calls from it.
-      mainFrame: { url: 'file:///app/renderer/main_window/index.html', parent: null },
+      mainFrame: { url: 'nubes://app/index.html', parent: null },
     };
 
     constructor() {

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import type { CustomScheme } from 'electron';
 import { app, net, protocol } from 'electron';
 import baseLog from 'electron-log/main';
 import sharp from 'sharp';
@@ -26,14 +27,13 @@ export function allowPickedFiles(filePaths: string[]): Promise<string[]> {
 }
 
 /**
- * Must run before `app` is ready. `standard` gives the scheme normal URL parsing, `secure` keeps
- * it from counting as mixed content. It does not get `bypassCSP`, so `img-src` still applies.
+ * `standard` gives the scheme normal URL parsing, `secure` keeps it from counting as mixed content.
+ * It does not get `bypassCSP`, so `img-src` still applies. Registered in src/main/index.ts.
  */
-export function registerMediaScheme() {
-  protocol.registerSchemesAsPrivileged([
-    { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true } },
-  ]);
-}
+export const MEDIA_SCHEME_PRIVILEGES: CustomScheme = {
+  scheme: MEDIA_SCHEME,
+  privileges: { standard: true, secure: true },
+};
 
 const RESPONSE_HEADERS = {
   'Cache-Control': 'no-cache',
