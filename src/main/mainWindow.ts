@@ -46,7 +46,7 @@ function watchWebContents(browserWindow: BrowserWindow, webContents: WebContents
       // Reloading inside the event doesn't work: Chromium is still tearing down the old renderer
       // (it logs "Observers can only be added once!") and the window stays blank. Wait a tick.
       setTimeout(() => {
-        if (!browserWindow.isDestroyed()) webContents.reload();
+        if (!browserWindow.isDestroyed() && !gaveUp) webContents.reload();
       }, 0);
       return;
     }
@@ -134,19 +134,17 @@ async function createWindow({ background = false }: WindowOptions) {
   });
 
   /**
-   * Load the main page of the main window.
+   * Load the main page of the main window. Dev loads from the Vite dev server. Packaged and
+   * built (e2e) runs load the bundle over `nubes://app/`, served by src/main/app-protocol/.
+   * Never file://, where CSP 'self' would match the whole disk.
    */
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    /**
-     * Load from the Vite dev server for development.
-     */
-    await browserWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-  } else {
-    /**
-     * Packaged and built (e2e) runs load the bundle over `nubes://app/`, served by
-     * src/main/app-protocol/. Never file://, where CSP 'self' would match the whole disk.
-     */
-    await browserWindow.loadURL(APP_ENTRY_URL);
+  try {
+    await browserWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL || APP_ENTRY_URL);
+  } catch (error) {
+    // A window that never loaded is never shown. Left open, it would be found by the next
+    // restoreOrCreateWindow() and focused while invisible, so the dock icon would do nothing.
+    if (!browserWindow.isDestroyed()) browserWindow.destroy();
+    throw error;
   }
 
   return browserWindow;

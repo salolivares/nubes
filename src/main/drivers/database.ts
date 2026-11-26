@@ -38,7 +38,8 @@ export class Database {
     } catch (error) {
       if (isCorruptionError(error)) {
         const latestBackup = listBackups(dbPath).at(-1);
-        log.error(`Database is corrupt. Latest backup: ${latestBackup ?? 'none'}`);
+        // electron-log drops `cause`, so log the SQLite error itself here.
+        log.error(`Database is corrupt. Latest backup: ${latestBackup ?? 'none'}`, error);
         // The central handler in index.ts shows this message and quits.
         throw new UserFacingError(
           'Nubes database is corrupt',

@@ -63,6 +63,7 @@ const errors = createErrorHandler({
 });
 process.on('uncaughtException', (error) => errors.handle('uncaughtException', error));
 process.on('unhandledRejection', (reason) => errors.handle('unhandledRejection', reason));
+app.on('before-quit', () => errors.appQuitting());
 
 if (devEnvironment.mockS3) {
   setS3Provider(new MockS3());
@@ -110,7 +111,6 @@ if (!isSingleInstance) {
   app.quit();
   process.exit(0);
 }
-app.on('second-instance', () => restoreOrCreateWindow());
 
 /**
  * Disable Hardware Acceleration to save more system resources.
@@ -142,10 +142,17 @@ app
     if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) registerAppProtocol(rendererDir());
 
     /**
-     * Registered after the IPC handlers so a reopened window always has them.
+     * Registered after the IPC handlers and protocols, so a reopened window always has them.
+     * A second launch during startup is ignored: the first window is about to show anyway.
+     * A window that fails to open later is logged and destroyed; the app keeps running.
      * @see https://www.electronjs.org/docs/latest/api/app#event-activate-macos Event: 'activate'.
      */
-    app.on('activate', () => restoreOrCreateWindow());
+    const reopenWindow = () =>
+      restoreOrCreateWindow().catch((error: unknown) =>
+        log.error('Failed to open a window:', error),
+      );
+    app.on('activate', reopenWindow);
+    app.on('second-instance', reopenWindow);
 
     return restoreOrCreateWindow({ background: devEnvironment.background });
   })

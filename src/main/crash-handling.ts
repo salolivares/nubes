@@ -78,6 +78,13 @@ export function createErrorHandler({ log, showErrorBox, quit }: ErrorHandlerDeps
     startupComplete() {
       started = true;
     },
+    /**
+     * The app is quitting on purpose (the user chose Quit, or a fatal error did). Errors from
+     * here on, such as a page load the quit aborts, are logged but never show a dialog.
+     */
+    appQuitting() {
+      quitting = true;
+    },
     handle(source: ErrorSource, error: unknown) {
       const duringStartup = !started;
       const fatal = duringStartup || isFatalError(error);

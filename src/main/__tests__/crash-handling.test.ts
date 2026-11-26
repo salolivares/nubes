@@ -121,6 +121,31 @@ describe('createErrorHandler', () => {
     expect(deps.quit).toHaveBeenCalledWith(false);
   });
 
+  it('shows a raw corruption error after startup and quits', () => {
+    const { deps, errors } = setup();
+    errors.startupComplete();
+
+    errors.handle('uncaughtException', Object.assign(new Error('bad'), { code: 'SQLITE_CORRUPT' }));
+
+    expect(deps.showErrorBox).toHaveBeenCalledWith(
+      'Nubes hit an error and has to quit',
+      expect.stringContaining('bad'),
+    );
+    expect(deps.quit).toHaveBeenCalledWith(false);
+  });
+
+  it('only logs errors once the app is quitting, even during startup', () => {
+    const { deps, errors } = setup();
+
+    // The user chose Quit in the renderer crash dialog, which aborts the pending page load.
+    errors.appQuitting();
+    errors.handle('startup', new Error('ERR_ABORTED'));
+
+    expect(deps.log.error).toHaveBeenCalledOnce();
+    expect(deps.showErrorBox).not.toHaveBeenCalled();
+    expect(deps.quit).not.toHaveBeenCalled();
+  });
+
   it('shows one dialog when errors pile up while quitting', () => {
     const { deps, errors } = setup();
 

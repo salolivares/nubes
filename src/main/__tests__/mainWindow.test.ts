@@ -14,6 +14,8 @@ import type * as Guards from '@/main/media/guards';
  * click the dock icon, which calls restoreOrCreateWindow() again.
  */
 
+const loadFailure = vi.hoisted(() => ({ error: null as Error | null }));
+
 const electron = vi.hoisted(() => {
   const handlers = new Map<string, unknown>();
   const sendListeners = new Map<string, (event: unknown, args: unknown) => void>();
@@ -58,6 +60,7 @@ const electron = vi.hoisted(() => {
     loadedUrl: string | undefined;
     async loadURL(url: string) {
       this.loadedUrl = url;
+      if (loadFailure.error) throw loadFailure.error;
       this.listeners.get('ready-to-show')?.();
     }
     show() {
@@ -164,6 +167,7 @@ beforeEach(() => {
   electron.module.ipcMain.handle.mockClear();
   electron.module.dialog.showMessageBox.mockClear();
   electron.module.app.quit.mockClear();
+  loadFailure.error = null;
 });
 
 afterEach(() => {
@@ -265,6 +269,19 @@ describe('renderer crash recovery', () => {
 });
 
 describe('restoreOrCreateWindow', () => {
+  it('destroys a window whose page fails to load, so the next call makes a new one', async () => {
+    const { restoreOrCreateWindow } = await import('@/main/mainWindow');
+    loadFailure.error = new Error('ERR_FAILED (-2) loading nubes://app/index.html');
+
+    await expect(restoreOrCreateWindow()).rejects.toThrow('ERR_FAILED');
+    expect(electron.windows[0].destroyed).toBe(true);
+
+    loadFailure.error = null;
+    await restoreOrCreateWindow();
+    expect(electron.windows).toHaveLength(2);
+    expect(electron.windows[1].shown).toBe(true);
+  });
+
   it('reopens a window after the first one is closed', async () => {
     const { restoreOrCreateWindow } = await import('@/main/mainWindow');
 
