@@ -80,7 +80,7 @@ describe('createErrorHandler', () => {
 
     errors.handle('startup', error);
 
-    expect(deps.log.error).toHaveBeenCalledWith('startup during startup, quitting:', error);
+    expect(deps.log.error).toHaveBeenCalledWith('Startup failed, quitting:', error);
     expect(deps.showErrorBox).toHaveBeenCalledWith(
       'Nubes could not start',
       expect.stringContaining('Storage.init failed'),

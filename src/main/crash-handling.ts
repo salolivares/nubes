@@ -81,10 +81,11 @@ export function createErrorHandler({ log, showErrorBox, quit }: ErrorHandlerDeps
     handle(source: ErrorSource, error: unknown) {
       const duringStartup = !started;
       const fatal = duringStartup || isFatalError(error);
-      log.error(
-        `${source}${duringStartup ? ' during startup' : ''}${fatal ? ', quitting' : ''}:`,
-        error,
-      );
+      const where =
+        source === 'startup'
+          ? 'Startup failed'
+          : `${source}${duringStartup ? ' during startup' : ''}`;
+      log.error(`${where}${fatal ? ', quitting' : ''}:`, error);
       // A second error while the first dialog is up, or while quitting, only gets logged.
       if (!fatal || quitting) return;
       quitting = true;

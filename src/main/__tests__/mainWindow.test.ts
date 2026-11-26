@@ -201,11 +201,12 @@ describe('renderer crash recovery', () => {
     crash('crashed');
     crash('oom');
     crash('killed');
-    expect(window.webContents.reload).toHaveBeenCalledTimes(3);
+    // The reload waits a tick: Chromium can't reload from inside the event.
+    expect(window.webContents.reload).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(window.webContents.reload).toHaveBeenCalledTimes(3));
     expect(electron.module.dialog.showMessageBox).not.toHaveBeenCalled();
 
     crash('crashed');
-    expect(window.webContents.reload).toHaveBeenCalledTimes(3);
     expect(electron.module.dialog.showMessageBox).toHaveBeenCalledOnce();
     expect(electron.module.dialog.showMessageBox.mock.calls[0]).toEqual([
       window,
@@ -216,6 +217,8 @@ describe('renderer crash recovery', () => {
     // Only one dialog, however often it crashes after giving up.
     crash('crashed');
     expect(electron.module.dialog.showMessageBox).toHaveBeenCalledOnce();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(window.webContents.reload).toHaveBeenCalledTimes(3);
   });
 
   it('reloads again once the earlier crashes are a minute old', async () => {
@@ -228,7 +231,7 @@ describe('renderer crash recovery', () => {
     vi.advanceTimersByTime(60_000);
     crash('crashed');
 
-    expect(window.webContents.reload).toHaveBeenCalledTimes(4);
+    await vi.waitFor(() => expect(window.webContents.reload).toHaveBeenCalledTimes(4));
     expect(electron.module.dialog.showMessageBox).not.toHaveBeenCalled();
   });
 
@@ -236,6 +239,7 @@ describe('renderer crash recovery', () => {
     const { window, crash } = await openWindow();
 
     crash('clean-exit');
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(window.webContents.reload).not.toHaveBeenCalled();
     expect(electron.module.dialog.showMessageBox).not.toHaveBeenCalled();

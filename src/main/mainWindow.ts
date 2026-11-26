@@ -43,7 +43,11 @@ function watchWebContents(browserWindow: BrowserWindow, webContents: WebContents
     if (browserWindow.isDestroyed() || gaveUp) return;
     if (reloads.tryAcquire()) {
       log.error(`Renderer gone (${reason}, exit code ${exitCode}). Reloading.`);
-      webContents.reload();
+      // Reloading inside the event doesn't work: Chromium is still tearing down the old renderer
+      // (it logs "Observers can only be added once!") and the window stays blank. Wait a tick.
+      setTimeout(() => {
+        if (!browserWindow.isDestroyed()) webContents.reload();
+      }, 0);
       return;
     }
     log.error(
