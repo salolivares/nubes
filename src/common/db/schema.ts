@@ -5,7 +5,10 @@ export const photosets = sqliteTable('photosets', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   location: text('location').notNull(),
+  description: text('description').notNull().default(''),
   year: integer('year').notNull(),
+  /** 1-12. Sorts albums within the same year on the site. */
+  month: integer('month'),
   bucketName: text('bucket_name').notNull(),
   status: text('status', { enum: ['draft', 'published'] })
     .notNull()

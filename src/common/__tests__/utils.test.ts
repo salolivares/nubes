@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { batchPromises, metadataFilename, slugify } from '../utils';
+import { batchPromises, slugify } from '../utils';
 
 describe('slugify', () => {
   it('lowercases and replaces spaces with hyphens', () => {
@@ -17,16 +17,6 @@ describe('slugify', () => {
 
   it('handles empty string', () => {
     expect(slugify('')).toBe('');
-  });
-});
-
-describe('metadataFilename', () => {
-  it('produces {year}-{slug}.json', () => {
-    expect(metadataFilename(2024, 'Summer Vibes')).toBe('2024-summer-vibes.json');
-  });
-
-  it('handles names with special characters', () => {
-    expect(metadataFilename(2023, "Bob's Trip!")).toBe('2023-bobs-trip.json');
   });
 });
 

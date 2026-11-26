@@ -13,6 +13,8 @@ interface TestPhotoset {
   id: number;
   name: string;
   location: string;
+  description: string;
+  month: number | null;
   year: number;
   images: Array<{ outputs: unknown[] }>;
 }
@@ -78,6 +80,8 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
       photosets.map((photoset) => ({
         name: photoset.name,
         location: photoset.location,
+        description: photoset.description,
+        month: photoset.month,
         yearIsNumber: Number.isInteger(photoset.year),
         images: photoset.images.length,
         outputs: photoset.images.flatMap((image) => image.outputs).length,
@@ -86,6 +90,8 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
       {
         name: 'Fixture Joshua Tree',
         location: 'Joshua Tree, CA',
+        description: '',
+        month: null,
         yearIsNumber: true,
         images: 2,
         outputs: 16,
@@ -93,6 +99,8 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
       {
         name: 'Fixture Untitled Roll',
         location: '',
+        description: '',
+        month: null,
         yearIsNumber: true,
         images: 1,
         outputs: 8,

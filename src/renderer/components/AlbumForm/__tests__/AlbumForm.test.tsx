@@ -15,11 +15,12 @@ afterEach(cleanup);
 const Wrapper: FC<{ onSubmit?: (data: Album) => void }> = ({ onSubmit = vi.fn() }) => {
   const form = useForm({
     resolver: zodResolver(albumSchema),
-    defaultValues: { name: '', location: '', year: 2024, published: false },
+    defaultValues: { name: '', location: '', description: '', year: 2024, published: false },
   });
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)}>
+    // noValidate: test the schema, not the browser's own min/max check.
+    <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
       <AlbumForm form={form} />
       <button type="submit">Submit</button>
     </form>
@@ -32,7 +33,9 @@ describe('AlbumForm', () => {
 
     expect(screen.getByLabelText('Album name')).toBeInTheDocument();
     expect(screen.getByLabelText('Location')).toBeInTheDocument();
+    expect(screen.getByLabelText('Description')).toBeInTheDocument();
     expect(screen.getByLabelText('Year')).toBeInTheDocument();
+    expect(screen.getByLabelText('Month (optional)')).toBeInTheDocument();
     expect(screen.getByRole('checkbox')).toBeInTheDocument();
   });
 
@@ -70,6 +73,7 @@ describe('AlbumForm', () => {
 
     await user.type(screen.getByLabelText('Album name'), 'Vacation');
     await user.type(screen.getByLabelText('Location'), 'Paris');
+    await user.type(screen.getByLabelText('Description'), 'Spring in Paris.');
 
     await user.click(screen.getByRole('button', { name: /submit/i }));
 
@@ -78,11 +82,51 @@ describe('AlbumForm', () => {
         expect.objectContaining({
           name: 'Vacation',
           location: 'Paris',
+          description: 'Spring in Paris.',
           year: 2024,
+          month: undefined,
           published: false,
         }),
         expect.anything(),
       );
     });
+  });
+
+  it('blocks submit without a description', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<Wrapper onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText('Album name'), 'Vacation');
+    await user.type(screen.getByLabelText('Location'), 'Paris');
+    await user.click(screen.getByRole('button', { name: /submit/i }));
+
+    expect(await screen.findByText('Description is required')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('blocks submit with a month outside 1-12, and clearing it means no month', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<Wrapper onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText('Album name'), 'Vacation');
+    await user.type(screen.getByLabelText('Location'), 'Paris');
+    await user.type(screen.getByLabelText('Description'), 'Spring in Paris.');
+    const month = screen.getByLabelText('Month (optional)');
+    await user.type(month, '13');
+    await user.click(screen.getByRole('button', { name: /submit/i }));
+
+    expect(await screen.findByText('Month must be between 1 and 12')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await user.clear(month);
+    await user.click(screen.getByRole('button', { name: /submit/i }));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ month: undefined }),
+        expect.anything(),
+      ),
+    );
   });
 });

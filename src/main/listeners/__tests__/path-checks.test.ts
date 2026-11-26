@@ -135,7 +135,7 @@ const output = (imagePath: string) => ({
 
 const albumArgs = (...imagePaths: string[]) => ({
   bucketName: 'mock-photos-bucket',
-  album: { name: 'Trip', location: 'Here', year: 2026, published: false },
+  album: { name: 'Trip', location: 'Here', description: 'D', year: 2026, published: false },
   images: [{ id: 'a', name: 'a', imagePaths: imagePaths.map(output) }],
 });
 

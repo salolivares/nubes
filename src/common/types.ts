@@ -144,11 +144,18 @@ export const albumSchema = z.object({
     .string()
     .min(1, 'Location is required')
     .max(50, 'Location must be 50 characters or less'),
+  description: z.string().trim().min(1, 'Description is required'),
   year: z
     .number()
     .int()
     .min(1900, 'Year must be 1900 or later')
     .max(2100, 'Year must be 2100 or earlier'),
+  month: z
+    .number()
+    .int('Month must be a whole number')
+    .min(1, 'Month must be between 1 and 12')
+    .max(12, 'Month must be between 1 and 12')
+    .optional(),
   published: z.boolean(),
 });
 
@@ -163,6 +170,12 @@ export const s3CreateAlbumArgsSchema = z.object({
 });
 
 export type S3CreateAlbumArgs = z.infer<typeof s3CreateAlbumArgsSchema>;
+
+/** `error` is set when the album was rejected before anything was uploaded, and says why. */
+export interface S3CreateAlbumResult {
+  success: boolean;
+  error?: string;
+}
 
 // ── Storage ─────────────────────────────────────────────────────────
 
@@ -220,7 +233,9 @@ export const photosetSchema = z.object({
   id: z.number(),
   name: z.string(),
   location: z.string(),
+  description: z.string(),
   year: z.number(),
+  month: z.number().nullable(),
   bucketName: z.string(),
   status: photosetStatusSchema,
   createdAt: z.string(),
@@ -273,7 +288,7 @@ export const photosetCreateArgsSchema = z.object({
   name: z.string(),
   bucketName: z.string(),
   location: z.string(),
-  year: z.number(),
+  year: z.number().int(),
 });
 
 export type PhotosetCreateArgs = z.infer<typeof photosetCreateArgsSchema>;
@@ -282,7 +297,10 @@ export const photosetUpdateArgsSchema = z.object({
   id: z.number(),
   name: z.string().optional(),
   location: z.string().optional(),
-  year: z.number().optional(),
+  description: z.string().optional(),
+  year: z.number().int().optional(),
+  /** `null` clears the month. */
+  month: z.number().int().min(1).max(12).nullable().optional(),
   status: photosetStatusSchema.optional(),
 });
 

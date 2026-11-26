@@ -45,6 +45,22 @@ export const AlbumForm: FC<Props> = ({ form }) => {
       />
       <Controller
         control={form.control}
+        name="description"
+        render={({ field, fieldState }) => (
+          <Field data-invalid={fieldState.invalid}>
+            <FieldLabel htmlFor="description">Description</FieldLabel>
+            <Input
+              id="description"
+              placeholder="A week of street photography in Mexico City."
+              {...field}
+              value={field.value ?? ''}
+            />
+            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+          </Field>
+        )}
+      />
+      <Controller
+        control={form.control}
         name="year"
         render={({ field, fieldState }) => (
           <Field data-invalid={fieldState.invalid}>
@@ -57,6 +73,32 @@ export const AlbumForm: FC<Props> = ({ form }) => {
               value={field.value ?? ''}
               onChange={(e) => field.onChange(e.target.valueAsNumber)}
             />
+            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+          </Field>
+        )}
+      />
+      <Controller
+        control={form.control}
+        name="month"
+        render={({ field, fieldState }) => (
+          <Field data-invalid={fieldState.invalid}>
+            <FieldLabel htmlFor="month">Month (optional)</FieldLabel>
+            <Input
+              id="month"
+              type="number"
+              min={1}
+              max={12}
+              placeholder="1-12"
+              {...field}
+              value={field.value ?? ''}
+              // An empty input means no month, not NaN.
+              onChange={(e) =>
+                field.onChange(
+                  Number.isNaN(e.target.valueAsNumber) ? undefined : e.target.valueAsNumber,
+                )
+              }
+            />
+            <FieldDescription>Sorts albums from the same year on the site.</FieldDescription>
             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
           </Field>
         )}

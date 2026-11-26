@@ -90,7 +90,7 @@ describe('PhotosetDetail', () => {
 
   it('reloads the draft after a save, so the form is clean again', async () => {
     vi.mocked(window.photosets.get).mockResolvedValue(
-      makePhotoset({ name: 'Iceland', location: 'Reykjavik' }),
+      makePhotoset({ name: 'Iceland', location: 'Reykjavik', description: 'Hot springs.' }),
     );
     renderDetail();
 
@@ -106,7 +106,9 @@ describe('PhotosetDetail', () => {
     // The draft is hidden while it reloads, so Save and Upload can't fire again on the old form.
     expect(await screen.findByText('Loading...')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save Draft' })).not.toBeInTheDocument();
-    resolveReload(makePhotoset({ name: 'Iceland 2026', location: 'Reykjavik' }));
+    resolveReload(
+      makePhotoset({ name: 'Iceland 2026', location: 'Reykjavik', description: 'Hot springs.' }),
+    );
 
     expect(await screen.findByRole('heading', { name: 'Iceland 2026' })).toBeInTheDocument();
     expect(window.photosets.update).toHaveBeenCalledWith(

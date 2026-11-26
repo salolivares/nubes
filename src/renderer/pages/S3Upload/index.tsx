@@ -88,7 +88,9 @@ async function saveUploadedPhotoset(photosetId: number, values: Album, images: P
     id: photosetId,
     name: values.name,
     location: values.location,
+    description: values.description,
     year: values.year,
+    month: values.month ?? null,
   });
   if (values.published) {
     await window.photosets.publish({ id: photosetId });
@@ -120,7 +122,9 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
     defaultValues: {
       name: '',
       location: '',
+      description: '',
       year: new Date().getFullYear(),
+      month: undefined,
       published: false,
     },
   });
@@ -230,7 +234,9 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
         id: photosetId,
         name: values.name,
         location: values.location,
+        description: values.description,
         year: values.year,
+        month: values.month ?? null,
       });
       if (values.published) {
         await window.photosets.publish({ id: photosetId });

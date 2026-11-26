@@ -59,7 +59,9 @@ function makePhotoset(overrides: Partial<PhotosetWithImages> = {}): PhotosetWith
     name: 'Upload',
     bucketName: 'mock-bucket',
     location: '',
+    description: '',
     year: 2026,
+    month: null,
     status: 'draft',
     uploadedAt: null,
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -421,6 +423,9 @@ describe('S3 upload', () => {
     fireEvent.change(screen.getByPlaceholderText('Los Angeles, California'), {
       target: { value: 'Tokyo' },
     });
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'A week in Tokyo.' },
+    });
     const trigger = document.querySelector<HTMLElement>('[aria-haspopup="menu"]')!;
     await waitFor(() => expect(trigger).not.toBeDisabled());
     fireEvent.click(trigger);
@@ -457,6 +462,36 @@ describe('S3 upload', () => {
     expect(window.photosets.markUploaded).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
     expect(screen.getByTestId('location').textContent).toBe('/photoset/7/s3');
+  });
+
+  it('shows why the album was rejected before upload', async () => {
+    const error =
+      "Album metadata doesn't match the site's schema:\n✖ Too big: expected number to be <=12\n  → at month";
+    vi.mocked(window.s3.createAlbum).mockResolvedValueOnce({ success: false, error });
+
+    renderAt('/photoset/7/s3');
+    await fillAndUpload();
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(error));
+    expect(window.photosets.markUploaded).not.toHaveBeenCalled();
+  });
+
+  it('sends the description and month to S3 and the DB', async () => {
+    renderAt('/photoset/7/s3');
+    fireEvent.change(await screen.findByLabelText('Month (optional)'), {
+      target: { value: '4' },
+    });
+    await fillAndUpload();
+
+    await expectLocation('/photoset/7/summary');
+    expect(window.s3.createAlbum).toHaveBeenCalledWith(
+      expect.objectContaining({
+        album: expect.objectContaining({ description: 'A week in Tokyo.', month: 4 }),
+      }),
+    );
+    expect(window.photosets.update).toHaveBeenCalledWith(
+      expect.objectContaining({ description: 'A week in Tokyo.', month: 4 }),
+    );
   });
 
   it('marks the photoset uploaded only after publishing it', async () => {
