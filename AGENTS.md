@@ -4,6 +4,10 @@ Electron desktop app for a photo publishing workflow. It converts a set of image
 128, 640, 1280 and 2880px, tracks them as photosets in a local SQLite database, and uploads them as
 albums to S3 with metadata.
 
+macOS is the only supported platform. `forge.config.cts` only has the darwin zip maker. CI's Linux
+e2e job (pinned to `ubuntu-24.04`) is there for test coverage, not because Linux is a target. That
+is why #129 (sharp crashing on newer Linux) is low priority.
+
 ## Working in a worktree
 
 - Run `make setup` (or `pnpm install --frozen-lockfile`) first. A new worktree has no

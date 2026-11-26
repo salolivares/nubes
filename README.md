@@ -8,6 +8,8 @@ Basically you drop some images, it converts them to various sizes of webp and jp
 
 Built with Electron, React, TypeScript.
 
+macOS only. There are no Windows or Linux builds.
+
 ---
 
 ```bash
