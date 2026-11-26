@@ -5,6 +5,11 @@ import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import { app, shell } from 'electron';
 
 import {
+  albumMetadataFilename,
+  buildAlbumMetadata,
+  serializeAlbumMetadata,
+} from '@/common/album-metadata';
+import {
   PHOTOSET_ADD_IMAGES,
   PHOTOSET_CREATE,
   PHOTOSET_DELETE,
@@ -27,7 +32,6 @@ import {
   photosetShowInFolderArgsSchema,
   photosetUpdateArgsSchema,
 } from '@/common/types';
-import { metadataFilename, slugify } from '@/common/utils';
 import { Database } from '@/main/drivers/database';
 import { handle } from '@/main/ipc';
 import { stopPhotosetJobs } from '@/main/listeners/image-processor';
@@ -357,27 +361,21 @@ export function addPhotosetEventListeners() {
       with: {
         images: {
           columns: { name: true, camera: true },
+          orderBy: (images, { asc }) => [asc(images.sortOrder)],
         },
       },
     });
 
     if (!photoset) throw new Error(`Photoset ${args.id} not found`);
 
-    const metadata = {
-      title: photoset.name,
-      location: photoset.location,
-      year: photoset.year,
-      published: photoset.status === 'published',
-      images: photoset.images.map((img) => ({
-        id: slugify(img.name),
-        name: img.name,
-        camera: img.camera,
-      })),
-    };
+    // Throws a readable error when the photoset would break the site build.
+    const metadata = buildAlbumMetadata(
+      { ...photoset, published: photoset.status === 'published' },
+      photoset.images,
+    );
 
-    const filename = metadataFilename(photoset.year, photoset.name);
-    const filePath = path.join(app.getPath('downloads'), filename);
-    await fsp.writeFile(filePath, JSON.stringify(metadata, null, 2), 'utf-8');
+    const filePath = path.join(app.getPath('downloads'), albumMetadataFilename(photoset));
+    await fsp.writeFile(filePath, serializeAlbumMetadata(metadata), 'utf-8');
     exportedFiles.add(filePath);
 
     return { filePath };

@@ -3,6 +3,8 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { albumId } from '@/common/album-metadata';
+
 import { PhotoThumbnail } from '../../components/PhotoThumbnail';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -36,7 +38,7 @@ export function UploadedView({ photoset }: { photoset: PhotosetWithImages }) {
     0,
   );
 
-  const s3Prefix = `${photoset.year}-${photoset.location.replace(/\s+/g, '-').toLowerCase()}`;
+  const s3Prefix = albumId(photoset);
   const s3ConsoleUrl = `https://s3.console.aws.amazon.com/s3/buckets/${photoset.bucketName}?prefix=${encodeURIComponent(s3Prefix)}/`;
 
   return (

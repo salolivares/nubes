@@ -107,7 +107,9 @@ export function DraftView({
     defaultValues: {
       name: photoset.name,
       location: photoset.location,
+      description: photoset.description,
       year: photoset.year,
+      month: photoset.month ?? undefined,
       published: photoset.status === 'published',
     },
   });
@@ -243,7 +245,9 @@ export function DraftView({
         id: photoset.id,
         name: values.name,
         location: values.location,
+        description: values.description,
         year: values.year,
+        month: values.month ?? null,
         status: values.published ? 'published' : 'draft',
       });
       if (imagesDirty) {
@@ -289,7 +293,9 @@ export function DraftView({
               id: photoset.id,
               name: values.name,
               location: values.location,
+              description: values.description,
               year: values.year,
+              month: values.month ?? null,
             });
             if (imagesDirty) {
               await window.photosets.addImages({

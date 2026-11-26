@@ -82,6 +82,7 @@ describe('albumSchema', () => {
     const result = albumSchema.parse({
       name: 'Vacation',
       location: 'Paris',
+      description: 'D',
       year: 2024,
       published: false,
     });
@@ -91,19 +92,37 @@ describe('albumSchema', () => {
 
   it('rejects year below 1900', () => {
     expect(() =>
-      albumSchema.parse({ name: 'Old', location: 'Somewhere', year: 1899, published: false }),
+      albumSchema.parse({
+        name: 'Old',
+        location: 'Somewhere',
+        description: 'D',
+        year: 1899,
+        published: false,
+      }),
     ).toThrow(/1900/);
   });
 
   it('rejects year above 2100', () => {
     expect(() =>
-      albumSchema.parse({ name: 'Future', location: 'Mars', year: 2101, published: false }),
+      albumSchema.parse({
+        name: 'Future',
+        location: 'Mars',
+        description: 'D',
+        year: 2101,
+        published: false,
+      }),
     ).toThrow(/2100/);
   });
 
   it('rejects empty name', () => {
     expect(() =>
-      albumSchema.parse({ name: '', location: 'Here', year: 2024, published: false }),
+      albumSchema.parse({
+        name: '',
+        location: 'Here',
+        description: 'D',
+        year: 2024,
+        published: false,
+      }),
     ).toThrow();
   });
 
@@ -112,6 +131,7 @@ describe('albumSchema', () => {
       albumSchema.parse({
         name: 'A'.repeat(51),
         location: 'Here',
+        description: 'D',
         year: 2024,
         published: false,
       }),
@@ -119,10 +139,40 @@ describe('albumSchema', () => {
   });
 
   it('accepts boundary years 1900 and 2100', () => {
-    const low = albumSchema.parse({ name: 'A', location: 'B', year: 1900, published: false });
-    const high = albumSchema.parse({ name: 'A', location: 'B', year: 2100, published: true });
+    const low = albumSchema.parse({
+      name: 'A',
+      location: 'B',
+      description: 'D',
+      year: 1900,
+      published: false,
+    });
+    const high = albumSchema.parse({
+      name: 'A',
+      location: 'B',
+      description: 'D',
+      year: 2100,
+      published: true,
+    });
     expect(low.year).toBe(1900);
     expect(high.year).toBe(2100);
+  });
+
+  const valid = { name: 'A', location: 'B', description: 'D', year: 2024, published: false };
+
+  it('requires a description', () => {
+    const { description: _, ...noDescription } = valid;
+    expect(() => albumSchema.parse(noDescription)).toThrow();
+    expect(() => albumSchema.parse({ ...valid, description: '   ' })).toThrow(/Description/);
+  });
+
+  it('accepts a missing month and months 1 to 12', () => {
+    expect(albumSchema.parse(valid).month).toBeUndefined();
+    expect(albumSchema.parse({ ...valid, month: 1 }).month).toBe(1);
+    expect(albumSchema.parse({ ...valid, month: 12 }).month).toBe(12);
+  });
+
+  it.each([0, 13, 2.5])('rejects month %s', (month) => {
+    expect(() => albumSchema.parse({ ...valid, month })).toThrow(/Month/);
   });
 });
 
@@ -131,7 +181,9 @@ describe('photosetSchema', () => {
     id: 1,
     name: 'Trip',
     location: 'Paris',
+    description: '',
     year: 2024,
+    month: null,
     bucketName: 'my-bucket',
     status: 'draft' as const,
     createdAt: '2024-01-01T00:00:00Z',

@@ -6,6 +6,7 @@ import type { PutObjectCommand } from '@aws-sdk/client-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { travelAlbumSchema } from '@/common/album-metadata';
 import type { Album, ProcessedImage } from '@/common/types';
 import { S3 } from '@/main/drivers/s3/s3';
 
@@ -19,7 +20,14 @@ vi.mock('@/main/drivers/storage', () => ({
   },
 }));
 
-const album: Album = { name: 'Trip', location: 'Big Sur', year: 2024, published: false };
+const album: Album = {
+  name: 'Trip',
+  description: 'A drive up the coast.',
+  location: 'Big Sur',
+  year: 2024,
+  month: 6,
+  published: false,
+};
 
 describe('S3.createAlbum', () => {
   let dir: string;
@@ -105,5 +113,40 @@ describe('S3.createAlbum', () => {
       ...Array(3).fill('send'),
       'metadata',
     ]);
+  });
+
+  it('uploads metadata the site accepts, named after the image prefix', async () => {
+    const sent: PutObjectCommand['input'][] = [];
+    vi.spyOn(S3Client.prototype, 'send').mockImplementation(async (command: unknown) => {
+      sent.push((command as PutObjectCommand).input);
+      return {};
+    });
+
+    const result = await S3.instance.createAlbum('bucket', album, images);
+
+    expect(result).toEqual({ success: true });
+    const metadata = sent.find((input) => input.Key!.endsWith('.json'))!;
+    // The site reads the album id from the filename and loads `{id}/{image id}_{size}.{ext}`.
+    expect(metadata.Key).toBe('2024-big-sur/2024-big-sur.json');
+    expect(sent.map((input) => input.Key)).toContain('2024-big-sur/sunset_640.webp');
+    expect(travelAlbumSchema.parse(JSON.parse(metadata.Body as string))).toEqual({
+      title: 'Trip',
+      description: 'A drive up the coast.',
+      location: 'Big Sur',
+      year: 2024,
+      month: 6,
+      published: false,
+      images: [{ id: 'sunset', name: 'Sunset', camera: 'X100' }],
+    });
+  });
+
+  it('rejects an album the site would reject before uploading anything', async () => {
+    const send = vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({} as never);
+
+    const result = await S3.instance.createAlbum('bucket', { ...album, month: 13 }, images);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/site's schema[\s\S]*month/);
+    expect(send).not.toHaveBeenCalled();
   });
 });

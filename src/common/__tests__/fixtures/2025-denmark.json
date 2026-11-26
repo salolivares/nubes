@@ -1,0 +1,95 @@
+{
+  "title": "Denmark",
+  "description": "A month in Copenhagen and several Danish cities. Shot on the Fujifilm X-T30 II.",
+  "location": "Denmark",
+  "year": 2025,
+  "month": 9,
+  "published": true,
+  "images": [
+    {
+      "id": "gammel-strand-entrance",
+      "name": "Gammel Strand entrance",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "frederiksberg-alle-station",
+      "name": "Frederiksberg Alle station",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "me",
+      "name": "me",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "resundsbroen",
+      "name": "Øresundsbroen",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "windmills",
+      "name": "windmills",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "the-quiet-train",
+      "name": "the quiet train",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "klampenborg-station",
+      "name": "Klampenborg station",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "amager-bakke",
+      "name": "Amager Bakke",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "a-building-in-middelfart",
+      "name": "a building in Middelfart",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "rundetaarn",
+      "name": "Rundetaarn",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "the-round-tower",
+      "name": "the round tower",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "cisternerne",
+      "name": "Cisternerne",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "the-shrek-church",
+      "name": "the shrek church",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "niels-bohrs-grav",
+      "name": "Niels Bohrs grav",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "close-encounter",
+      "name": "close encounter",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "jgersborg-dyrehave",
+      "name": "Jægersborg Dyrehave",
+      "camera": "Fujifilm X-T30 II"
+    },
+    {
+      "id": "probably-the-best-beer-in-the-world",
+      "name": "Probably The Best Beer In The World",
+      "camera": "Fujifilm X-T30 II"
+    }
+  ]
+}

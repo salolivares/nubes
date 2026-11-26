@@ -16,6 +16,7 @@ import type {
   PhotosetShowInFolderArgs,
   PhotosetUpdateArgs,
   S3CreateAlbumArgs,
+  S3CreateAlbumResult,
   SecureStorageKey,
   StorageChange,
 } from '../src/common/types';
@@ -94,7 +95,7 @@ declare global {
     /** True when uploads go to the local mock bucket instead of AWS. */
     isMock: () => Promise<boolean>;
     listBuckets: () => Promise<Bucket[]>;
-    createAlbum: (args: S3CreateAlbumArgs) => Promise<{ success: boolean }>;
+    createAlbum: (args: S3CreateAlbumArgs) => Promise<S3CreateAlbumResult>;
   }
 
   interface DebugContext {

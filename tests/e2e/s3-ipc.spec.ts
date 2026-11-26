@@ -9,9 +9,16 @@ interface TestS3Context {
   listBuckets: () => Promise<Array<{ Name?: string; CreationDate?: Date }>>;
   createAlbum: (args: {
     bucketName: string;
-    album: { name: string; location: string; year: number; published: boolean };
+    album: {
+      name: string;
+      location: string;
+      description: string;
+      year: number;
+      month?: number;
+      published: boolean;
+    };
     images: [];
-  }) => Promise<{ success: boolean }>;
+  }) => Promise<{ success: boolean; error?: string }>;
 }
 
 test('renderer can list buckets through Electron IPC', async () => {
@@ -84,7 +91,9 @@ test('renderer can create an album through Electron IPC', async () => {
           album: {
             name: albumName,
             location: albumLocation,
+            description: 'Made by the e2e test.',
             year: 2026,
+            month: 3,
             published: false,
           },
           images: [],
@@ -94,7 +103,19 @@ test('renderer can create an album through Electron IPC', async () => {
     );
 
     expect(result).toEqual({ success: true });
-    await expect(fs.stat(albumPath)).resolves.toBeTruthy();
+    // Named after the prefix, because the site turns the filename into the album id.
+    const metadata = JSON.parse(
+      await fs.readFile(path.join(albumPath, `2026-e2e-${runId}.json`), 'utf-8'),
+    );
+    expect(metadata).toEqual({
+      title: `IPC E2E ${runId}`,
+      description: 'Made by the e2e test.',
+      location,
+      year: 2026,
+      month: 3,
+      published: false,
+      images: [],
+    });
   } finally {
     await electronApp.close();
     await fs.rm(userDataPath, { recursive: true, force: true });
@@ -125,7 +146,13 @@ test('album creation rejects invalid input at the IPC boundary', async () => {
 
         return s3.createAlbum({
           bucketName: 'mock-photos-bucket',
-          album: { name: '', location: 'Test Place', year: 2026, published: false },
+          album: {
+            name: '',
+            location: 'Test Place',
+            description: 'D',
+            year: 2026,
+            published: false,
+          },
           images: [],
         });
       }),

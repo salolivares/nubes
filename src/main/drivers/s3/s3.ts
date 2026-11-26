@@ -8,8 +8,17 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 
-import type { Album, ProcessedImage } from '@/common/types';
-import { batchPromises, metadataFilename, slugify } from '@/common/utils';
+import type { TravelAlbum } from '@/common/album-metadata';
+import {
+  albumId,
+  albumImageId,
+  AlbumMetadataError,
+  albumMetadataFilename,
+  buildAlbumMetadata,
+  serializeAlbumMetadata,
+} from '@/common/album-metadata';
+import type { Album, ProcessedImage, S3CreateAlbumResult } from '@/common/types';
+import { batchPromises } from '@/common/utils';
 
 import {
   ACCESS_KEY_ID,
@@ -100,12 +109,12 @@ export class S3 implements IS3Provider {
    * `errors`.
    */
   private async createAlbumImages(bucketName: string, album: Album, images: ProcessedImage[]) {
-    const prefix = `${album.year}-${slugify(album.location)}`;
+    const prefix = albumId(album);
     const uploads = images.flatMap((image) =>
       image.imagePaths.map(({ imagePath, type, resolution }) => ({
         imagePath,
         type,
-        key: `${prefix}/${slugify(image.name)}_${resolution}.${type}`,
+        key: `${prefix}/${albumImageId(image.name)}_${resolution}.${type}`,
       })),
     );
 
@@ -136,31 +145,15 @@ export class S3 implements IS3Provider {
   }
 
   /**
-   * Creates a json file in the bucket with metadata about the album.
+   * Uploads the album JSON, already built and checked by `buildAlbumMetadata()`, next to its
+   * images.
    */
-  private async createAlbumMetadata(bucketName: string, album: Album, images: ProcessedImage[]) {
-    const prefix = `${album.year}-${slugify(album.location)}`;
-    const key = `${prefix}/${metadataFilename(album.year, album.name)}`;
-    // Create the metadata object that matches the JSON structure
-    const metadata = {
-      title: album.name,
-      location: album.location,
-      year: album.year,
-      published: album.published,
-      images: images.map((image) => ({
-        id: slugify(image.name),
-        name: image.name,
-        camera: image.camera,
-      })),
-    };
-
-    // Convert the metadata object to JSON
-    const metadataJson = JSON.stringify(metadata);
-
+  private async createAlbumMetadata(bucketName: string, album: Album, metadata: TravelAlbum) {
+    const key = `${albumId(album)}/${albumMetadataFilename(album)}`;
     const uploadCommand = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
-      Body: metadataJson,
+      Body: serializeAlbumMetadata(metadata),
       ContentType: 'application/json',
     });
 
@@ -172,7 +165,20 @@ export class S3 implements IS3Provider {
     }
   }
 
-  public async createAlbum(bucketName: string, album: Album, images: ProcessedImage[]) {
+  public async createAlbum(
+    bucketName: string,
+    album: Album,
+    images: ProcessedImage[],
+  ): Promise<S3CreateAlbumResult> {
+    // Check the metadata first, so an album the site can't build never reaches the bucket.
+    let metadata: TravelAlbum;
+    try {
+      metadata = buildAlbumMetadata(album, images);
+    } catch (err) {
+      if (err instanceof AlbumMetadataError) return { success: false, error: err.message };
+      throw err;
+    }
+
     const imageUploadResults = await this.createAlbumImages(bucketName, album, images);
 
     // Don't publish metadata that points at images missing from the bucket.
@@ -181,7 +187,7 @@ export class S3 implements IS3Provider {
     }
 
     try {
-      await this.createAlbumMetadata(bucketName, album, images);
+      await this.createAlbumMetadata(bucketName, album, metadata);
     } catch {
       // Already logged with its key in createAlbumMetadata.
       return { success: false };

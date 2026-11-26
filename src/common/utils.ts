@@ -7,11 +7,6 @@ export function slugify(name: string): string {
     .replace(/-+/g, '-');
 }
 
-/** Build the metadata JSON filename: `{year}-{slug}.json`. */
-export function metadataFilename(year: number, name: string): string {
-  return `${year}-${slugify(name)}.json`;
-}
-
 /**
  * Process items in batches of `batchSize`, running each batch in parallel.
  * Collects successes and failures separately so one bad item doesn't abort the rest.

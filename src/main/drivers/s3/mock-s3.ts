@@ -4,7 +4,16 @@ import path from 'node:path';
 import type { Bucket } from '@aws-sdk/client-s3';
 import { app } from 'electron';
 
-import type { Album, ProcessedImage } from '@/common/types';
+import type { TravelAlbum } from '@/common/album-metadata';
+import {
+  albumId,
+  albumImageId,
+  AlbumMetadataError,
+  albumMetadataFilename,
+  buildAlbumMetadata,
+  serializeAlbumMetadata,
+} from '@/common/album-metadata';
+import type { Album, ProcessedImage, S3CreateAlbumResult } from '@/common/types';
 
 import type { IS3Provider } from './s3-provider';
 
@@ -36,10 +45,6 @@ function getMockBasePath(): string {
   return path.join(app.getPath('userData'), MOCK_S3_DIR);
 }
 
-function albumDirName(album: Album): string {
-  return `${album.year}-${album.location.replace(/\s+/g, '-').toLowerCase()}`;
-}
-
 export class MockS3 implements IS3Provider {
   async listBuckets(): Promise<Bucket[]> {
     return MOCK_BUCKETS;
@@ -54,9 +59,19 @@ export class MockS3 implements IS3Provider {
     bucketName: string,
     album: Album,
     images: ProcessedImage[],
-  ): Promise<{ success: boolean }> {
+  ): Promise<S3CreateAlbumResult> {
+    // Same order as real S3: an album the site can't build never reaches the bucket.
+    let metadata: TravelAlbum;
+    try {
+      metadata = buildAlbumMetadata(album, images);
+    } catch (err) {
+      if (err instanceof AlbumMetadataError) return { success: false, error: err.message };
+      throw err;
+    }
+
+    const prefix = albumId(album);
     const basePath = getMockBasePath();
-    const albumDir = path.join(basePath, bucketName, albumDirName(album));
+    const albumDir = path.join(basePath, bucketName, prefix);
     await fsp.mkdir(albumDir, { recursive: true });
 
     // Same contract as real S3: log each failed file with its key, keep going, and report
@@ -65,14 +80,11 @@ export class MockS3 implements IS3Provider {
     for (const image of images) {
       for (const outputImage of image.imagePaths) {
         const { imagePath, type, resolution } = outputImage;
-        const destName = `${image.name.replace(/\s+/g, '-').toLowerCase()}_${resolution}.${type}`;
+        const destName = `${albumImageId(image.name)}_${resolution}.${type}`;
         try {
           await fsp.copyFile(imagePath, path.join(albumDir, destName));
         } catch (error) {
-          console.error(
-            `[MockS3] Failed to upload image ${albumDirName(album)}/${destName}:`,
-            error,
-          );
+          console.error(`[MockS3] Failed to upload image ${prefix}/${destName}:`, error);
           failed = true;
         }
       }
@@ -81,30 +93,11 @@ export class MockS3 implements IS3Provider {
       return { success: false };
     }
 
-    const metadata = {
-      title: album.name,
-      location: album.location,
-      year: album.year,
-      published: album.published,
-      images: images.map((image) => ({
-        id: image.name.replace(/\s+/g, '-').toLowerCase(),
-        name: image.name,
-        camera: image.camera,
-      })),
-    };
-
-    const slug = album.name
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
-      .replace(/-+/g, '-');
+    const filename = albumMetadataFilename(album);
     try {
-      await fsp.writeFile(path.join(albumDir, `${slug}.json`), JSON.stringify(metadata, null, 2));
+      await fsp.writeFile(path.join(albumDir, filename), serializeAlbumMetadata(metadata));
     } catch (error) {
-      console.error(
-        `[MockS3] Failed to upload metadata ${albumDirName(album)}/${slug}.json:`,
-        error,
-      );
+      console.error(`[MockS3] Failed to upload metadata ${prefix}/${filename}:`, error);
       return { success: false };
     }
 

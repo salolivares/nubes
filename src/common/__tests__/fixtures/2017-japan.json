@@ -1,0 +1,19 @@
+{
+  "title": "Tokyo",
+  "description": "My first trip to Japan.",
+  "location": "Japan",
+  "year": 2017,
+  "published": true,
+  "images": [
+    { "id": "skytree", "name": "Tokyo Skytree", "camera": "Canon EOS Rebel T3i" },
+    { "id": "asahi-flag", "name": "Asahi Building", "camera": "Canon EOS Rebel T3i" },
+    { "id": "flower", "name": "Skytree flower", "camera": "Canon EOS Rebel T3i" },
+    { "id": "sky", "name": "A bird", "camera": "Canon EOS Rebel T3i" },
+    { "id": "senso-ji", "name": "Senso-ji", "camera": "Canon EOS Rebel T3i" },
+    { "id": "lanterns", "name": "Senso-ji Laterns", "camera": "Canon EOS Rebel T3i" },
+    { "id": "subway", "name": "Subway", "camera": "Canon EOS Rebel T3i" },
+    { "id": "tokyo", "name": "The city", "camera": "Canon EOS Rebel T3i" },
+    { "id": "tree", "name": "Flowers", "camera": "Canon EOS Rebel T3i" },
+    { "id": "vending-machines", "name": "Hydration", "camera": "Canon EOS Rebel T3i" }
+  ]
+}

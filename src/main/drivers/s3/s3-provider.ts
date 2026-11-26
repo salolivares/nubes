@@ -1,6 +1,6 @@
 import type { Bucket } from '@aws-sdk/client-s3';
 
-import type { Album, ProcessedImage } from '@/common/types';
+import type { Album, ProcessedImage, S3CreateAlbumResult } from '@/common/types';
 
 import { S3 } from './s3';
 
@@ -11,7 +11,7 @@ export interface IS3Provider {
     bucketName: string,
     album: Album,
     images: ProcessedImage[],
-  ): Promise<{ success: boolean }>;
+  ): Promise<S3CreateAlbumResult>;
 }
 
 let currentProvider: IS3Provider | null = null;
