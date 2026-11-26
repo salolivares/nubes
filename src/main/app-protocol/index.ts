@@ -42,15 +42,23 @@ const CONTENT_TYPES: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
-/** Headers on every response. The CSP is the only one the page gets; index.html has no meta CSP. */
+/** Sent on every response, errors included. index.html has no meta CSP, so this is the policy. */
+const SECURITY_HEADERS = {
+  'Content-Security-Policy': contentSecurityPolicy(false),
+  'X-Content-Type-Options': 'nosniff',
+  'Cache-Control': 'no-cache',
+};
+
 export function appResponseHeaders(filePath: string): Record<string, string> {
   return {
+    ...SECURITY_HEADERS,
     'Content-Type':
       CONTENT_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream',
-    'Content-Security-Policy': contentSecurityPolicy(false),
-    'X-Content-Type-Options': 'nosniff',
-    'Cache-Control': 'no-cache',
   };
+}
+
+function errorResponse(status: number) {
+  return new Response(null, { status, headers: SECURITY_HEADERS });
 }
 
 /**
@@ -60,12 +68,12 @@ export function appResponseHeaders(filePath: string): Record<string, string> {
  */
 export function registerAppProtocol(rendererDir: string) {
   protocol.handle(APP_SCHEME, async (request) => {
-    if (request.method !== 'GET') return new Response(null, { status: 405 });
+    if (request.method !== 'GET') return errorResponse(405);
 
     const result = await resolveAppFile(request.url, rendererDir);
     if (!result.ok) {
       log.warn(`404 ${result.reason}: ${request.url}`);
-      return new Response(null, { status: 404 });
+      return errorResponse(404);
     }
 
     try {
@@ -73,7 +81,7 @@ export function registerAppProtocol(rendererDir: string) {
       return new Response(new Uint8Array(body), { headers: appResponseHeaders(result.filePath) });
     } catch (err) {
       log.error(`Failed to serve ${result.filePath}:`, err);
-      return new Response(null, { status: 500 });
+      return errorResponse(500);
     }
   });
 }

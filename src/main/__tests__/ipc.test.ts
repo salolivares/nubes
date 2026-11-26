@@ -117,6 +117,17 @@ describe('isAppUrl', () => {
     expect(isAppUrl('http://127.0.0.1:5173/', dev)).toBe(false);
     expect(isAppUrl('nubes://app/index.html', dev)).toBe(false);
     expect(isAppUrl('file:///index.html', dev)).toBe(false);
+    // A blob: URL has its inner URL's origin, so the scheme has to be compared too.
+    expect(isAppUrl('blob:http://localhost:5173/550e8400-e29b-41d4-a716-446655440000', dev)).toBe(
+      false,
+    );
+    expect(isAppUrl('http://user:pass@localhost:5173/', dev)).toBe(false);
+    expect(isAppUrl('http://localhost:5173/', 'not a url')).toBe(false);
+  });
+
+  it('rejects blob: and filesystem: URLs whose inner origin is nubes://app', () => {
+    expect(isAppUrl('blob:nubes://app/550e8400-e29b-41d4-a716-446655440000', '')).toBe(false);
+    expect(isAppUrl('filesystem:nubes://app/temporary/x.html', '')).toBe(false);
   });
 });
 

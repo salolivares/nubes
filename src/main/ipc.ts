@@ -23,8 +23,21 @@ export function isAppUrl(
     return false;
   }
   if (devServerUrl) {
-    const devOrigin = new URL(devServerUrl).origin;
-    return devOrigin !== 'null' && parsed.origin === devOrigin;
+    let dev: URL;
+    try {
+      dev = new URL(devServerUrl);
+    } catch {
+      return false;
+    }
+    // Compare the scheme too: a blob: URL inherits its inner URL's origin, so
+    // `blob:http://localhost:5173/<id>` has the dev server's origin.
+    return (
+      (dev.protocol === 'http:' || dev.protocol === 'https:') &&
+      parsed.protocol === dev.protocol &&
+      parsed.origin === dev.origin &&
+      parsed.username === '' &&
+      parsed.password === ''
+    );
   }
   return isAppSchemeUrl(parsed);
 }

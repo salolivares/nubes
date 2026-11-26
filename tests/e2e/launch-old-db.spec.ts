@@ -132,6 +132,7 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
     expect(responses.index.csp).toContain("script-src 'self';");
     expect(responses.traversal.status).toBe(404);
     expect(responses.missing.status).toBe(404);
+    expect(responses.missing.csp).toContain("frame-ancestors 'none'");
 
     // The header is enforced on the page itself: an inline script must not run.
     const inlineRan = await page.evaluate(() => {

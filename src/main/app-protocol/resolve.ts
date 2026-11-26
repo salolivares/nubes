@@ -67,11 +67,12 @@ export async function resolveAppFile(
   try {
     realRoot = await fsp.realpath(root);
     realFile = await fsp.realpath(candidate);
+    // Don't stat anything outside the bundle.
+    if (!isWithin(realRoot, realFile)) return deny('resolves outside the renderer folder');
     if (!(await fsp.stat(realFile)).isFile()) return deny('not a regular file');
   } catch (err) {
     return deny(`not found (${(err as NodeJS.ErrnoException).code ?? 'error'})`);
   }
-  if (!isWithin(realRoot, realFile)) return deny('resolves outside the renderer folder');
 
   return { ok: true, filePath: realFile };
 }
