@@ -85,6 +85,9 @@ const electron = vi.hoisted(() => {
     isMaximized() {
       return false;
     }
+    isFullScreen() {
+      return false;
+    }
     getNormalBounds() {
       return { x: 0, y: 0, width: 1200, height: 800 };
     }

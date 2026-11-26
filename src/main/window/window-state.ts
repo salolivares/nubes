@@ -38,6 +38,10 @@ export function parseWindowState(raw: string | null): WindowState | null {
   }
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function overlap(a: Rect, b: Rect): { width: number; height: number } {
   return {
     width: Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x),
@@ -59,7 +63,8 @@ export interface InitialWindowBounds {
  *
  * Saved bounds are used only when they still overlap a display by at least MIN_VISIBLE, so a
  * window saved on an unplugged monitor, or dragged almost off screen, opens at the default size
- * and position instead. A window bigger than the display it lands on is shrunk to fit it.
+ * and position instead. A window bigger than the display it lands on is shrunk to fit it, then
+ * moved so at least MIN_VISIBLE of it stays on that display, with its title bar below the top.
  * Maximized state is kept either way: maximize() fills whichever display the window opens on.
  */
 export function initialWindowBounds(
@@ -78,11 +83,14 @@ export function initialWindowBounds(
   const best = visible[0]?.area;
   if (!best) return { ...DEFAULT_WINDOW_SIZE, isMaximized: saved.isMaximized };
 
+  const width = Math.min(saved.width, best.width);
+  const height = Math.min(saved.height, best.height);
   return {
-    x: saved.x,
-    y: saved.y,
-    width: Math.min(saved.width, best.width),
-    height: Math.min(saved.height, best.height),
+    // Shrinking keeps the left edge, which can leave the window off the display it overlapped.
+    x: clamp(saved.x, best.x - width + MIN_VISIBLE.width, best.x + best.width - MIN_VISIBLE.width),
+    y: clamp(saved.y, best.y, best.y + best.height - MIN_VISIBLE.height),
+    width,
+    height,
     isMaximized: saved.isMaximized,
   };
 }
@@ -92,6 +100,8 @@ export interface TrackedWindow {
   on(event: 'move' | 'resize' | 'maximize' | 'unmaximize' | 'close', listener: () => void): unknown;
   isDestroyed(): boolean;
   isMaximized(): boolean;
+  isMinimized(): boolean;
+  isFullScreen(): boolean;
   getNormalBounds(): Rect;
 }
 
@@ -108,6 +118,14 @@ export function trackWindowState(
   delayMs = SAVE_DELAY_MS,
 ) {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // macOS reports isMaximized() false while the window is minimized or full screen, so quitting
+  // from the Dock with a minimized window would forget it was maximized. Keep the last answer
+  // from when the window was in neither state.
+  let wasMaximized = window.isMaximized();
+  const maximized = () => {
+    if (!window.isMinimized() && !window.isFullScreen()) wasMaximized = window.isMaximized();
+    return wasMaximized;
+  };
 
   const saveNow = () => {
     clearTimeout(timer);
@@ -119,13 +137,14 @@ export function trackWindowState(
       y: Math.round(y),
       width: Math.round(width),
       height: Math.round(height),
-      isMaximized: window.isMaximized(),
+      isMaximized: maximized(),
     };
     const parsed = windowStateSchema.safeParse(state);
     if (parsed.success) save(parsed.data);
   };
 
   const saveLater = () => {
+    maximized();
     clearTimeout(timer);
     timer = setTimeout(saveNow, delayMs);
   };

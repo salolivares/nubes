@@ -54,7 +54,12 @@ test('the window reopens where it was left', async () => {
     // Saved once the window has sat still for a moment, without waiting for it to close.
     await expect
       .poll(async () => JSON.parse(String((await readConfig(userDataPath)).windowState ?? 'null')))
-      .toMatchObject({ width: bounds.width, height: bounds.height, isMaximized: false });
+      .toMatchObject({
+        ...(process.platform === 'linux' ? {} : { x: bounds.x, y: bounds.y }),
+        width: bounds.width,
+        height: bounds.height,
+        isMaximized: false,
+      });
   } finally {
     await first.close();
   }
@@ -65,6 +70,11 @@ test('the window reopens where it was left', async () => {
     const { bounds: restored } = await windowInfo(second);
     expect(restored.width).toBe(bounds.width);
     expect(restored.height).toBe(bounds.height);
+    // Without a window manager, xvfb doesn't place windows where they ask to go.
+    if (process.platform !== 'linux') {
+      expect(restored.x).toBe(bounds.x);
+      expect(restored.y).toBe(bounds.y);
+    }
   } finally {
     await second.close();
   }

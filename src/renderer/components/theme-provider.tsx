@@ -49,7 +49,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   useEffect(() => {
     window.themeMode.current().then((stored: Theme) => {
-      setTheme(stored || 'system');
+      // A choice the user made while this was in flight wins over the saved one.
+      setTheme((current) => current ?? (stored || 'system'));
     });
   }, []);
 

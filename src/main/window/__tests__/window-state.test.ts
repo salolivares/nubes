@@ -92,6 +92,19 @@ describe('initialWindowBounds', () => {
     });
   });
 
+  it('keeps a shrunk window on the display it overlapped', () => {
+    // Saved across a left-hand monitor that is gone now: 500px of it was on the laptop.
+    const small: Rect = { x: 0, y: 25, width: 1200, height: 800 };
+    const saved = state({ x: -1300, y: 100, width: 1800, height: 700 });
+    const bounds = initialWindowBounds(saved, [small]);
+    expect(bounds.width).toBe(1200);
+    expect(bounds.x! + bounds.width).toBeGreaterThanOrEqual(small.x + 100);
+  });
+
+  it('keeps the title bar below the top of the display', () => {
+    expect(initialWindowBounds(state({ y: -20 }), [laptop]).y).toBe(laptop.y);
+  });
+
   it('fits a window spanning two displays to the one with most of it', () => {
     // Mostly on the monitor, with its left edge on the laptop.
     const saved = state({ x: 1400, y: 0, width: 2600, height: 900 });
@@ -129,11 +142,16 @@ describe('trackWindowState', () => {
     const window = {
       bounds: { x: 10, y: 20, width: 800, height: 600 } as Rect,
       maximized: false,
+      minimized: false,
+      fullScreen: false,
       destroyed: false,
       emit: (event: string) => listeners.get(event)?.(),
       on: (event: string, listener: () => void) => listeners.set(event, listener),
       isDestroyed: () => window.destroyed,
-      isMaximized: () => window.maximized,
+      // Like macOS: a minimized or full-screen window never reports maximized.
+      isMaximized: () => window.maximized && !window.minimized && !window.fullScreen,
+      isMinimized: () => window.minimized,
+      isFullScreen: () => window.fullScreen,
       getNormalBounds: () => window.bounds,
     };
     return window satisfies TrackedWindow;
@@ -172,6 +190,31 @@ describe('trackWindowState', () => {
     window.maximized = true;
     window.emit('maximize');
     vi.advanceTimersByTime(SAVE_DELAY_MS);
+    expect(save).toHaveBeenLastCalledWith({ ...window.bounds, isMaximized: true });
+  });
+
+  it('remembers maximized when the window closes while minimized', () => {
+    const window = fakeWindow();
+    const save = vi.fn();
+    trackWindowState(window, save);
+
+    window.maximized = true;
+    window.emit('maximize');
+    window.minimized = true;
+    window.emit('close');
+    expect(save).toHaveBeenLastCalledWith({ ...window.bounds, isMaximized: true });
+  });
+
+  it('remembers maximized when the window closes in full screen', () => {
+    const window = fakeWindow();
+    const save = vi.fn();
+    trackWindowState(window, save);
+
+    window.maximized = true;
+    window.emit('maximize');
+    window.fullScreen = true;
+    window.emit('resize');
+    window.emit('close');
     expect(save).toHaveBeenLastCalledWith({ ...window.bounds, isMaximized: true });
   });
 
