@@ -288,7 +288,7 @@ export const photosetCreateArgsSchema = z.object({
   name: z.string(),
   bucketName: z.string(),
   location: z.string(),
-  year: z.number(),
+  year: z.number().int(),
 });
 
 export type PhotosetCreateArgs = z.infer<typeof photosetCreateArgsSchema>;
@@ -298,7 +298,7 @@ export const photosetUpdateArgsSchema = z.object({
   name: z.string().optional(),
   location: z.string().optional(),
   description: z.string().optional(),
-  year: z.number().optional(),
+  year: z.number().int().optional(),
   /** `null` clears the month. */
   month: z.number().int().min(1).max(12).nullable().optional(),
   status: photosetStatusSchema.optional(),

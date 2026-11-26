@@ -91,6 +91,27 @@ export function buildAlbumMetadata(album: AlbumFields, images: AlbumImageFields[
       `Album metadata doesn't match the site's schema:\n${z.prettifyError(result.error)}`,
     );
   }
+
+  // The schema can't see these, but each one breaks the site's image URLs.
+  if (!Number.isInteger(album.year) || slugify(album.location) === '') {
+    throw new AlbumMetadataError(
+      `Can't build an album id from year "${album.year}" and location "${album.location}". ` +
+        'Use a whole year and a location with at least one letter or number.',
+    );
+  }
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const { id } of result.data.images) {
+    if (seen.has(id)) duplicates.add(id);
+    seen.add(id);
+  }
+  if (duplicates.size > 0) {
+    throw new AlbumMetadataError(
+      `Photos must have different names. These names clash, so their files would overwrite each ` +
+        `other in S3: ${[...duplicates].map((id) => `"${id}"`).join(', ')}`,
+    );
+  }
+
   return result.data;
 }
 

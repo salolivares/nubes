@@ -106,6 +106,20 @@ describe('buildAlbumMetadata', () => {
     expect(() => buildAlbumMetadata({ ...album, month: 13 }, [])).toThrow(/month/);
   });
 
+  it('rejects two photos whose names make the same id', () => {
+    const build = () =>
+      buildAlbumMetadata(album, [{ name: 'IMG_0001' }, { name: 'img0001!' }, { name: 'Other' }]);
+    expect(build).toThrow(AlbumMetadataError);
+    expect(build).toThrow(/"img0001"/);
+  });
+
+  it.each([
+    ['a fractional year', { year: 2026.5 }],
+    ['a location with no letters or numbers', { location: '!!!' }],
+  ])('rejects %s, which would give a broken album id', (_, override) => {
+    expect(() => buildAlbumMetadata({ ...album, ...override }, [])).toThrow(/album id/);
+  });
+
   it('serializes like the site files, with a trailing newline', () => {
     const text = serializeAlbumMetadata(buildAlbumMetadata(album, []));
     expect(text.endsWith('}\n')).toBe(true);

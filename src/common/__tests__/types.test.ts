@@ -288,6 +288,13 @@ describe('IPC arg schemas', () => {
     expect(() => photosetListArgsSchema.parse({ sortBy: 'invalid' })).toThrow();
   });
 
+  it('photoset create and update reject a fractional year', () => {
+    expect(() =>
+      photosetCreateArgsSchema.parse({ name: 'A', bucketName: 'b', location: 'L', year: 2026.5 }),
+    ).toThrow();
+    expect(() => photosetUpdateArgsSchema.parse({ id: 1, year: 2026.5 })).toThrow();
+  });
+
   it('photosetCreateArgsSchema requires name, bucketName, location, and year', () => {
     expect(() => photosetCreateArgsSchema.parse({})).toThrow();
     expect(() => photosetCreateArgsSchema.parse({ name: 'Test', bucketName: 'bucket' })).toThrow();

@@ -296,6 +296,8 @@ export function DraftView({
               description: values.description,
               year: values.year,
               month: values.month ?? null,
+              // Unchecking Published must reach the DB too, or a later export disagrees with S3.
+              status: values.published ? 'published' : 'draft',
             });
             if (imagesDirty) {
               await window.photosets.addImages({
