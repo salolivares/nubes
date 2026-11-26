@@ -22,8 +22,6 @@ const FIXTURE_DB = path.join(REPO_ROOT, 'tests/e2e/fixtures/nubes-0000.db');
 
 const electron = vi.hoisted(() => ({
   userData: '',
-  showErrorBox: vi.fn(),
-  quit: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -31,9 +29,7 @@ vi.mock('electron', () => ({
     isPackaged: false,
     getPath: () => electron.userData,
     getAppPath: () => REPO_ROOT,
-    quit: electron.quit,
   },
-  dialog: { showErrorBox: electron.showErrorBox },
 }));
 
 vi.mock('electron-log/main', () => {
@@ -47,8 +43,6 @@ const opened: BetterSqlite3.Database[] = [];
 
 beforeEach(() => {
   vi.resetModules();
-  electron.showErrorBox.mockClear();
-  electron.quit.mockClear();
   userData = fs.mkdtempSync(path.join(os.tmpdir(), 'nubes-db-test-'));
   electron.userData = userData;
   dbPath = path.join(userData, 'nubes.db');
@@ -153,16 +147,19 @@ describe('Database', () => {
     expect(backups[0]).toBe(path.basename(backupPath(dbPath, new Date('2020-01-02T00:00:00Z'))));
   });
 
-  it('shows a dialog naming the latest backup when the database is corrupt', async () => {
+  it('throws a user-facing error naming the latest backup when the database is corrupt', async () => {
     writeFakeBackups(['2020-01-01T00:00:00Z', '2020-01-02T00:00:00Z']);
     fs.writeFileSync(dbPath, 'this is not a sqlite database'.repeat(200));
 
-    await expect(openDatabase()).rejects.toSatisfy(isCorruptionError);
+    const error = await openDatabase().catch((e: unknown) => e);
 
-    expect(electron.showErrorBox).toHaveBeenCalledOnce();
-    const [, message] = electron.showErrorBox.mock.calls[0];
-    expect(message).toContain(backupPath(dbPath, new Date('2020-01-02T00:00:00Z')));
-    expect(electron.quit).toHaveBeenCalledOnce();
+    // index.ts's error handler shows it and quits. The driver shows no dialog of its own.
+    // Compared by name: vi.resetModules() gives the driver its own copy of the class.
+    expect(error).toMatchObject({ name: 'UserFacingError', title: 'Nubes database is corrupt' });
+    expect(isCorruptionError(error)).toBe(true);
+    expect((error as Error).message).toContain(
+      backupPath(dbPath, new Date('2020-01-02T00:00:00Z')),
+    );
   });
 
   it('leaves no partial backup when the snapshot hits a corrupt page', async () => {
@@ -170,14 +167,16 @@ describe('Database', () => {
     corruptTablePage(dbPath, 'photoset_images');
     writeFakeBackups(['2020-01-01T00:00:00Z']);
 
-    await expect(openDatabase()).rejects.toSatisfy(isCorruptionError);
+    const error = await openDatabase().catch((e: unknown) => e);
+    expect(isCorruptionError(error)).toBe(true);
 
-    // Only the older good backup remains, no staging file, and the dialog points at it.
+    // Only the older good backup remains, no staging file, and the message points at it.
     expect(fs.readdirSync(userData).filter((name) => name.includes('.bak-'))).toEqual([
       path.basename(backupPath(dbPath, new Date('2020-01-01T00:00:00Z'))),
     ]);
-    const [, message] = electron.showErrorBox.mock.calls[0];
-    expect(message).toContain(backupPath(dbPath, new Date('2020-01-01T00:00:00Z')));
+    expect((error as Error).message).toContain(
+      backupPath(dbPath, new Date('2020-01-01T00:00:00Z')),
+    );
   });
 });
 

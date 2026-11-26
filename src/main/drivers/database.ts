@@ -6,11 +6,12 @@ import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
-import { app, dialog } from 'electron';
+import { app } from 'electron';
 import baseLog from 'electron-log/main';
 
 import { DB_FILENAME, MIGRATIONS_DEV_PATH, MIGRATIONS_FOLDER } from '@/common';
 import * as schema from '@/common/db/schema';
+import { UserFacingError } from '@/main/crash-handling';
 
 import {
   applyPragmas,
@@ -37,9 +38,13 @@ export class Database {
     } catch (error) {
       if (isCorruptionError(error)) {
         const latestBackup = listBackups(dbPath).at(-1);
-        log.error(`Database is corrupt. Latest backup: ${latestBackup ?? 'none'}`, error);
-        dialog.showErrorBox('Nubes database is corrupt', corruptionMessage(dbPath, latestBackup));
-        app.quit();
+        log.error(`Database is corrupt. Latest backup: ${latestBackup ?? 'none'}`);
+        // The central handler in index.ts shows this message and quits.
+        throw new UserFacingError(
+          'Nubes database is corrupt',
+          corruptionMessage(dbPath, latestBackup),
+          { cause: error },
+        );
       }
       throw error;
     }

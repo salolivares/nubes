@@ -25,13 +25,16 @@ const electron = vi.hoisted(() => {
     shownInactive = false;
     focused = false;
     listeners = new Map<string, () => void>();
-    contentsListeners = new Map<string, () => void>();
+    contentsListeners = new Map<string, (...args: unknown[]) => void>();
     webContents = {
       send: vi.fn(),
+      reload: vi.fn(),
       openDevTools: vi.fn(),
       isDestroyed: () => this.destroyed,
-      on: (event: string, cb: () => void) => this.contentsListeners.set(event, cb),
-      once: (event: string, cb: () => void) => this.contentsListeners.set(event, cb),
+      on: (event: string, cb: (...args: unknown[]) => void) =>
+        this.contentsListeners.set(event, cb),
+      once: (event: string, cb: (...args: unknown[]) => void) =>
+        this.contentsListeners.set(event, cb),
       // The app page in the main frame, so ipc.ts's sender check accepts calls from it.
       mainFrame: { url: 'nubes://app/index.html', parent: null },
     };
@@ -102,7 +105,7 @@ const electron = vi.hoisted(() => {
       },
       app: { getPath: () => '/tmp/nubes-test', quit: vi.fn() },
       nativeTheme: { themeSource: 'system', shouldUseDarkColors: false },
-      dialog: {},
+      dialog: { showMessageBox: vi.fn(async () => ({ response: 0 })) },
       shell: {},
       clipboard: {},
       safeStorage: { isEncryptionAvailable: () => false },
@@ -151,8 +154,6 @@ vi.mock('@/main/media/guards', async (importOriginal) => ({
 vi.stubGlobal('MAIN_WINDOW_VITE_DEV_SERVER_URL', '');
 vi.stubGlobal('MAIN_WINDOW_VITE_NAME', 'main_window');
 
-let processListenersBefore: NodeJS.UncaughtExceptionListener[];
-
 beforeEach(() => {
   vi.resetModules();
   electron.handlers.clear();
@@ -161,16 +162,12 @@ beforeEach(() => {
   electron.fork.mockClear();
   electron.appOn.mockClear();
   electron.module.ipcMain.handle.mockClear();
-  processListenersBefore = process.listeners('uncaughtException');
+  electron.module.dialog.showMessageBox.mockClear();
+  electron.module.app.quit.mockClear();
 });
 
 afterEach(() => {
-  // registerListeners() hooks the real process; drop what it added.
-  for (const listener of process.listeners('uncaughtException')) {
-    if (!processListenersBefore.includes(listener)) {
-      process.off('uncaughtException', listener);
-    }
-  }
+  vi.useRealTimers();
 });
 
 /** Start the app the way index.ts does, then close the window and reopen it. */
@@ -186,6 +183,82 @@ async function startThenReopen() {
   const [closed, reopened] = electron.windows;
   return { closed, reopened };
 }
+
+describe('renderer crash recovery', () => {
+  async function openWindow() {
+    const { restoreOrCreateWindow } = await import('@/main/mainWindow');
+    await restoreOrCreateWindow();
+    const [window] = electron.windows;
+    const crash = (reason: string) =>
+      window.contentsListeners.get('render-process-gone')?.({}, { reason, exitCode: 1 });
+    return { window, crash };
+  }
+
+  it('reloads a crashed renderer up to 3 times a minute, then shows an error and quits', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const { window, crash } = await openWindow();
+
+    crash('crashed');
+    crash('oom');
+    crash('killed');
+    expect(window.webContents.reload).toHaveBeenCalledTimes(3);
+    expect(electron.module.dialog.showMessageBox).not.toHaveBeenCalled();
+
+    crash('crashed');
+    expect(window.webContents.reload).toHaveBeenCalledTimes(3);
+    expect(electron.module.dialog.showMessageBox).toHaveBeenCalledOnce();
+    expect(electron.module.dialog.showMessageBox.mock.calls[0]).toEqual([
+      window,
+      expect.objectContaining({ buttons: ['Quit'] }),
+    ]);
+    await vi.waitFor(() => expect(electron.module.app.quit).toHaveBeenCalledOnce());
+
+    // Only one dialog, however often it crashes after giving up.
+    crash('crashed');
+    expect(electron.module.dialog.showMessageBox).toHaveBeenCalledOnce();
+  });
+
+  it('reloads again once the earlier crashes are a minute old', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const { window, crash } = await openWindow();
+
+    crash('crashed');
+    crash('crashed');
+    crash('crashed');
+    vi.advanceTimersByTime(60_000);
+    crash('crashed');
+
+    expect(window.webContents.reload).toHaveBeenCalledTimes(4);
+    expect(electron.module.dialog.showMessageBox).not.toHaveBeenCalled();
+  });
+
+  it('does not reload after a clean exit', async () => {
+    const { window, crash } = await openWindow();
+
+    crash('clean-exit');
+
+    expect(window.webContents.reload).not.toHaveBeenCalled();
+    expect(electron.module.dialog.showMessageBox).not.toHaveBeenCalled();
+  });
+
+  it('logs failed loads without the query string or fragment', async () => {
+    const { window } = await openWindow();
+    const log = (await import('electron-log/main')).default.scope('window');
+    vi.mocked(log.error).mockClear();
+
+    window.contentsListeners.get('did-fail-load')?.(
+      {},
+      -6,
+      'ERR_FILE_NOT_FOUND',
+      'nubes://app/index.html?token=secret#/photoset/1',
+      true,
+    );
+
+    expect(log.error).toHaveBeenCalledWith(
+      'Failed to load nubes://app/index.html: ERR_FILE_NOT_FOUND (-6)',
+    );
+  });
+});
 
 describe('restoreOrCreateWindow', () => {
   it('reopens a window after the first one is closed', async () => {
@@ -228,7 +301,8 @@ describe('restoreOrCreateWindow', () => {
     const channels = electron.module.ipcMain.handle.mock.calls.map(([channel]) => channel);
     expect(new Set(channels).size).toBe(channels.length);
     expect(electron.appOn.mock.calls.filter(([event]) => event === 'before-quit')).toHaveLength(1);
-    expect(process.listenerCount('uncaughtException')).toBe(before + 1);
+    // Process-wide error handlers live in index.ts, not in any listener.
+    expect(process.listenerCount('uncaughtException')).toBe(before);
   });
 
   it('pushes storage changes to the reopened window, not the closed one', async () => {

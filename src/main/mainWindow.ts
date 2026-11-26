@@ -1,11 +1,84 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { BrowserWindow } from 'electron';
+import type { WebContents } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
+import baseLog from 'electron-log/main';
 
 import { APP_ENTRY_URL } from '@/common/app-url';
 
+import { createRetryLimiter } from './crash-handling';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const log = baseLog.scope('window');
+
+/** How often a crashed renderer is reloaded before the user gets an error instead. */
+export const RENDERER_RELOAD_LIMIT = { max: 3, windowMs: 60_000 };
+
+/** A URL fit for the log: no query string or fragment, which could carry user data. */
+function loggableUrl(url: string): string {
+  try {
+    const { protocol, host, pathname } = new URL(url);
+    return `${protocol}//${host}${pathname}`;
+  } catch {
+    return '<invalid url>';
+  }
+}
+
+/**
+ * Reload the page when its renderer process dies, so the window doesn't stay blank. A renderer
+ * that keeps crashing gets RENDERER_RELOAD_LIMIT reloads, then the user sees an error and quits.
+ * Also logs pages and preloads that fail to load. Logs carry URLs and error messages only.
+ */
+function watchWebContents(browserWindow: BrowserWindow, webContents: WebContents) {
+  const reloads = createRetryLimiter(RENDERER_RELOAD_LIMIT);
+  let gaveUp = false;
+
+  webContents.on('render-process-gone', (_event, { reason, exitCode }) => {
+    // clean-exit is the renderer shutting down on purpose, for example while the window closes.
+    if (reason === 'clean-exit') {
+      log.info('Renderer exited cleanly');
+      return;
+    }
+    if (browserWindow.isDestroyed() || gaveUp) return;
+    if (reloads.tryAcquire()) {
+      log.error(`Renderer gone (${reason}, exit code ${exitCode}). Reloading.`);
+      webContents.reload();
+      return;
+    }
+    log.error(
+      `Renderer gone (${reason}, exit code ${exitCode}). Reload limit reached, ` +
+        `${RENDERER_RELOAD_LIMIT.max} in ${RENDERER_RELOAD_LIMIT.windowMs / 1000}s.`,
+    );
+    gaveUp = true;
+    void dialog
+      .showMessageBox(browserWindow, {
+        type: 'error',
+        title: 'Nubes stopped working',
+        message: 'The Nubes window keeps crashing.',
+        detail: `It crashed ${RENDERER_RELOAD_LIMIT.max + 1} times in a minute. The log file has the details. Quit and open Nubes again.`,
+        buttons: ['Quit'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      })
+      .finally(() => app.quit());
+  });
+
+  webContents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      log.error(
+        `Failed to load ${loggableUrl(validatedURL)}${isMainFrame ? '' : ' (subframe)'}: ` +
+          `${errorDescription} (${errorCode})`,
+      );
+    },
+  );
+
+  webContents.on('preload-error', (_event, preloadPath, error) => {
+    log.error(`Preload ${path.basename(preloadPath)} failed:`, error);
+  });
+}
 
 /** The renderer bundle `nubes://app/` serves. Not used in dev, which loads over http. */
 export function rendererDir() {
@@ -31,6 +104,8 @@ async function createWindow({ background = false }: WindowOptions) {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
+
+  watchWebContents(browserWindow, browserWindow.webContents);
 
   /**
    * If the 'show' property of the BrowserWindow's constructor is omitted from the initialization options,

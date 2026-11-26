@@ -38,7 +38,7 @@ function spawnImageWorker({ onMessage, onExit }: WorkerHooks): WorkerHandle {
   child.on('message', onMessage);
   child.on('exit', onExit);
   // V8 fatal errors arrive as an 'error' event before 'exit'. Without a listener, EventEmitter
-  // throws it into main, where the uncaughtException handler below would quit the app.
+  // throws it into main as an uncaught exception. The worker's own exit is handled by onExit.
   child.on('error', (type, location) => log.error(`Image worker ${type} at ${location}`));
   return {
     postMessage: (message) => child.postMessage(message),
@@ -130,10 +130,4 @@ export function addImageProcessorEventListeners() {
   );
 
   app.on('before-quit', () => imageWorker.dispose());
-
-  process.on('uncaughtException', (err) => {
-    log.error('Uncaught exception in main, quitting:', err);
-    imageWorker.dispose();
-    app.quit();
-  });
 }
