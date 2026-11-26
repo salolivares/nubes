@@ -18,108 +18,139 @@ is why #129 (sharp crashing on newer Linux) is low priority.
   lives in `.dev-data/`, so two worktrees can run `pnpm start` side by side. `make clean-dev-data`
   clears it. The main checkout keeps using `nubes-dev/` under the OS app data folder. Mock S3 is on
   by default in dev. `NUBES_USER_DATA` overrides the folder and `NUBES_MOCK_S3=1|0` forces the S3
-  mode.
+  mode. Packaged builds ignore all three env vars.
 - When you launch the app to drive or check the GUI yourself, set `NUBES_BACKGROUND=1` (for example
   `NUBES_BACKGROUND=1 pnpm start`). The window opens without taking focus, with no dock icon and no
   DevTools window, so it doesn't pull the user out of what they are doing. The e2e tests set it too.
-  Packaged builds ignore it.
-- Never run `pnpm package` or `make package` unless asked. `make package` also replaces the
-  installed app in `/Applications`.
+
+## Ways to hurt yourself
+
+Each of these breaks something real. Most fail silently.
+
+- `NUBES_MOCK_S3=0` uploads to the real bucket, and the website reads that bucket, so the album goes
+  live. Only use it when the user asks.
+- `NUBES_USER_DATA` pointed at the packaged app's folder (`~/Library/Application Support/Nubes`)
+  runs unreleased migrations on the user's real database. Leave it unset or use a scratch folder.
+- `make package` replaces the installed app in `/Applications`. Never run it, or `pnpm package`,
+  unless asked.
+- Editing a migration that has already run does nothing to existing databases: Drizzle only applies
+  migrations newer than the last one it recorded. Change `src/common/db/schema.ts` and generate a
+  new migration instead.
+- The DB runs in WAL mode, so recent writes live in `nubes.db-wal`. Copying or replacing `nubes.db`
+  alone loses or corrupts data. Quit the app first and handle `-wal` and `-shm` with it.
+- Code that reads userData (`Storage`, `Database`, `app.getPath('userData')`) above the
+  `resolveDevEnvironment()` block in `src/main/index.ts` reads the wrong folder. Keep that block
+  first.
+- A second `protocol.registerSchemesAsPrivileged()` call replaces the first, and the scheme it drops
+  stops working. Add new schemes to the one call in `src/main/index.ts`.
+- Registering IPC handlers or the image worker per window breaks when macOS reopens the window:
+  `ipcMain.handle` throws on a second handler, and each call forks another worker. Register in
+  `registerListeners()` (`src/main/listeners/index.ts`), which runs once after `app.whenReady()`.
+- A `BrowserWindow` kept in a variable is dead after the window closes. Reply to `event.sender` or
+  use `broadcast()` from `src/main/ipc.ts`.
+- Using a path from the renderer on disk lets a compromised page read, upload or delete any file.
+  Check it with `MediaAccess` (see `src/main/media/guards.ts`), never pass it to
+  `allowPickedFiles()`, and build photoset folders from the id (`src/main/photoset-folders.ts`).
+- IPC that returns file contents bypasses all of the above. Don't add any. Photos reach the page
+  through `nubes-media://` only.
+- Older photosets keep flat paths under `photosets/` and can share files. A delete that skips the
+  "is another photoset using this file" check removes another photoset's images.
+- Node built-ins or Node-only packages in `src/preload/` (or the `src/common/` modules it imports)
+  fail the build, because the preload runs sandboxed. Only `require('electron')` is allowed.
+- Loading the renderer from `file://`, adding a meta CSP to `index.html`, or comparing
+  `URL.origin` for `nubes:` URLs (Node returns `"null"`) quietly opens holes. See the rules below.
+- Moving the e2e job to `ubuntu-latest` hangs image processing. See "sharp on Linux".
+
+## Hit every surface
+
+A change isn't done until each of these is updated.
+
+- **New or changed IPC channel:** channel name in `src/common/constants.ts`, Zod schema and types
+  in `src/common/types.ts`, the listener in `src/main/listeners/` registered with `handle()` or
+  `on()` (a new listener file also goes in `registerListeners()`), the preload file in `src/preload/` (and `preload.ts` if it is a new `window` API),
+  `types/api.d.ts`, and the debug bar (`src/renderer/components/debug-bar.tsx`) if it is dev-only.
+  A channel that takes file paths also needs a guard in `src/main/media/guards.ts`.
+- **S3 behavior:** both `IS3Provider` implementations, `src/main/drivers/s3/s3.ts` (real) and
+  `src/main/drivers/s3/mock-s3.ts`.
+- **DB schema:** `src/common/db/schema.ts`, plus a migration from `pnpm exec drizzle-kit generate`
+  in `src/common/db/migrations/`. Row types used outside main go in `src/common/types.ts`.
+- **Renderer data:** the query key and options in `src/renderer/lib/photoset-queries.ts`, and
+  invalidation of every key a write changes.
+- **Image job messages:** the `discriminatedUnion` in `src/common/types.ts` and
+  `applyImageJobEvent()` in `src/common/image-jobs.ts`, which main and the renderer both use.
+
+## Testing
+
+- A bug fix starts with a test that fails without the fix.
+- Test at the lowest layer that shows the bug: a pure function before a listener, a listener before
+  e2e.
+- No sleeps or retries. Wait for the event or state you need. A timeout is only a deadline that
+  fails the test or kills a hung process.
+- Main-process and `src/common/` tests run under Electron's Node (`pnpm test:main`), because
+  `better-sqlite3` is built for Electron's ABI. Running `vitest` directly on them fails with a
+  `NODE_MODULE_VERSION` error. Mock `sharp` in them, since it can crash under Electron on Linux.
+  Renderer tests run in jsdom (`pnpm test:renderer`). `pnpm test` runs both.
 - `pnpm test:e2e` runs `pnpm build` (Vite bundles into `.vite/`, no packaging), then the Playwright
   Electron tests in `tests/e2e/`. Each test launches the unpackaged app with a temp
-  `NUBES_USER_DATA` and mock S3. CI runs them on Linux under `xvfb-run`.
+  `NUBES_USER_DATA` and mock S3. CI runs them on `ubuntu-24.04` under `xvfb-run`.
 - `tests/e2e/fixtures/nubes-0000.db` is a database left at migration `0000`. The launch test boots
   the app on a copy of it, so a migration that breaks old data fails CI. Regenerate it with
   `node scripts/create-e2e-fixture-db.ts` only to change its rows.
-- Main-process tests run under Electron's Node (`pnpm test:main`), because `better-sqlite3` is built
-  for Electron's ABI. Running `vitest` directly on them fails with a `NODE_MODULE_VERSION` error.
-  Mock `sharp` in them. On Linux it can crash under Electron, see "sharp on Linux" below.
-- The e2e job runs on `ubuntu-24.04`, not `ubuntu-latest`, for the same reason.
 
 ## Rules
 
 - Use pnpm only, never npm or yarn.
-- `src/main/drivers/s3/s3.ts` (real S3) and `src/main/drivers/s3/mock-s3.ts` both implement
-  `IS3Provider`. When you change one, check whether the other needs the same change.
 - Validate IPC arguments with Zod. Register main-process handlers with `handle()` (invoke) or
-  `on()` (one-way send) from `src/main/ipc.ts`, which parse the schema and log errors.
-- IPC handlers and the image worker supervisor start once, in `registerListeners()` after
-  `app.whenReady()`.
-  Never per window: on macOS the window closes and reopens while the app keeps running. To push an
-  event, reply to `event.sender` or use `broadcast()` from `src/main/ipc.ts`. Don't hold on to a
-  `BrowserWindow`.
+  `on()` (one-way send) from `src/main/ipc.ts`, which parse the schema and log errors. Lint bans
+  `ipcMain` everywhere else, including the default `electron` import, `require()` and `import()`.
 - Shared shapes (Zod schemas, inferred types, row types) live in `src/common/types.ts`. Main-process
   listeners and `types/api.d.ts` both import from there. Don't redefine them elsewhere.
-- In `src/main/index.ts`, the dev userData setup (`resolveDevEnvironment()` from
-  `src/main/dev-environment.ts`, then `app.setPath('userData', ...)`) must stay the first code that
-  runs after imports. Nothing that reads userData (`Storage`, `Database`) may run before it.
-- Schema changes go in `src/common/db/schema.ts`, with a migration generated by `drizzle-kit` into
-  `src/common/db/migrations/`. Migrations run at startup.
-  When some are pending, startup first snapshots the DB to `nubes.db.bak-<timestamp>` next to it
-  and keeps the newest 3 (`src/main/drivers/database-maintenance.ts`).
+- Migrations run at startup. When some are pending, startup first snapshots the DB to
+  `nubes.db.bak-<timestamp>` next to it and keeps the newest 3
+  (`src/main/drivers/database-maintenance.ts`).
+- Main-process errors go through one handler (`src/main/crash-handling.ts`). Before the first window
+  loads, any error shows a dialog and quits. After that, only a corrupt database or a
+  `UserFacingError` quits; everything else is logged. Throw `UserFacingError` when the user can act
+  on the message. A crashed renderer reloads up to 3 times a minute (`src/main/mainWindow.ts`).
 - `src/renderer/components/ui/` is generated by the shadcn CLI. Use the `shadcn` skill to change it.
 - The renderer loads local photos only through `nubes-media://` URLs built with `mediaUrl()` from
   `src/common/media-url.ts`. Main (`src/main/media/`) serves files under the photosets folder plus
   source files passed to `allowPickedFiles()`. It has two callers: the open dialog in main, and
   `IMAGE_PICKER_ALLOW_DROPPED` for drops. Drop paths come only from preload's `addDroppedFiles()`,
-  which accepts only real `File` objects and resolves them with `webUtils.getPathForFile`, so page
-  code can't supply a path string. A compromised renderer process can still call that channel, so
-  `allowPickedFiles()` validates every path. Never call it with a path the page sent. Don't add IPC
-  that returns file contents.
-- Each photoset's processed images go in `photosets/<photosetId>/`. Main builds that folder from
-  the id in `image-processor:resize` (`src/main/photoset-folders.ts`), never from a renderer path.
-  Photosets made before this keep flat paths under `photosets/`, and some share files, so deletes
-  skip any file another photoset still points at.
-- Packaged and built runs (including e2e) load the renderer from `nubes://app/index.html`, never
-  `file://`. `src/main/app-protocol/` serves only regular files inside the renderer bundle, after
-  resolving symlinks, and answers 404 to anything else. Dev loads from the Vite dev server.
-  `nubes` and `nubes-media` are declared in one `protocol.registerSchemesAsPrivileged()` call in
-  `src/main/index.ts`, because a second call replaces the first.
+  which accepts only real `File` objects and resolves them with `webUtils.getPathForFile`. A
+  compromised renderer can still call that channel, so `allowPickedFiles()` validates every path.
+- IPC handlers that touch renderer paths (`s3:createAlbum`, `image-processor:resize`,
+  `photoset:addImages`, `photoset:delete`, `photoset:removeFiles`, `photoset:showInFolder`) check
+  them with the same `MediaAccess` before any disk access.
+- Each photoset's processed images go in `photosets/<photosetId>/`, built by main from the id in
+  `image-processor:resize`.
+- Packaged and built runs (including e2e) load the renderer from `nubes://app/index.html`.
+  `src/main/app-protocol/` serves only regular files inside the renderer bundle, after resolving
+  symlinks, and answers 404 to anything else. Dev loads from the Vite dev server.
 - The CSP is `contentSecurityPolicy()` in `src/common/csp.ts`, sent as a response header: by the
   `nubes://app` handler, and in dev by Vite's `server.headers` in `vite.renderer.config.ts`.
-  `index.html` has no meta CSP; don't add one. Dev-only relaxations stay behind its `dev` flag.
+  Dev-only relaxations stay behind its `dev` flag.
 - `isAppUrl()` in `src/main/ipc.ts` decides which page may call IPC, navigate, or get permissions:
-  the dev server origin in dev, `nubes://app` otherwise. Never `file:`. Don't compare `URL.origin`
-  for `nubes:` URLs: Node gives non-special schemes the opaque origin `"null"`.
+  the dev server origin in dev, `nubes://app` otherwise. Never `file:`.
 - The main window runs with `sandbox: true`. The preload builds to one CommonJS file,
-  `.vite/build/preload.cjs`, and may only `require('electron')` (`contextBridge`, `ipcRenderer`,
-  `webUtils`). Don't import Node built-ins or Node-only packages into `src/preload/` or the
-  `src/common/` modules it uses. `pluginSandboxedPreload()` in `vite.preload.config.ts` fails the
-  build if the output breaks either rule.
+  `.vite/build/preload.cjs`, using only `contextBridge`, `ipcRenderer` and `webUtils`.
+  `pluginSandboxedPreload()` in `vite.preload.config.ts` fails the build if the output needs
+  anything else.
 - External links only open for origins in `ALLOWED_EXTERNAL_ORIGINS` in
   `src/main/securityRestrictions.ts`. Others are silently blocked.
 
 ## Source layout
 
-`main/`, `preload/` and `renderer/` each build with their own Vite config. `common/` is shared.
+`main/`, `preload/` and `renderer/` each build with their own Vite config. `common/` is shared by
+all three. Run `ls` for the files; the landmarks are:
 
-```
-src/
-├── main/                  # Main process (Node.js), vite.main.config.ts (two entries:
-│   │                      #   index.ts and drivers/image-processor.ts)
-│   ├── index.ts           # App lifecycle, dev userData path, single-instance lock
-│   ├── dev-environment.ts # Picks the dev userData folder and S3 mode
-│   ├── ipc.ts             # handle() and on(): Zod-validated ipcMain wrappers, isAppUrl()
-│   ├── app-protocol/      # nubes://app: serves the packaged renderer bundle with the CSP header
-│   ├── drivers/
-│   │   ├── database.ts        # Singleton: better-sqlite3 + Drizzle, runs migrations
-│   │   ├── storage.ts         # Singleton: electron-store, safeStorage-encrypted credentials
-│   │   ├── image-processor.ts # utilityProcess worker entry: sharp resize
-│   │   ├── image-worker/      # runner.ts (serial jobs in the worker), supervisor.ts (main side)
-│   │   └── s3/                # IS3Provider, real S3, MockS3, get/setS3Provider
-│   └── listeners/         # IPC handlers, registered once at startup in listeners/index.ts
-├── preload/               # contextBridge APIs, one file per listener, built to one sandboxed
-│                          #   CommonJS file (vite.preload.config.ts)
-├── renderer/              # React UI (vite.renderer.config.ts)
-│   ├── routes.tsx         # Hash router
-│   ├── pages/
-│   ├── components/        # App components, theme-provider.tsx, debug-bar.tsx, ui/ (shadcn)
-│   ├── hooks/ stores/ lib/
-└── common/                # Shared by all processes
-    ├── constants.ts       # IPC channel names, DB_FILENAME, PHOTOSETS_DIR
-    ├── types.ts           # Zod schemas and TS types
-    └── db/                # Drizzle schema and migrations
-```
+- `src/main/index.ts`: app lifecycle, dev userData setup, single-instance lock.
+- `src/main/listeners/`: IPC handlers. `src/main/drivers/`: database, storage, S3, image worker.
+- `src/main/media/` and `src/main/app-protocol/`: the `nubes-media://` and `nubes://app` handlers.
+- `src/preload/`: one file per `window` API, joined in `preload.ts`.
+- `src/renderer/`: React UI. Routes in `routes.tsx`, pages in `pages/`, shadcn in `components/ui/`.
+- `src/common/`: IPC channel names (`constants.ts`), Zod schemas (`types.ts`), Drizzle schema and
+  migrations (`db/`).
 
 `types/api.d.ts` declares the `window.*` preload APIs. `types/forge.env.d.ts` declares the Forge
 constants (`MAIN_WINDOW_VITE_DEV_SERVER_URL`, `MAIN_WINDOW_VITE_NAME`).
