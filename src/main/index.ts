@@ -4,10 +4,11 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { platform } from 'node:process';
 
-import { app, protocol } from 'electron';
+import { app, dialog, protocol } from 'electron';
 import baseLog from 'electron-log/main';
 
 import { APP_SCHEME_PRIVILEGES, registerAppProtocol } from './app-protocol';
+import { createErrorHandler } from './crash-handling';
 import { readDotGitFile, resolveDevEnvironment } from './dev-environment';
 import { Database } from './drivers/database';
 import { MockS3, setS3Provider } from './drivers/s3';
@@ -45,6 +46,24 @@ if (devEnvironment.userDataPath) {
 }
 
 const log = baseLog.scope('startup');
+
+/**
+ * Every main-process error that nothing else caught ends up here. Until the first window has
+ * loaded, any error shows a dialog and quits, so a packaged build never fails to open silently.
+ * After that, errors are logged and the app keeps running, unless they are fatal (a corrupt
+ * database, or a UserFacingError). Registered right after the userData setup, so the log lands
+ * in the right folder.
+ */
+const errors = createErrorHandler({
+  log: baseLog.scope('crash'),
+  showErrorBox: (title, content) => dialog.showErrorBox(title, content),
+  // During startup no window is open and no worker is running, so exit at once with a failure
+  // code. Later, quit() runs the before-quit hooks that stop the image worker.
+  quit: (duringStartup) => (duringStartup ? app.exit(1) : app.quit()),
+});
+process.on('uncaughtException', (error) => errors.handle('uncaughtException', error));
+process.on('unhandledRejection', (reason) => errors.handle('unhandledRejection', reason));
+app.on('before-quit', () => errors.appQuitting());
 
 if (devEnvironment.mockS3) {
   setS3Provider(new MockS3());
@@ -92,7 +111,6 @@ if (!isSingleInstance) {
   app.quit();
   process.exit(0);
 }
-app.on('second-instance', () => restoreOrCreateWindow());
 
 /**
  * Disable Hardware Acceleration to save more system resources.
@@ -124,14 +142,22 @@ app
     if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) registerAppProtocol(rendererDir());
 
     /**
-     * Registered after the IPC handlers so a reopened window always has them.
+     * Registered after the IPC handlers and protocols, so a reopened window always has them.
+     * A second launch during startup is ignored: the first window is about to show anyway.
+     * A window that fails to open later is logged and destroyed; the app keeps running.
      * @see https://www.electronjs.org/docs/latest/api/app#event-activate-macos Event: 'activate'.
      */
-    app.on('activate', () => restoreOrCreateWindow());
+    const reopenWindow = () =>
+      restoreOrCreateWindow().catch((error: unknown) =>
+        log.error('Failed to open a window:', error),
+      );
+    app.on('activate', reopenWindow);
+    app.on('second-instance', reopenWindow);
 
     return restoreOrCreateWindow({ background: devEnvironment.background });
   })
-  .catch((e) => console.error('Failed create window:', e));
+  .then(() => errors.startupComplete())
+  .catch((error: unknown) => errors.handle('startup', error));
 
 /**
  * Install React devtools or any other extension in development mode only.
@@ -151,5 +177,5 @@ if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
         },
       });
     })
-    .catch((e) => console.error('Failed install extension:', e));
+    .catch((error: unknown) => log.warn('Failed to install React DevTools:', error));
 }
