@@ -55,7 +55,9 @@ jobs:
 
   e2e:
     name: Electron launch smoke test
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: on Ubuntu 26.04, sharp crashes inside Electron and image processing never
+    # finishes. See "sharp on Linux" in AGENTS.md and #129.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Check out repository

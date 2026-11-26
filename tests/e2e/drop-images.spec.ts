@@ -147,8 +147,7 @@ async function dropInMemoryFile(name: string) {
   await dropStagedFiles();
 }
 
-// Stops at the queue: processing hangs on GitHub's Linux runner (#129).
-test('a jpg dropped from disk is queued with a thumbnail served over nubes-media', async () => {
+test('a jpg dropped from disk is processed and reaches the review step', async () => {
   const imagePath = path.join(userDataPath!, 'dropped.jpg');
   await sharp({ create: { width: 64, height: 48, channels: 3, background: '#3366cc' } })
     .jpeg()
@@ -164,6 +163,13 @@ test('a jpg dropped from disk is queued with a thumbnail served over nubes-media
   await expect
     .poll(() => thumbnail.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: 'Upload', exact: true }).click();
+  await expect(page).toHaveURL(/#\/photoset\/\d+\/s3$/, { timeout: 20_000 });
+  // The review step lists the processed image (named without its extension), so the worker read
+  // the file from its real path and wrote its outputs.
+  await expect(page.getByRole('heading', { name: 'Review & Upload' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'dropped', exact: true })).toBeVisible();
 });
 
 test('a dropped file with no path on disk is rejected with a message', async () => {
