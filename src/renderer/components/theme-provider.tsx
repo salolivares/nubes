@@ -11,7 +11,7 @@ type ThemeProviderState = {
   setTheme: (theme: Theme) => void;
 };
 
-function updateDocumentTheme(isDarkMode: boolean) {
+export function updateDocumentTheme(isDarkMode: boolean) {
   if (!isDarkMode) {
     window.document.documentElement.classList.remove('dark');
   } else {
@@ -43,20 +43,23 @@ const initialState: ThemeProviderState = {
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>('system');
+  // Null until main says which theme is saved. Applying the 'system' default before that would
+  // overwrite the saved theme.
+  const [theme, setTheme] = useState<Theme | null>(null);
 
   useEffect(() => {
     window.themeMode.current().then((stored: Theme) => {
-      setTheme(stored || 'system');
+      // A choice the user made while this was in flight wins over the saved one.
+      setTheme((current) => current ?? (stored || 'system'));
     });
   }, []);
 
   useEffect(() => {
-    setElectronTheme(theme);
+    if (theme) setElectronTheme(theme);
   }, [theme]);
 
   const value = {
-    theme,
+    theme: theme ?? 'system',
     setTheme,
   };
 

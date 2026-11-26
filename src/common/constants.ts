@@ -71,3 +71,5 @@ export const IMAGE_PROCESSOR_RESIZE = `${IMAGE_PROCESSOR_CHANNEL}:resize`;
 export const IMAGE_PROCESSOR_CANCEL = `${IMAGE_PROCESSOR_CHANNEL}:cancel`;
 export const IMAGE_PROCESSOR_GET_JOB = `${IMAGE_PROCESSOR_CHANNEL}:getJob`;
 export const IMAGE_PROCESSOR_EVENT = `${IMAGE_PROCESSOR_CHANNEL}:event`;
+export const THEME_SOURCE_STORAGE_KEY = 'themeSource';
+export const WINDOW_STATE_STORAGE_KEY = 'windowState';

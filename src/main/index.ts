@@ -113,11 +113,6 @@ if (!isSingleInstance) {
 }
 
 /**
- * Disable Hardware Acceleration to save more system resources.
- */
-app.disableHardwareAcceleration();
-
-/**
  * Shutdown background process if all windows was closed
  */
 app.on('window-all-closed', () => {

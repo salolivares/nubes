@@ -163,6 +163,7 @@ all three. Run `ls` for the files; the landmarks are:
   worker. `drivers/image-processor.ts` is the second entry in `vite.main.config.ts`: the worker
   process, which runs jobs one at a time through `image-worker/runner.ts`.
 - `src/main/media/` and `src/main/app-protocol/`: the `nubes-media://` and `nubes://app` handlers.
+- `src/main/window/`: saved window bounds, the right-click menu, and the theme background color.
 - `src/preload/`: one file per `window` API, joined in `preload.ts`.
 - `src/renderer/`: React UI. Routes in `routes.tsx`, pages in `pages/`, shadcn in `components/ui/`.
 - `src/common/`: IPC channel names, `DB_FILENAME` and `PHOTOSETS_DIR` (`constants.ts`), Zod schemas (`types.ts`), Drizzle schema and

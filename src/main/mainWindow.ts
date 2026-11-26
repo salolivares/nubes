@@ -2,12 +2,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { WebContents } from 'electron';
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeTheme, screen } from 'electron';
 import baseLog from 'electron-log/main';
 
 import { APP_ENTRY_URL } from '@/common/app-url';
+import { WINDOW_STATE_STORAGE_KEY } from '@/common/constants';
 
 import { createRetryLimiter } from './crash-handling';
+import { Storage } from './drivers/storage';
+import { contextMenuTemplate } from './window/context-menu';
+import { windowBackgroundColor } from './window/theme';
+import type { WindowState } from './window/window-state';
+import { initialWindowBounds, parseWindowState, trackWindowState } from './window/window-state';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const log = baseLog.scope('window');
@@ -94,12 +100,40 @@ interface WindowOptions {
   background?: boolean;
 }
 
+/**
+ * Edit and spelling items on right-click. Electron shows no menu of its own, so without this,
+ * text fields have no cut, copy, paste or spelling suggestions.
+ */
+function addContextMenu(browserWindow: BrowserWindow) {
+  browserWindow.webContents.on('context-menu', (_event, params) => {
+    const template = contextMenuTemplate(params, browserWindow.webContents);
+    if (template.length > 0) Menu.buildFromTemplate(template).popup({ window: browserWindow });
+  });
+}
+
+function savedWindowState(): WindowState | null {
+  return parseWindowState(Storage.instance.read(WINDOW_STATE_STORAGE_KEY));
+}
+
+function saveWindowState(state: WindowState) {
+  try {
+    Storage.instance.write(WINDOW_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    log.warn('Failed to save the window state:', error);
+  }
+}
+
 async function createWindow({ background = false }: WindowOptions) {
+  const { isMaximized, ...bounds } = initialWindowBounds(
+    savedWindowState(),
+    screen.getAllDisplays().map((display) => display.workArea),
+  );
   const browserWindow = new BrowserWindow({
     title: 'Nubes',
     show: false, // Use the 'ready-to-show' event to show the instantiated BrowserWindow.
-    width: 1200,
-    height: 800,
+    ...bounds,
+    // The color before the page paints. Without it a dark-mode launch flashes white.
+    backgroundColor: windowBackgroundColor(nativeTheme.shouldUseDarkColors),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -110,6 +144,8 @@ async function createWindow({ background = false }: WindowOptions) {
   });
 
   watchWebContents(browserWindow, browserWindow.webContents);
+  addContextMenu(browserWindow);
+  trackWindowState(browserWindow, saveWindowState);
 
   /**
    * If the 'show' property of the BrowserWindow's constructor is omitted from the initialization options,
@@ -120,6 +156,9 @@ async function createWindow({ background = false }: WindowOptions) {
    * @see https://github.com/electron/electron/issues/25012 for the afford mentioned issue.
    */
   browserWindow.on('ready-to-show', () => {
+    // maximize() also shows the window, so it waits for the page like show() does.
+    if (isMaximized) browserWindow.maximize();
+
     // show() activates the app and takes focus from whatever window the user is in.
     if (background) {
       browserWindow?.showInactive();

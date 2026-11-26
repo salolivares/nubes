@@ -41,8 +41,12 @@ const electron = vi.hoisted(() => {
       mainFrame: { url: 'nubes://app/index.html', parent: null },
     };
 
-    constructor() {
+    maximized = false;
+    constructor(public options: Record<string, unknown> = {}) {
       windows.push(this);
+    }
+    maximize() {
+      this.maximized = true;
     }
 
     static getAllWindows() {
@@ -78,6 +82,16 @@ const electron = vi.hoisted(() => {
     isMinimized() {
       return false;
     }
+    isMaximized() {
+      return false;
+    }
+    isFullScreen() {
+      return false;
+    }
+    getNormalBounds() {
+      return { x: 0, y: 0, width: 1200, height: 800 };
+    }
+    setBackgroundColor() {}
     restore() {}
     focus() {
       this.focused = true;
@@ -107,7 +121,9 @@ const electron = vi.hoisted(() => {
         removeHandler: vi.fn((channel: string) => handlers.delete(channel)),
       },
       app: { getPath: () => '/tmp/nubes-test', quit: vi.fn() },
-      nativeTheme: { themeSource: 'system', shouldUseDarkColors: false },
+      nativeTheme: { themeSource: 'system', shouldUseDarkColors: false, on: vi.fn() },
+      screen: { getAllDisplays: () => [{ workArea: { x: 0, y: 0, width: 1920, height: 1080 } }] },
+      Menu: { buildFromTemplate: vi.fn(() => ({ popup: vi.fn() })) },
       dialog: { showMessageBox: vi.fn(async () => ({ response: 0 })) },
       shell: {},
       clipboard: {},
@@ -136,7 +152,9 @@ vi.mock('electron-log/main', () => {
 vi.mock('sharp', () => ({ default: vi.fn() }));
 
 vi.mock('@/main/drivers/storage', () => ({
-  Storage: { instance: { store: { onDidChange: vi.fn() } } },
+  Storage: {
+    instance: { store: { onDidChange: vi.fn() }, read: vi.fn(() => null), write: vi.fn() },
+  },
 }));
 
 // The resize handler checks the photoset exists. Every id does here unless a test says otherwise.
@@ -265,6 +283,76 @@ describe('renderer crash recovery', () => {
     expect(log.error).toHaveBeenCalledWith(
       'Failed to load nubes://app/index.html: ERR_FILE_NOT_FOUND (-6)',
     );
+  });
+});
+
+describe('window state', () => {
+  async function storage() {
+    const { Storage } = await import('@/main/drivers/storage');
+    return vi.mocked(Storage.instance);
+  }
+
+  it('opens at the saved bounds, maximized, on a dark background', async () => {
+    const saved = { x: 40, y: 50, width: 900, height: 600, isMaximized: true };
+    (await storage()).read.mockReturnValueOnce(JSON.stringify(saved));
+    electron.module.nativeTheme.shouldUseDarkColors = true;
+    try {
+      const { restoreOrCreateWindow } = await import('@/main/mainWindow');
+      await restoreOrCreateWindow();
+    } finally {
+      electron.module.nativeTheme.shouldUseDarkColors = false;
+    }
+
+    const [window] = electron.windows;
+    expect(window.options).toMatchObject({
+      x: 40,
+      y: 50,
+      width: 900,
+      height: 600,
+      backgroundColor: '#0a0a0a',
+    });
+    expect(window.maximized).toBe(true);
+  });
+
+  it('ignores a saved state that fails validation', async () => {
+    (await storage()).read.mockReturnValueOnce(JSON.stringify({ x: 'left' }));
+    const { restoreOrCreateWindow } = await import('@/main/mainWindow');
+    await restoreOrCreateWindow();
+
+    const [window] = electron.windows;
+    expect(window.options).toMatchObject({ width: 1200, height: 800, backgroundColor: '#ffffff' });
+    expect(window.options).not.toHaveProperty('x');
+    expect(window.maximized).toBe(false);
+  });
+
+  it('saves the state when the window closes', async () => {
+    const { restoreOrCreateWindow } = await import('@/main/mainWindow');
+    await restoreOrCreateWindow();
+    electron.windows[0].listeners.get('close')?.();
+
+    expect((await storage()).write).toHaveBeenCalledWith(
+      'windowState',
+      JSON.stringify({ x: 0, y: 0, width: 1200, height: 800, isMaximized: false }),
+    );
+  });
+
+  it('opens a context menu only where there is something to do', async () => {
+    const { restoreOrCreateWindow } = await import('@/main/mainWindow');
+    await restoreOrCreateWindow();
+    const openMenu = electron.windows[0].contentsListeners.get('context-menu')!;
+    const params = {
+      isEditable: false,
+      selectionText: '',
+      misspelledWord: '',
+      dictionarySuggestions: [],
+      editFlags: {},
+    };
+
+    electron.module.Menu.buildFromTemplate.mockClear();
+    openMenu({}, params);
+    expect(electron.module.Menu.buildFromTemplate).not.toHaveBeenCalled();
+    openMenu({}, { ...params, isEditable: true });
+    expect(electron.module.Menu.buildFromTemplate).toHaveBeenCalledOnce();
   });
 });
 
