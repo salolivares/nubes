@@ -160,11 +160,9 @@ test('right-click shows edit items in a text field and nothing elsewhere', async
     await page.locator('#context-menu-probe').click({ button: 'right' });
     await expect.poll(builtMenus).toEqual([['cut', 'copy', 'paste', 'separator', 'selectAll']]);
 
-    // An empty spot: no selection, not editable.
+    // An empty spot: no selection, not editable. Main handles right-clicks in order, so if this
+    // one built a menu, it would show up before the Copy menu checked below.
     await page.locator('#context-menu-empty').click({ button: 'right' });
-    // Give main the chance to build a menu it shouldn't.
-    await page.waitForTimeout(300);
-    expect(await builtMenus()).toHaveLength(1);
 
     // Selected text outside a field gets Copy. On macOS a right-click on a word selects it.
     await page.evaluate(() => {
