@@ -27,24 +27,26 @@ is why #129 (sharp crashing on newer Linux) is low priority.
 
 Each of these breaks something real. Most fail silently.
 
-- `NUBES_MOCK_S3=0` uploads to the real bucket, and the website reads that bucket, so the album goes
-  live. Only use it when the user asks.
+- `NUBES_MOCK_S3=0`, or turning mock S3 off in the debug bar, sends uploads to the real bucket. The
+  website reads that bucket, so an uploaded album can go live. Only do it when the user asks.
 - `NUBES_USER_DATA` pointed at the packaged app's folder (`~/Library/Application Support/Nubes`)
   runs unreleased migrations on the user's real database. Leave it unset or use a scratch folder.
-- `make package` replaces the installed app in `/Applications`. Never run it, or `pnpm package`,
-  unless asked.
+- `make package` copies the build over the installed app in `/Applications`. Never run it, or
+  `pnpm package`, unless asked.
 - Editing a migration that has already run does nothing to existing databases: Drizzle only applies
   migrations newer than the last one it recorded. Change `src/common/db/schema.ts` and generate a
   new migration instead.
-- The DB runs in WAL mode, so recent writes live in `nubes.db-wal`. Copying or replacing `nubes.db`
-  alone loses or corrupts data. Quit the app first and handle `-wal` and `-shm` with it.
+- The DB runs in WAL mode, so recent writes can live in `nubes.db-wal`. A copy of `nubes.db` alone
+  can miss them. To restore a backup, quit the app, delete `nubes.db-wal` and `nubes.db-shm`, then
+  copy the backup over `nubes.db`. A stale `-wal` left next to a restored file corrupts it.
 - Code that reads userData (`Storage`, `Database`, `app.getPath('userData')`) above the
   `resolveDevEnvironment()` block in `src/main/index.ts` reads the wrong folder. Keep that block
   first.
-- A second `protocol.registerSchemesAsPrivileged()` call replaces the first, and the scheme it drops
-  stops working. Add new schemes to the one call in `src/main/index.ts`.
+- Electron expects one `protocol.registerSchemesAsPrivileged()` call, before `ready`, listing every
+  custom scheme. A second call can drop the first one's privileges. Add new schemes to the one call
+  in `src/main/index.ts`.
 - Registering IPC handlers or the image worker per window breaks when macOS reopens the window:
-  `ipcMain.handle` throws on a second handler, and each call forks another worker. Register in
+  `ipcMain.handle` throws on a second handler, and each call creates another worker supervisor. Register in
   `registerListeners()` (`src/main/listeners/index.ts`), which runs once after `app.whenReady()`.
 - A `BrowserWindow` kept in a variable is dead after the window closes. Reply to `event.sender` or
   use `broadcast()` from `src/main/ipc.ts`.
@@ -67,17 +69,24 @@ A change isn't done until each of these is updated.
 
 - **New or changed IPC channel:** channel name in `src/common/constants.ts`, Zod schema and types
   in `src/common/types.ts`, the listener in `src/main/listeners/` registered with `handle()` or
-  `on()` (a new listener file also goes in `registerListeners()`), the preload file in `src/preload/` (and `preload.ts` if it is a new `window` API),
-  `types/api.d.ts`, and the debug bar (`src/renderer/components/debug-bar.tsx`) if it is dev-only.
-  A channel that takes file paths also needs a guard in `src/main/media/guards.ts`.
-- **S3 behavior:** both `IS3Provider` implementations, `src/main/drivers/s3/s3.ts` (real) and
-  `src/main/drivers/s3/mock-s3.ts`.
+  `on()` (a new listener file also goes in `registerListeners()`), the preload file in
+  `src/preload/` (and `preload.ts` if it is a new `window` API), and `types/api.d.ts`. Events main
+  pushes need the `broadcast()` or `event.sender` call and the renderer subscriber. Dev-only
+  channels go in `listeners/debug.ts` and `preload/debug.ts`, both gated to dev, and the debug bar
+  (`src/renderer/components/debug-bar.tsx`). A channel that takes file paths also needs a guard in
+  `src/main/media/guards.ts`.
+- **S3 behavior:** the `IS3Provider` interface in `src/main/drivers/s3/s3-provider.ts` and both
+  implementations, `s3.ts` (real) and `mock-s3.ts`. A change to one usually needs the same change
+  in the other.
 - **DB schema:** `src/common/db/schema.ts`, plus a migration from `pnpm exec drizzle-kit generate`
-  in `src/common/db/migrations/`. Row types used outside main go in `src/common/types.ts`.
+  in `src/common/db/migrations/`. Row types used outside main go in `src/common/types.ts`. Renamed
+  tables also need the raw SQL in the debug reset (`DEBUG_CLEAR_DB` in `listeners/debug.ts`).
 - **Renderer data:** the query key and options in `src/renderer/lib/photoset-queries.ts`, and
   invalidation of every key a write changes.
-- **Image job messages:** the `discriminatedUnion` in `src/common/types.ts` and
-  `applyImageJobEvent()` in `src/common/image-jobs.ts`, which main and the renderer both use.
+- **Image job messages:** the three schemas in `src/common/types.ts` (`imageWorkerRequestSchema`,
+  `imageWorkerEventSchema`, `imageJobEventSchema`), the worker (`drivers/image-worker/runner.ts`),
+  the supervisor, and `applyImageJobEvent()` in `src/common/image-jobs.ts`, which main and the
+  renderer both use.
 
 ## Testing
 
@@ -105,13 +114,15 @@ A change isn't done until each of these is updated.
   `ipcMain` everywhere else, including the default `electron` import, `require()` and `import()`.
 - Shared shapes (Zod schemas, inferred types, row types) live in `src/common/types.ts`. Main-process
   listeners and `types/api.d.ts` both import from there. Don't redefine them elsewhere.
-- Migrations run at startup. When some are pending, startup first snapshots the DB to
+- Migrations run at startup. When some are pending on a non-empty DB, startup first snapshots it to
   `nubes.db.bak-<timestamp>` next to it and keeps the newest 3
   (`src/main/drivers/database-maintenance.ts`).
-- Main-process errors go through one handler (`src/main/crash-handling.ts`). Before the first window
-  loads, any error shows a dialog and quits. After that, only a corrupt database or a
-  `UserFacingError` quits; everything else is logged. Throw `UserFacingError` when the user can act
-  on the message. A crashed renderer reloads up to 3 times a minute (`src/main/mainWindow.ts`).
+- Startup failures, uncaught exceptions and unhandled rejections go through one handler
+  (`src/main/crash-handling.ts`). Before the first window loads, any error shows a dialog and quits.
+  After that, only a corrupt database or a `UserFacingError` quits; everything else is logged.
+  `UserFacingError` is for fatal errors whose message tells the user what to do. IPC handler errors
+  are logged by `handle()` and go back to the caller. A crashed renderer reloads up to 3 times a
+  minute, then the user gets a dialog and the app quits (`src/main/mainWindow.ts`).
 - `src/renderer/components/ui/` is generated by the shadcn CLI. Use the `shadcn` skill to change it.
 - The renderer loads local photos only through `nubes-media://` URLs built with `mediaUrl()` from
   `src/common/media-url.ts`. Main (`src/main/media/`) serves files under the photosets folder plus
@@ -121,7 +132,8 @@ A change isn't done until each of these is updated.
   compromised renderer can still call that channel, so `allowPickedFiles()` validates every path.
 - IPC handlers that touch renderer paths (`s3:createAlbum`, `image-processor:resize`,
   `photoset:addImages`, `photoset:delete`, `photoset:removeFiles`, `photoset:showInFolder`) check
-  them with the same `MediaAccess` before any disk access.
+  them against the same `MediaAccess` roots. Each checks what it needs (see `guards.ts` and
+  `listeners/photoset.ts`), so copy the closest one when adding a handler.
 - Each photoset's processed images go in `photosets/<photosetId>/`, built by main from the id in
   `image-processor:resize`.
 - Packaged and built runs (including e2e) load the renderer from `nubes://app/index.html`.
@@ -133,9 +145,9 @@ A change isn't done until each of these is updated.
 - `isAppUrl()` in `src/main/ipc.ts` decides which page may call IPC, navigate, or get permissions:
   the dev server origin in dev, `nubes://app` otherwise. Never `file:`.
 - The main window runs with `sandbox: true`. The preload builds to one CommonJS file,
-  `.vite/build/preload.cjs`, using only `contextBridge`, `ipcRenderer` and `webUtils`.
-  `pluginSandboxedPreload()` in `vite.preload.config.ts` fails the build if the output needs
-  anything else.
+  `.vite/build/preload.cjs`, and today uses `contextBridge`, `ipcRenderer` and `webUtils`.
+  `pluginSandboxedPreload()` in `vite.preload.config.ts` fails the build unless the output is that
+  single CommonJS file and requires nothing but `electron`.
 - External links only open for origins in `ALLOWED_EXTERNAL_ORIGINS` in
   `src/main/securityRestrictions.ts`. Others are silently blocked.
 
@@ -145,11 +157,15 @@ A change isn't done until each of these is updated.
 all three. Run `ls` for the files; the landmarks are:
 
 - `src/main/index.ts`: app lifecycle, dev userData setup, single-instance lock.
-- `src/main/listeners/`: IPC handlers. `src/main/drivers/`: database, storage, S3, image worker.
+  `src/main/dev-environment.ts` picks the dev userData folder and S3 mode.
+- `src/main/listeners/`: IPC handlers. `src/main/drivers/`: the `Database` and `Storage`
+  singletons (`Storage` encrypts saved credentials with `safeStorage`), S3 providers, and the image
+  worker. `drivers/image-processor.ts` is the second entry in `vite.main.config.ts`: the worker
+  process, which runs jobs one at a time through `image-worker/runner.ts`.
 - `src/main/media/` and `src/main/app-protocol/`: the `nubes-media://` and `nubes://app` handlers.
 - `src/preload/`: one file per `window` API, joined in `preload.ts`.
 - `src/renderer/`: React UI. Routes in `routes.tsx`, pages in `pages/`, shadcn in `components/ui/`.
-- `src/common/`: IPC channel names (`constants.ts`), Zod schemas (`types.ts`), Drizzle schema and
+- `src/common/`: IPC channel names, `DB_FILENAME` and `PHOTOSETS_DIR` (`constants.ts`), Zod schemas (`types.ts`), Drizzle schema and
   migrations (`db/`).
 
 `types/api.d.ts` declares the `window.*` preload APIs. `types/forge.env.d.ts` declares the Forge
