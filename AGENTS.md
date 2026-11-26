@@ -29,7 +29,8 @@ albums to S3 with metadata.
   `node scripts/create-e2e-fixture-db.ts` only to change its rows.
 - Main-process tests run under Electron's Node (`pnpm test:main`), because `better-sqlite3` is built
   for Electron's ABI. Running `vitest` directly on them fails with a `NODE_MODULE_VERSION` error.
-  Mock `sharp` in them. On Linux its libvips clashes with Electron's GLib and the test worker hangs.
+  Mock `sharp` in them. On Linux it can crash under Electron, see "sharp on Linux" below.
+- The e2e job runs on `ubuntu-24.04`, not `ubuntu-latest`, for the same reason.
 
 ## Rules
 
@@ -151,6 +152,29 @@ with `useQuery`, and writes invalidate the keys they change.
 4. **ImageProcessing** runs the worker and saves the outputs to the photoset.
 5. **S3Upload** edits metadata, then uploads the album or saves it as a draft.
 6. **S3Summary** shows the result. Drafts reopen from **PhotosetDetail**.
+
+## sharp on Linux
+
+Image processing is broken under Electron on Ubuntu 26.04 (GLib 2.88). It works on Ubuntu 24.04
+(GLib 2.80), macOS and Windows. GLib versions in between are untested. Issue #129 has the logs.
+
+- Electron links the system GLib. sharp's prebuilt libvips bundles its own GLib and exports its `g_`
+  symbols without binding them to itself, so once both are loaded, some of sharp's GLib calls go to
+  the system copy and the rest stay on the bundled one. The clash is there on 24.04 too. It only
+  happens not to break.
+- Under `ELECTRON_RUN_AS_NODE=1` on 26.04, sharp segfaults in `g_object_unref` on the first image.
+  In the app's image worker, the first sharp call never returns instead: the job sits at 0%, the
+  worker never exits, and `app.close()` hangs.
+- The thumbnail handler in `src/main/media/index.ts` also uses sharp, in the main process. The drop
+  test's thumbnail loaded fine there on 26.04, for reasons not yet known. A fix has to cover both
+  callers.
+- Plain `node` is fine, because it doesn't load the system GLib.
+- sharp 0.35.5's libvips still exports its bundled `g_` symbols, so upgrading doesn't remove the
+  clash. It wasn't run on 26.04.
+- Loading sharp's binding with `RTLD_DEEPBIND` doesn't work. Electron replaces `malloc` and `free`,
+  and the flag makes sharp skip them, so the app crashes on startup.
+- Fixes still open: sharp's WebAssembly build (`@img/sharp-wasm32`) on Linux, or a sharp built
+  against the system libvips.
 
 ## Packaging native modules
 
