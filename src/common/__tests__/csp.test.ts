@@ -17,7 +17,14 @@ describe('contentSecurityPolicy', () => {
     expect(csp['script-src']).toBe("'self'");
     expect(csp['connect-src']).toBe("'self'");
     expect(csp['img-src']).toBe("'self' data: blob: nubes-media:");
-    for (const name of ['object-src', 'base-uri', 'frame-src', 'worker-src', 'media-src']) {
+    for (const name of [
+      'object-src',
+      'base-uri',
+      'frame-src',
+      'worker-src',
+      'media-src',
+      'frame-ancestors',
+    ]) {
       expect(csp[name]).toBe("'none'");
     }
     expect(contentSecurityPolicy(false)).not.toContain('unsafe-eval');

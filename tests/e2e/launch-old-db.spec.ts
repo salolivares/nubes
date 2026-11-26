@@ -56,6 +56,8 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
 
   try {
     const page = await electronApp.firstWindow();
+    // Built runs load the bundle from the nubes://app scheme, never file://.
+    expect(page.url()).toMatch(/^nubes:\/\/app\/index\.html/);
 
     await expect(page.getByRole('heading', { name: 'Photosets' })).toBeVisible();
 
@@ -108,8 +110,43 @@ test('app boots on a database from migration 0000 and lists its photosets', asyn
     await expect(page.getByRole('img').first()).toBeVisible();
     expect(cspViolations).toEqual([]);
 
-    // The page is a file:// URL, where CSP 'self' matches any file. Main cancels file:// loads
-    // outside the renderer bundle, so a valid image elsewhere on disk must not load.
+    // The CSP is a response header from the nubes://app handler, and the handler serves only the
+    // renderer bundle.
+    const responses = await page.evaluate(async () => {
+      const get = async (url: string) => {
+        try {
+          const res = await fetch(url);
+          return { status: res.status, csp: res.headers.get('content-security-policy') };
+        } catch {
+          return { status: -1, csp: null };
+        }
+      };
+      return {
+        index: await get('nubes://app/index.html'),
+        traversal: await get('nubes://app/..%2f..%2f..%2fpackage.json'),
+        missing: await get('nubes://app/missing.js'),
+      };
+    });
+    expect(responses.index.status).toBe(200);
+    expect(responses.index.csp).toContain("frame-ancestors 'none'");
+    expect(responses.index.csp).toContain("script-src 'self';");
+    expect(responses.traversal.status).toBe(404);
+    expect(responses.missing.status).toBe(404);
+    expect(responses.missing.csp).toContain("frame-ancestors 'none'");
+
+    // The header is enforced on the page itself: an inline script must not run.
+    const inlineRan = await page.evaluate(() => {
+      const w = window as Window & { inlineRan?: boolean };
+      const script = document.createElement('script');
+      script.textContent = 'window.inlineRan = true;';
+      document.head.append(script);
+      return w.inlineRan === true;
+    });
+    expect(inlineRan).toBe(false);
+    cspViolations.length = 0;
+
+    // 'self' is nubes://app, not every file: URL, so a valid image elsewhere on disk must not
+    // load.
     const outsideImage = path.join(userDataPath, 'outside.png');
     await fs.writeFile(
       outsideImage,

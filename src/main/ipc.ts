@@ -2,20 +2,44 @@ import { BrowserWindow, ipcMain } from 'electron';
 import baseLog from 'electron-log/main';
 import type { z } from 'zod';
 
+import { isAppSchemeUrl } from './app-protocol/resolve';
+
 const log = baseLog.scope('ipc');
 
-/** True when `url` is the app's own renderer page, not a remote site. */
-function isAppUrl(url: string): boolean {
+/**
+ * True when `url` is the app's own renderer page: the Vite dev server's origin in dev, and
+ * `nubes://app` otherwise. Nothing else, so not file: URLs, other dev server ports, or remote
+ * pages. Don't compare `URL.origin` for `nubes:`: Node gives non-special schemes an opaque
+ * `"null"` origin, which every file: and data: URL shares.
+ */
+export function isAppUrl(
+  url: string,
+  devServerUrl: string | undefined = MAIN_WINDOW_VITE_DEV_SERVER_URL,
+): boolean {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     return false;
   }
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    return parsed.origin === new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin;
+  if (devServerUrl) {
+    let dev: URL;
+    try {
+      dev = new URL(devServerUrl);
+    } catch {
+      return false;
+    }
+    // Compare the scheme too: a blob: URL inherits its inner URL's origin, so
+    // `blob:http://localhost:5173/<id>` has the dev server's origin.
+    return (
+      (dev.protocol === 'http:' || dev.protocol === 'https:') &&
+      parsed.protocol === dev.protocol &&
+      parsed.origin === dev.origin &&
+      parsed.username === '' &&
+      parsed.password === ''
+    );
   }
-  return parsed.protocol === 'file:';
+  return isAppSchemeUrl(parsed);
 }
 
 /**

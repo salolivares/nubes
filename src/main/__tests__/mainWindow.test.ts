@@ -33,7 +33,7 @@ const electron = vi.hoisted(() => {
       on: (event: string, cb: () => void) => this.contentsListeners.set(event, cb),
       once: (event: string, cb: () => void) => this.contentsListeners.set(event, cb),
       // The app page in the main frame, so ipc.ts's sender check accepts calls from it.
-      mainFrame: { url: 'file:///app/renderer/main_window/index.html', parent: null },
+      mainFrame: { url: 'nubes://app/index.html', parent: null },
     };
 
     constructor() {
@@ -52,10 +52,9 @@ const electron = vi.hoisted(() => {
       this.listeners.set(event, cb);
       return this;
     }
-    async loadFile() {
-      this.listeners.get('ready-to-show')?.();
-    }
-    async loadURL() {
+    loadedUrl: string | undefined;
+    async loadURL(url: string) {
+      this.loadedUrl = url;
       this.listeners.get('ready-to-show')?.();
     }
     show() {
@@ -198,6 +197,14 @@ describe('restoreOrCreateWindow', () => {
     await expect(restoreOrCreateWindow()).resolves.toBeUndefined();
     expect(electron.windows).toHaveLength(2);
     expect(electron.windows[1].shown).toBe(true);
+  });
+
+  it('loads the packaged page from nubes://app, never file://', async () => {
+    const { restoreOrCreateWindow } = await import('@/main/mainWindow');
+
+    await restoreOrCreateWindow();
+
+    expect(electron.windows[0].loadedUrl).toBe('nubes://app/index.html');
   });
 
   it('opens a background window without showing it active or focusing it', async () => {

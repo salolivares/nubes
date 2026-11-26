@@ -4,17 +4,17 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { platform } from 'node:process';
 
-import { app } from 'electron';
+import { app, protocol } from 'electron';
 import baseLog from 'electron-log/main';
 
+import { APP_SCHEME_PRIVILEGES, registerAppProtocol } from './app-protocol';
 import { readDotGitFile, resolveDevEnvironment } from './dev-environment';
 import { Database } from './drivers/database';
 import { MockS3, setS3Provider } from './drivers/s3';
 import { Storage } from './drivers/storage';
-import { restrictFileRequests } from './file-requests';
 import { registerListeners } from './listeners';
 import { rendererDir, restoreOrCreateWindow } from './mainWindow';
-import { registerMediaProtocol, registerMediaScheme } from './media';
+import { MEDIA_SCHEME_PRIVILEGES, registerMediaProtocol } from './media';
 
 /**
  * Pick the userData folder and S3 mode before anything else runs.
@@ -63,9 +63,10 @@ if (!app.isPackaged && process.env.NUBES_MOCK_S3 && devEnvironment.mockS3Source 
 }
 
 /**
- * Privileged schemes must be declared before `app` is ready. The handler is registered below.
+ * Privileged schemes must be declared before `app` is ready, in a single call: a second call
+ * replaces the first. The handlers are registered below.
  */
-registerMediaScheme();
+protocol.registerSchemesAsPrivileged([APP_SCHEME_PRIVILEGES, MEDIA_SCHEME_PRIVILEGES]);
 
 /**
  * Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -119,7 +120,8 @@ app
     Database.init();
     registerListeners();
     registerMediaProtocol();
-    if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) restrictFileRequests(rendererDir());
+    // Dev loads the page from the Vite dev server instead.
+    if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) registerAppProtocol(rendererDir());
 
     /**
      * Registered after the IPC handlers so a reopened window always has them.
