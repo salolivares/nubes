@@ -68,12 +68,12 @@ app.on('before-quit', () => errors.appQuitting());
 if (devEnvironment.mockS3) {
   setS3Provider(new MockS3());
 }
-// The macOS About panel shows this as "Version 1.0.0 (abc1234)".
+// The macOS About panel shows this as "Version 1.2.0 (abc1234)".
 app.setAboutPanelOptions({
-  applicationVersion: app.getVersion(),
+  applicationVersion: NUBES_BUILD_VERSION,
   ...(NUBES_BUILD_COMMIT && { version: NUBES_BUILD_COMMIT }),
 });
-log.info(`Nubes ${app.getVersion()} (${NUBES_BUILD_COMMIT ?? 'unknown commit'})`);
+log.info(`Nubes ${NUBES_BUILD_VERSION} (${NUBES_BUILD_COMMIT ?? 'unknown commit'})`);
 log.info(
   `userData:${app.getPath('userData')} (${devEnvironment.userDataSource}); ` +
     `S3: ${devEnvironment.mockS3 ? 'mock' : 'real'} (${devEnvironment.mockS3Source})`,

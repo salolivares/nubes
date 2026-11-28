@@ -1,4 +1,4 @@
-.PHONY: setup check format clean-dev-data lint typecheck dev package install
+.PHONY: setup check format clean-dev-data lint typecheck dev package install release
 
 # Bare `make` keeps running lint, as it did before these targets were added.
 .DEFAULT_GOAL := lint
@@ -40,3 +40,9 @@ install:
 	echo "Installing $$app -> /Applications/Nubes.app"; \
 	rm -rf /Applications/Nubes.app; \
 	cp -R "$$app" /Applications/Nubes.app
+
+# Tags origin/main as v$(VERSION), builds the zip and publishes a GitHub release with it.
+# The app reads its version from the tag. See scripts/release.ts.
+release:
+	@[ -n "$(VERSION)" ] || { echo "Usage: make release VERSION=1.2.0" >&2; exit 1; }
+	node scripts/release.ts $(VERSION)

@@ -8,8 +8,12 @@ import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
+import { buildInfo } from './build-info';
+
 const config: ForgeConfig = {
   packagerConfig: {
+    // From the latest vX.Y.Z git tag, not package.json. See build-info.ts.
+    appVersion: buildInfo().version,
     asar: {
       unpack: '**/*.{node,dll,dylib,so}',
     },

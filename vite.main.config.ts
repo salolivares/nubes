@@ -4,12 +4,12 @@ import type { ConfigEnv, UserConfig } from 'vite';
 import { defineConfig, mergeConfig } from 'vite';
 import native from 'vite-plugin-native';
 
+import { buildInfo } from './build-info';
 import {
   esmodule,
   external,
   getBuildConfig,
   getBuildDefine,
-  gitCommit,
   pluginHotRestart,
 } from './vite.base.config';
 
@@ -17,9 +17,11 @@ import {
 export default defineConfig((env) => {
   const forgeEnv = env as ConfigEnv<'build'>;
   const { forgeConfigSelf } = forgeEnv;
+  const { version, commit } = buildInfo();
   const define = {
     ...getBuildDefine(forgeEnv),
-    NUBES_BUILD_COMMIT: JSON.stringify(gitCommit()),
+    NUBES_BUILD_VERSION: JSON.stringify(version),
+    NUBES_BUILD_COMMIT: JSON.stringify(commit),
   };
   const config: UserConfig = {
     build: {
