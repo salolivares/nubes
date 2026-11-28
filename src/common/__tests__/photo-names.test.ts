@@ -25,6 +25,17 @@ describe('defaultPhotoNames', () => {
     expect(defaultPhotoNames(outputs('IMG_0001-2'))).toEqual(['IMG_0001-2', 'IMG_0001']);
   });
 
+  it.each(['Tokyo-1', 'Tokyo-01', 'Tokyo-0'])(
+    'does not treat %s as a deduplicated name, since processing never adds that suffix',
+    (stem) => {
+      expect(defaultPhotoNames(outputs(stem))).toEqual([stem]);
+    },
+  );
+
+  it('treats -10 as a dedupe suffix', () => {
+    expect(defaultPhotoNames(outputs('Tokyo-10'))).toEqual(['Tokyo-10', 'Tokyo']);
+  });
+
   it('returns nothing for paths that are not processing outputs', () => {
     expect(defaultPhotoNames(['/tmp/a-640.jpg', ''])).toEqual([]);
   });

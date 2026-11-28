@@ -138,4 +138,20 @@ describe('DraftView upload', () => {
       ),
     );
   });
+
+  it('still saves the draft with unnamed photos', async () => {
+    renderDraft(makeDraft({ description: 'Tiles.', images: [unnamedImage] }));
+
+    fireEvent.change(screen.getByLabelText('Location'), { target: { value: 'Porto' } });
+    const save = screen.getByRole('button', { name: 'Save Draft' });
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    await waitFor(() =>
+      expect(window.photosets.update).toHaveBeenCalledWith(
+        expect.objectContaining({ location: 'Porto' }),
+      ),
+    );
+    expect(screen.queryByText(/Still the file name/)).not.toBeInTheDocument();
+  });
 });

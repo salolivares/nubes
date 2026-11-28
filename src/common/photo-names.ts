@@ -6,7 +6,8 @@ import { z } from 'zod';
  * the name, or `name-2`, `name-3` and so on when another photo in the photoset already took it.
  */
 const OUTPUT_FILE = /^(.+)_\d+\.[a-z0-9]+$/is;
-const DEDUPE_SUFFIX = /^(.+)-\d+$/s;
+// Only what `uniqueOutputStem` adds: -2 and up, no leading zero. `Tokyo-01` and `Tokyo-1` are real names.
+const DEDUPE_SUFFIX = /^(.+)-(?:[2-9]|[1-9]\d+)$/s;
 
 /**
  * The names processing could have given a photo, read back from its output paths. Empty when the

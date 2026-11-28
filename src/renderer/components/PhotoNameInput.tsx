@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import { Input } from './ui/input';
 
 /** The editable name cell in the review tables. Commits on blur or Enter. */
@@ -5,16 +7,15 @@ export function PhotoNameInput({
   photoId,
   defaultValue,
   error,
-  disabled,
   onCommit,
 }: {
   photoId: string;
   defaultValue: string;
   error?: string;
-  disabled?: boolean;
   onCommit: (name: string) => void;
 }) {
-  const errorId = `photo-name-error-${photoId}`;
+  // Not from photoId: ids carry the file name, which can contain spaces.
+  const errorId = useId();
   return (
     <div className="space-y-1">
       <Input
@@ -24,7 +25,6 @@ export function PhotoNameInput({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         defaultValue={defaultValue}
-        disabled={disabled}
         onBlur={(e) => onCommit(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
