@@ -1,4 +1,4 @@
-.PHONY: setup check format clean-dev-data lint typecheck dev package
+.PHONY: setup check format clean-dev-data lint typecheck dev package install
 
 # Bare `make` keeps running lint, as it did before these targets were added.
 .DEFAULT_GOAL := lint
@@ -29,4 +29,14 @@ dev:
 
 package:
 	pnpm package
-	find out -name '*.app' -maxdepth 2 -exec rm -rf /Applications/{} \; -exec cp -R {} /Applications/ \;
+	$(MAKE) install
+
+# Replaces /Applications/Nubes.app with the last packaged build. The old bundle
+# is deleted first, so files a newer build drops don't linger.
+install:
+	@set -e; \
+	app=$$(ls -d out/*/Nubes.app 2>/dev/null | head -n 1); \
+	[ -n "$$app" ] || { echo "No packaged app in out/. Run 'make package'." >&2; exit 1; }; \
+	echo "Installing $$app -> /Applications/Nubes.app"; \
+	rm -rf /Applications/Nubes.app; \
+	cp -R "$$app" /Applications/Nubes.app
