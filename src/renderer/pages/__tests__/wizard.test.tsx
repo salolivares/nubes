@@ -506,6 +506,89 @@ describe('S3 upload', () => {
     expect(publishOrder).toBeLessThan(markOrder);
   });
 
+  it('blocks upload until every photo has a name that is not its file name', async () => {
+    const outputs = (stem: string) =>
+      [128, 640].map((resolution) => ({
+        imagePath: `/data/photosets/7/${stem}_${resolution}.jpg`,
+        type: 'jpg' as const,
+        resolution,
+        byteLength: 10,
+      }));
+    useImageStore.getState().setProcessedImages([
+      { id: 'img-1', name: 'IMG_0001', imagePaths: outputs('IMG_0001') },
+      { id: 'img-2', name: 'IMG_0002', imagePaths: outputs('IMG_0002') },
+    ]);
+
+    renderAt('/photoset/7/s3');
+    expect(await screen.findByText('2 photos need a name before upload')).toBeInTheDocument();
+    await fillAndUpload();
+
+    // Re-query: the table re-renders its cells as new elements.
+    await waitFor(() => expect(screen.getAllByLabelText('Photo name')[0]).toHaveFocus());
+    const [first, second] = screen.getAllByLabelText('Photo name');
+    expect(first).toHaveAttribute('aria-invalid', 'true');
+    expect(second).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getAllByText(/Still the file name/)).toHaveLength(2);
+    expect(window.s3.createAlbum).not.toHaveBeenCalled();
+
+    fireEvent.change(first, { target: { value: 'Shibuya at night' } });
+    fireEvent.blur(first);
+    const secondNow = screen.getAllByLabelText('Photo name')[1];
+    fireEvent.change(secondNow, { target: { value: 'Senso-ji' } });
+    fireEvent.blur(secondNow);
+    expect(screen.queryByText(/need a name/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Still the file name/)).not.toBeInTheDocument();
+
+    fireEvent.click(document.querySelector<HTMLElement>('[aria-haspopup="menu"]')!);
+    fireEvent.click(await screen.findByText('Upload to S3'));
+
+    await expectLocation('/photoset/7/summary');
+    expect(window.s3.createAlbum).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: [
+          expect.objectContaining({ name: 'Shibuya at night' }),
+          expect.objectContaining({ name: 'Senso-ji' }),
+        ],
+      }),
+    );
+  });
+
+  it('still saves a draft with unnamed photos', async () => {
+    useImageStore.getState().setProcessedImages([
+      {
+        id: 'img-1',
+        name: 'IMG_0001',
+        imagePaths: [
+          {
+            imagePath: '/data/photosets/7/IMG_0001_640.jpg',
+            type: 'jpg',
+            resolution: 640,
+            byteLength: 10,
+          },
+        ],
+      },
+    ]);
+
+    renderAt('/photoset/7/s3');
+    fireEvent.change(await screen.findByPlaceholderText('My awesome album'), {
+      target: { value: 'Trip' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Los Angeles, California'), {
+      target: { value: 'Tokyo' },
+    });
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'A week in Tokyo.' },
+    });
+    const save = screen.getByRole('button', { name: 'Save as Draft' });
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    await expectLocation('/photoset/7');
+    expect(window.photosets.addImages).toHaveBeenCalledWith(
+      expect.objectContaining({ images: [expect.objectContaining({ name: 'IMG_0001' })] }),
+    );
+  });
+
   it('surfaces a failed DB update after S3 succeeds and lets the user retry it', async () => {
     vi.mocked(window.photosets.markUploaded).mockRejectedValueOnce(new Error('database is locked'));
 

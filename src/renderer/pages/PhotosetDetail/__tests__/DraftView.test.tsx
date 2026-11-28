@@ -91,3 +91,51 @@ describe('DraftView add images', () => {
     );
   });
 });
+
+describe('DraftView upload', () => {
+  const unnamedImage = {
+    id: 1,
+    photosetId: 7,
+    name: 'DSC_0042',
+    camera: null,
+    originalPath: '/data/photosets/7/DSC_0042_640.jpg',
+    preview: null,
+    sortOrder: 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    outputs: [
+      {
+        id: 1,
+        imageId: 1,
+        imagePath: '/data/photosets/7/DSC_0042_640.jpg',
+        type: 'jpg',
+        resolution: 640,
+        byteLength: 10,
+      },
+    ],
+  } as PhotosetWithImages['images'][number];
+
+  it('blocks upload while a photo still has its file name', async () => {
+    renderDraft(makeDraft({ description: 'Tiles.', images: [unnamedImage] }));
+    expect(screen.getByText('1 photo needs a name before upload')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Upload to S3/ }));
+
+    // Re-query: the table re-renders its cells as new elements.
+    await waitFor(() => expect(screen.getByLabelText('Photo name')).toHaveFocus());
+    const input = screen.getByLabelText('Photo name');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(window.s3.createAlbum).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: 'Azulejos' } });
+    fireEvent.blur(input);
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Upload to S3/ }));
+
+    await waitFor(() =>
+      expect(window.s3.createAlbum).toHaveBeenCalledWith(
+        expect.objectContaining({ images: [expect.objectContaining({ name: 'Azulejos' })] }),
+      ),
+    );
+  });
+});

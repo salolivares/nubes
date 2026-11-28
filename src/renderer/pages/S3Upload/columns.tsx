@@ -5,9 +5,9 @@ import { useMemo } from 'react';
 import type { ProcessedImage } from '@/common/types';
 
 import { CameraCombobox } from '../../components/CameraCombobox';
+import { PhotoNameInput } from '../../components/PhotoNameInput';
 import { PhotoThumbnail } from '../../components/PhotoThumbnail';
 import { RowDragHandleCell } from '../../components/SortableTable';
-import { Input } from '../../components/ui/input';
 import type { CameraEntry } from '../../hooks/useCameras';
 
 export function useImageColumns(opts: {
@@ -15,9 +15,11 @@ export function useImageColumns(opts: {
   onCameraSelect: (imageId: string, name: string) => void;
   onCameraAdd: (name: string) => Promise<void>;
   onNameChange: (imageId: string, name: string) => void;
+  /** Photo name errors to show, keyed by row id. */
+  nameErrors: ReadonlyMap<string, string>;
   onPreview: (image: ProcessedImage) => void;
 }): ColumnDef<ProcessedImage>[] {
-  const { cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview } = opts;
+  const { cameras, onCameraSelect, onCameraAdd, onNameChange, nameErrors, onPreview } = opts;
 
   return useMemo<ColumnDef<ProcessedImage>[]>(
     () => [
@@ -53,17 +55,11 @@ export function useImageColumns(opts: {
         accessorKey: 'name',
         header: 'Name',
         cell: ({ row }) => (
-          <Input
-            type="text"
+          <PhotoNameInput
+            photoId={row.original.id}
             defaultValue={row.original.name}
-            onBlur={(e) => onNameChange(row.original.id, e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                onNameChange(row.original.id, (e.target as HTMLInputElement).value);
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            className="border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background"
+            error={nameErrors.get(row.original.id)}
+            onCommit={(name) => onNameChange(row.original.id, name)}
           />
         ),
       },
@@ -80,6 +76,6 @@ export function useImageColumns(opts: {
         ),
       },
     ],
-    [cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview],
+    [cameras, onCameraSelect, onCameraAdd, onNameChange, nameErrors, onPreview],
   );
 }

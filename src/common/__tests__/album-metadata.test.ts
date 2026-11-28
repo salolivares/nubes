@@ -7,6 +7,7 @@ import {
   albumId,
   AlbumMetadataError,
   albumMetadataFilename,
+  assertPhotosNamed,
   buildAlbumMetadata,
   serializeAlbumMetadata,
   travelAlbumSchema,
@@ -124,5 +125,30 @@ describe('buildAlbumMetadata', () => {
     const text = serializeAlbumMetadata(buildAlbumMetadata(album, []));
     expect(text.endsWith('}\n')).toBe(true);
     expect(text).toContain('\n  "title": "Denmark",\n');
+  });
+});
+
+describe('assertPhotosNamed', () => {
+  const imagePaths = (stem: string) => [{ imagePath: `/data/photosets/7/${stem}_640.jpg` }];
+
+  it('rejects photos that still have their file name or no name', () => {
+    const check = () =>
+      assertPhotosNamed([
+        { name: 'Harbour', imagePaths: imagePaths('DSC_0001') },
+        { name: 'DSC_0002', imagePaths: imagePaths('DSC_0002') },
+        { name: '  ', imagePaths: imagePaths('DSC_0003') },
+      ]);
+    expect(check).toThrow(AlbumMetadataError);
+    expect(check).toThrow(/photo 2 \("DSC_0002"\), photo 3 \(""\)/);
+  });
+
+  it('accepts named photos', () => {
+    expect(() =>
+      assertPhotosNamed([{ name: 'Harbour', imagePaths: imagePaths('DSC_0001') }]),
+    ).not.toThrow();
+  });
+
+  it('is not part of buildAlbumMetadata, so albums uploaded before the rule still export', () => {
+    expect(() => buildAlbumMetadata(album, [{ name: 'DSC_0002' }, { name: '' }])).not.toThrow();
   });
 });

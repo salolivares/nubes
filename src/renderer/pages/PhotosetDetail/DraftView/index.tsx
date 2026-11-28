@@ -15,6 +15,7 @@ import { albumSchema } from '@/common/types';
 import { AlbumForm } from '../../../components/AlbumForm/AlbumForm';
 import { CameraCombobox } from '../../../components/CameraCombobox';
 import { ImagePreviewDialog, pickPreviewPath } from '../../../components/ImagePreviewDialog';
+import { UnnamedPhotosNotice } from '../../../components/PhotoNameInput';
 import { SortableTable } from '../../../components/SortableTable';
 import {
   AlertDialog,
@@ -37,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import { useCameras } from '../../../hooks/useCameras';
+import { usePhotoNameCheck } from '../../../hooks/usePhotoNameCheck';
 import { paths } from '../../../lib/paths';
 import { forgetPhotosets } from '../../../lib/photoset-queries';
 import { uploadAlbum } from '../../../lib/upload-album';
@@ -179,6 +181,17 @@ export function DraftView({
     setImagesDirty(true);
   };
 
+  const photoNames = useMemo(
+    () =>
+      images.map((img) => ({
+        id: String(img.id),
+        name: img.name,
+        outputPaths: img.outputs.map((o) => o.imagePath),
+      })),
+    [images],
+  );
+  const nameCheck = usePhotoNameCheck(photoNames);
+
   const handleCameraSelect = (imageId: number, cameraName: string) => {
     handleImageUpdate(imageId, { camera: cameraName });
     touchCamera(cameraName);
@@ -201,7 +214,11 @@ export function DraftView({
     cameras,
     onCameraSelect: handleCameraSelect,
     onCameraAdd: async (name) => addCamera(name),
-    onNameChange: (imageId, name) => handleImageUpdate(imageId, { name }),
+    onNameChange: (imageId, name) => {
+      handleImageUpdate(imageId, { name });
+      nameCheck.markTouched(String(imageId));
+    },
+    nameErrors: nameCheck.visibleErrors,
     onPreview: setPreviewImage,
     onRemove: handleRemoveImage,
     disabled: busy,
@@ -279,7 +296,9 @@ export function DraftView({
     }
   });
 
+  // Saving the draft can keep file names. Only the upload needs every photo named.
   const handleUpload = form.handleSubmit((values) => {
+    if (!nameCheck.checkBeforeUpload()) return;
     const processedImages = toProcessedImages(images);
 
     uploadMutate(
@@ -370,6 +389,10 @@ export function DraftView({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <UnnamedPhotosNotice
+            count={hasOutputs ? nameCheck.unnamedCount : 0}
+            emphasize={nameCheck.attempted}
+          />
           <Button variant="outline" disabled={busy} onClick={handleAddImages}>
             {isProcessing ? (
               <>
