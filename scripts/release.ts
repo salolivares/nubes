@@ -39,6 +39,9 @@ if (run('git', ['rev-parse', 'HEAD']) !== run('git', ['rev-parse', 'origin/main'
 if (run('git', ['tag', '--list', tag]) !== '') fail(`tag ${tag} already exists`);
 
 step('git', ['tag', '--annotate', tag, '--message', `Nubes ${version}`]);
+// Clear old zips, so only this build's can be uploaded.
+const zipDir = path.join(projectDir, 'out', 'make', 'zip', 'darwin');
+fs.rmSync(zipDir, { recursive: true, force: true });
 try {
   step('pnpm', ['make']);
 } catch {
@@ -46,11 +49,12 @@ try {
   fail(`the build failed, so ${tag} was deleted and nothing was published`);
 }
 
-const zipDir = path.join(projectDir, 'out', 'make', 'zip', 'darwin');
-const zips = fs
-  .readdirSync(zipDir, { recursive: true, encoding: 'utf8' })
-  .filter((file) => file.endsWith(`-${version}.zip`))
-  .map((file) => path.join(zipDir, file));
+const zips = fs.existsSync(zipDir)
+  ? fs
+      .readdirSync(zipDir, { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith(`-${version}.zip`))
+      .map((file) => path.join(zipDir, file))
+  : [];
 if (zips.length === 0) {
   step('git', ['tag', '--delete', tag]);
   fail(`no zip for ${version} in ${zipDir}, so ${tag} was deleted and nothing was published`);
