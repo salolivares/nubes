@@ -33,6 +33,8 @@ Each of these breaks something real. Most fail silently.
   runs unreleased migrations on the user's real database. Leave it unset or use a scratch folder.
 - `make package` copies the build over the installed app in `/Applications`. Never run it, or
   `pnpm package`, unless asked.
+- `make release` pushes a tag and publishes a GitHub release on a public repo. Never run it unless
+  asked, and never delete or move a pushed `v` tag.
 - Editing a migration that has already run does nothing to existing databases: Drizzle only applies
   migrations newer than the last one it recorded. Change `src/common/db/schema.ts` and generate a
   new migration instead.
@@ -234,6 +236,15 @@ Image processing is broken under Electron on Ubuntu 26.04 (GLib 2.88). It works 
   and the flag makes sharp skip them, so the app crashes on startup.
 - Fixes still open: sharp's WebAssembly build (`@img/sharp-wasm32`) on Linux, or a sharp built
   against the system libvips.
+
+## Versions and releases
+
+The app's version comes from the latest `vX.Y.Z` git tag, not `package.json`: `1.2.0` on the
+tag, `1.2.0+3` three commits after it (`build-info.ts`). Forge puts it in Info.plist, and main
+gets it, with the commit, as `NUBES_BUILD_VERSION` and `NUBES_BUILD_COMMIT` for the About panel
+and the startup log. `package.json`'s version is only the fallback when there is no tag.
+`make release VERSION=1.2.0` tags a clean origin/main, builds the zip and publishes it as a
+GitHub release (`scripts/release.ts`).
 
 ## Packaging native modules
 

@@ -8,8 +8,14 @@ import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
+import { buildInfo } from './build-info';
+
+const { version } = buildInfo();
+
 const config: ForgeConfig = {
   packagerConfig: {
+    // From the latest vX.Y.Z git tag, not package.json. See build-info.ts.
+    appVersion: version,
     asar: {
       unpack: '**/*.{node,dll,dylib,so}',
     },
@@ -19,6 +25,16 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   hooks: {
+    // The zip maker names files after package.json's version. Rename them to the tag version.
+    postMake: async (_forgeConfig, makeResults) =>
+      makeResults.map((result) => ({
+        ...result,
+        artifacts: result.artifacts.map((artifact) => {
+          const renamed = artifact.replace(/-[^-/]+\.zip$/, `-${version}.zip`);
+          if (renamed !== artifact) fs.renameSync(artifact, renamed);
+          return renamed;
+        }),
+      })),
     packageAfterCopy: async (_forgeConfig, buildPath) => {
       const sharpDeps = ['sharp', '@img', 'detect-libc', 'semver'];
       const srcModules = path.resolve(__dirname, 'node_modules');
