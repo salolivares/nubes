@@ -52,7 +52,6 @@ window.photosets = {
   addImages: vi.fn().mockResolvedValue([]),
   publish: vi.fn().mockResolvedValue({}),
   markUploaded: vi.fn().mockResolvedValue({}),
-  exportMetadata: vi.fn().mockResolvedValue({ filePath: '' }),
   removeFiles: vi.fn().mockResolvedValue(undefined),
   showInFolder: vi.fn().mockResolvedValue(undefined),
 };
@@ -61,6 +60,19 @@ window.s3 = {
   isMock: vi.fn().mockResolvedValue(false),
   listBuckets: vi.fn().mockResolvedValue([]),
   createAlbum: vi.fn().mockResolvedValue({ success: true }),
+};
+
+window.github = {
+  settings: vi.fn().mockResolvedValue({
+    hasToken: false,
+    repo: 'salolivares/salolivares.com',
+    baseBranch: 'master',
+    mock: false,
+  }),
+  saveSettings: vi.fn(),
+  clearToken: vi.fn(),
+  testConnection: vi.fn(),
+  openPullRequest: vi.fn().mockResolvedValue({ ok: false, error: 'not configured in tests' }),
 };
 
 // Stub scrollIntoView not available in jsdom

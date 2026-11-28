@@ -32,6 +32,12 @@ export interface DevEnvironment {
   mockS3: boolean;
   mockS3Source: MockS3Source;
   /**
+   * Open album PRs in the local mock instead of on github.com. On in dev unless
+   * NUBES_MOCK_GITHUB=0, and independent of the S3 mode, so testing real S3 never opens a real PR.
+   */
+  mockGitHub: boolean;
+  mockGitHubSource: MockS3Source;
+  /**
    * Launch without taking focus: no dock icon, window shown inactive. For agents and e2e tests
    * driving the app while someone works in another window. Set with NUBES_BACKGROUND=1.
    */
@@ -62,7 +68,7 @@ export function readDotGitFile(root: string): string | null {
   }
 }
 
-function parseMockS3Flag(value: string | undefined): boolean | null {
+function parseMockFlag(value: string | undefined): boolean | null {
   if (value === '1') return true;
   if (value === '0') return false;
   return null;
@@ -78,6 +84,8 @@ export function resolveDevEnvironment(input: DevEnvironmentInput): DevEnvironmen
       userDataSource: 'packaged',
       mockS3: false,
       mockS3Source: 'packaged',
+      mockGitHub: false,
+      mockGitHubSource: 'packaged',
       background: false,
     };
   }
@@ -96,13 +104,16 @@ export function resolveDevEnvironment(input: DevEnvironmentInput): DevEnvironmen
     userDataSource = 'dev-default';
   }
 
-  const mockFlag = parseMockS3Flag(env.NUBES_MOCK_S3);
+  const mockFlag = parseMockFlag(env.NUBES_MOCK_S3);
+  const mockGitHubFlag = parseMockFlag(env.NUBES_MOCK_GITHUB);
 
   return {
     userDataPath,
     userDataSource,
     mockS3: mockFlag ?? true,
     mockS3Source: mockFlag === null ? 'dev-default' : 'env',
+    mockGitHub: mockGitHubFlag ?? true,
+    mockGitHubSource: mockGitHubFlag === null ? 'dev-default' : 'env',
     background: env.NUBES_BACKGROUND === '1',
   };
 }

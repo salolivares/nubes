@@ -56,6 +56,10 @@ export class Storage {
     }
   }
 
+  public secureDelete(key: string): void {
+    this.store.delete(key);
+  }
+
   public write(key: string, value: string): void {
     return this.store.set(key, value);
   }
