@@ -29,8 +29,14 @@ describe('defaultPhotoNames', () => {
     expect(defaultPhotoNames(['/tmp/a-640.jpg', ''])).toEqual([]);
   });
 
-  it('handles Windows separators', () => {
-    expect(defaultPhotoNames(['C:\\photos\\DSC_42_640.webp'])).toEqual(['DSC_42']);
+  it('trims a source stem with surrounding spaces', () => {
+    expect(defaultPhotoNames(outputs(' IMG_0042 '))).toEqual(['IMG_0042']);
+    expect(isDefaultPhotoName(' IMG_0042 ', outputs(' IMG_0042 '))).toBe(true);
+  });
+
+  it('keeps a backslash or newline that is part of a macOS file name', () => {
+    expect(defaultPhotoNames(['/data/a\\b_640.jpg'])).toEqual(['a\\b']);
+    expect(defaultPhotoNames(['/data/line\nbreak_640.jpg'])).toEqual(['line\nbreak']);
   });
 });
 

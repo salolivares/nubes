@@ -5,8 +5,8 @@ import { z } from 'zod';
  * as `<stem>_<resolution>.<type>` (`src/main/drivers/image-worker/process-image.ts`). The stem is
  * the name, or `name-2`, `name-3` and so on when another photo in the photoset already took it.
  */
-const OUTPUT_FILE = /^(.+)_\d+\.[a-z0-9]+$/i;
-const DEDUPE_SUFFIX = /^(.+)-\d+$/;
+const OUTPUT_FILE = /^(.+)_\d+\.[a-z0-9]+$/is;
+const DEDUPE_SUFFIX = /^(.+)-\d+$/s;
 
 /**
  * The names processing could have given a photo, read back from its output paths. Empty when the
@@ -15,11 +15,14 @@ const DEDUPE_SUFFIX = /^(.+)-\d+$/;
 export function defaultPhotoNames(outputPaths: readonly string[]): string[] {
   const names = new Set<string>();
   for (const outputPath of outputPaths) {
-    const file = outputPath.split(/[\\/]/).pop() ?? '';
-    const stem = OUTPUT_FILE.exec(file)?.[1];
+    // macOS paths: only `/` separates. A file name can contain `\` or a newline.
+    const file = outputPath.split('/').pop() ?? '';
+    // Trimmed like the name it's compared with, so ` IMG_0042 .jpg` still counts as default.
+    const stem = OUTPUT_FILE.exec(file)?.[1]?.trim();
     if (!stem) continue;
     names.add(stem);
-    const deduped = DEDUPE_SUFFIX.exec(stem)?.[1];
+    // Ambiguous: `Pier-2` may be a source called that, or a second `Pier`. Both count as default.
+    const deduped = DEDUPE_SUFFIX.exec(stem)?.[1]?.trim();
     if (deduped) names.add(deduped);
   }
   return [...names];

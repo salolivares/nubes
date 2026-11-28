@@ -115,6 +115,20 @@ describe('S3.createAlbum', () => {
     ]);
   });
 
+  it('rejects a photo that still has its file name before uploading anything', async () => {
+    const send = vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({} as never);
+
+    const result = await S3.instance.createAlbum('bucket', album, [
+      { ...images[0], name: 'sunset' },
+    ]);
+
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringMatching(/photo 1 \("sunset"\)/),
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('uploads metadata the site accepts, named after the image prefix', async () => {
     const sent: PutObjectCommand['input'][] = [];
     vi.spyOn(S3Client.prototype, 'send').mockImplementation(async (command: unknown) => {

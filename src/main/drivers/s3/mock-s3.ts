@@ -10,6 +10,7 @@ import {
   albumImageId,
   AlbumMetadataError,
   albumMetadataFilename,
+  assertPhotosNamed,
   buildAlbumMetadata,
   serializeAlbumMetadata,
 } from '@/common/album-metadata';
@@ -63,6 +64,7 @@ export class MockS3 implements IS3Provider {
     // Same order as real S3: an album the site can't build never reaches the bucket.
     let metadata: TravelAlbum;
     try {
+      assertPhotosNamed(images);
       metadata = buildAlbumMetadata(album, images);
     } catch (err) {
       if (err instanceof AlbumMetadataError) return { success: false, error: err.message };

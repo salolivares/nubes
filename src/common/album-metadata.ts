@@ -38,8 +38,6 @@ interface AlbumFields {
 interface AlbumImageFields {
   name: string;
   camera?: string | null;
-  /** The photo's output files. Used to tell a default file name from a real one. */
-  imagePaths?: readonly { imagePath: string }[];
 }
 
 /**
@@ -102,18 +100,6 @@ export function buildAlbumMetadata(album: AlbumFields, images: AlbumImageFields[
         'Use a whole year and a location with at least one letter or number.',
     );
   }
-  // The renderer blocks this too. Checked again here so no caller can publish unnamed photos.
-  const unnamed = images.flatMap((image, i) => {
-    const error = photoNameError(image.name, image.imagePaths?.map((p) => p.imagePath) ?? []);
-    return error ? [`photo ${i + 1} ("${image.name.trim()}")`] : [];
-  });
-  if (unnamed.length > 0) {
-    throw new AlbumMetadataError(
-      `Every photo needs a name that isn't its file name. Name these before uploading: ` +
-        unnamed.join(', '),
-    );
-  }
-
   const seen = new Set<string>();
   const duplicates = new Set<string>();
   for (const { id } of result.data.images) {
@@ -128,6 +114,29 @@ export function buildAlbumMetadata(album: AlbumFields, images: AlbumImageFields[
   }
 
   return result.data;
+}
+
+/**
+ * Throws `AlbumMetadataError` when a photo's name is empty or still its file name. Both S3
+ * providers call it before uploading; the renderer blocks upload the same way. Not part of
+ * `buildAlbumMetadata`, so albums uploaded before this rule can still be exported.
+ */
+export function assertPhotosNamed(
+  images: readonly { name: string; imagePaths: readonly { imagePath: string }[] }[],
+): void {
+  const unnamed = images.flatMap((image, i) => {
+    const error = photoNameError(
+      image.name,
+      image.imagePaths.map((p) => p.imagePath),
+    );
+    return error ? [`photo ${i + 1} ("${image.name.trim()}")`] : [];
+  });
+  if (unnamed.length > 0) {
+    throw new AlbumMetadataError(
+      `Every photo needs a name that isn't its file name. Name these before uploading: ` +
+        unnamed.join(', '),
+    );
+  }
 }
 
 /** Pretty-printed with a trailing newline, like the files in the site repo. */
