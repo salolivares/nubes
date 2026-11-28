@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { builtinModules } from 'node:module';
 import type { AddressInfo } from 'node:net';
 
@@ -10,6 +11,25 @@ export const builtins = ['electron', ...builtinModules.map((m) => [m, `node:${m}
 export const external = [...builtins, 'sharp'];
 
 export const esmodule = pkg.type === 'module';
+
+/**
+ * The commit a build comes from, as a short hash, with `-dirty` when the tree has uncommitted
+ * changes. Null outside a git checkout. Stamped into main as NUBES_BUILD_COMMIT.
+ */
+export function gitCommit(): string | null {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, {
+      cwd: __dirname,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  try {
+    const hash = git('rev-parse', '--short', 'HEAD');
+    return git('status', '--porcelain') ? `${hash}-dirty` : hash;
+  } catch {
+    return null;
+  }
+}
 
 export function getBuildConfig(env: ConfigEnv<'build'>): UserConfig {
   const { root, mode, command } = env;

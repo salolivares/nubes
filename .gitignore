@@ -97,3 +97,6 @@ out/
 
 # Per-worktree dev app data (userData, mock S3, logs)
 .dev-data/
+
+# Vite writes these next to a config while it loads it
+*.timestamp-*.mjs

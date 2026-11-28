@@ -9,6 +9,7 @@ import {
   external,
   getBuildConfig,
   getBuildDefine,
+  gitCommit,
   pluginHotRestart,
 } from './vite.base.config';
 
@@ -16,7 +17,10 @@ import {
 export default defineConfig((env) => {
   const forgeEnv = env as ConfigEnv<'build'>;
   const { forgeConfigSelf } = forgeEnv;
-  const define = getBuildDefine(forgeEnv);
+  const define = {
+    ...getBuildDefine(forgeEnv),
+    NUBES_BUILD_COMMIT: JSON.stringify(gitCommit()),
+  };
   const config: UserConfig = {
     build: {
       lib: {
