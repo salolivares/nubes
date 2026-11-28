@@ -1,8 +1,9 @@
 # Nubes
 
 Electron desktop app for a photo publishing workflow. It converts a set of images to jpg and webp at
-128, 640, 1280 and 2880px, tracks them as photosets in a local SQLite database, and uploads them as
-albums to S3 with metadata.
+128, 640, 1280 and 2880px, tracks them as photosets in a local SQLite database, uploads the images
+to S3, and opens a draft PR on the site repo (`salolivares/salolivares.com`) that adds the album
+JSON.
 
 macOS is the only supported platform. `forge.config.cts` only has the darwin zip maker. CI's Linux
 e2e job (pinned to `ubuntu-24.04`) is there for test coverage, not because Linux is a target. That
@@ -16,9 +17,10 @@ is why #129 (sharp crashing on newer Linux) is low priority.
   format:check, the same checks CI runs. `make format` fixes formatting.
 - In a linked worktree, dev data (SQLite DB, photosets, saved credentials, logs, mock S3 bucket)
   lives in `.dev-data/`, so two worktrees can run `pnpm start` side by side. `make clean-dev-data`
-  clears it. The main checkout keeps using `nubes-dev/` under the OS app data folder. Mock S3 is on
-  by default in dev. `NUBES_USER_DATA` overrides the folder and `NUBES_MOCK_S3=1|0` forces the S3
-  mode. Packaged builds ignore all three env vars.
+  clears it. The main checkout keeps using `nubes-dev/` under the OS app data folder. Mock S3 and
+  mock GitHub are on by default in dev. `NUBES_USER_DATA` overrides the folder, `NUBES_MOCK_S3=1|0`
+  forces the S3 mode and `NUBES_MOCK_GITHUB=1|0` the GitHub mode, separately. The mock GitHub keeps
+  its branches and PRs in `mock-github/` under userData. Packaged builds ignore all four env vars.
 - When you launch the app to drive or check the GUI yourself, set `NUBES_BACKGROUND=1` (for example
   `NUBES_BACKGROUND=1 pnpm start`). The window opens without taking focus, with no dock icon and no
   DevTools window, so it doesn't pull the user out of what they are doing. The e2e tests set it too.
@@ -28,7 +30,14 @@ is why #129 (sharp crashing on newer Linux) is low priority.
 Each of these breaks something real. Most fail silently.
 
 - `NUBES_MOCK_S3=0`, or turning mock S3 off in the debug bar, sends uploads to the real bucket. The
-  website reads that bucket, so an uploaded album can go live. Only do it when the user asks.
+  website reads that bucket, so an uploaded album's images become public. Only do it when the user
+  asks.
+- `NUBES_MOCK_GITHUB=0` makes the PR step use the token saved in Settings to push a branch and open
+  a draft PR on the real site repo, which also builds a public Vercel preview. Turning mock S3 off
+  does not turn mock GitHub off; each needs its own flag. Only do it when the user asks.
+- Logging a GitHub request's headers, a `Response`, or the object passed to `fetch` leaks the token.
+  The driver (`src/main/drivers/github/github.ts`) logs only method, path and status, and
+  `GitHubError` messages are shown to the user, so never put response bodies in them.
 - `NUBES_USER_DATA` pointed at the packaged app's folder (`~/Library/Application Support/Nubes`)
   runs unreleased migrations on the user's real database. Leave it unset or use a scratch folder.
 - `make package` copies the build over the installed app in `/Applications`. Never run it, or
@@ -77,7 +86,11 @@ A change isn't done until each of these is updated.
   `src/main/media/guards.ts`.
 - **S3 behavior:** the `IS3Provider` interface in `src/main/drivers/s3/s3-provider.ts` and both
   implementations, `s3.ts` (real) and `mock-s3.ts`. A change to one usually needs the same change
-  in the other.
+  in the other. S3 holds images only; the album JSON goes to the site repo.
+- **GitHub behavior:** the `IGitHubProvider` interface in
+  `src/main/drivers/github/github-provider.ts` and both implementations, `github.ts` (real, plain
+  `fetch`) and `mock-github.ts`. The PR flow is idempotent per album: branch `photos/{albumId}`,
+  file `src/content/travel/{albumId}.json`, one open PR reused on re-upload. Keep it that way.
 - **DB schema:** `src/common/db/schema.ts`, plus a migration from `pnpm exec drizzle-kit generate`
   in `src/common/db/migrations/`. Row types used outside main go in `src/common/types.ts`. Renamed
   tables also need the raw SQL in the debug reset (`DEBUG_CLEAR_DB` in `listeners/debug.ts`).
@@ -130,6 +143,8 @@ A change isn't done until each of these is updated.
   `IMAGE_PICKER_ALLOW_DROPPED` for drops. Drop paths come only from preload's `addDroppedFiles()`,
   which accepts only real `File` objects and resolves them with `webUtils.getPathForFile`. A
   compromised renderer can still call that channel, so `allowPickedFiles()` validates every path.
+- The GitHub token is a secure key like the AWS secret: the renderer can save or clear it but only
+  ever sees `hasToken` (`github:settings`). Only fine-grained tokens (`github_pat_`) are accepted.
 - IPC handlers that touch renderer paths (`s3:createAlbum`, `image-processor:resize`,
   `photoset:addImages`, `photoset:delete`, `photoset:removeFiles`, `photoset:showInFolder`) check
   them against the same `MediaAccess` roots. Each checks what it needs (see `guards.ts` and
@@ -181,7 +196,7 @@ have `@` and `@common`.
 
 - **Typed IPC.** Preload files wrap `ipcRenderer.invoke()` (plus `on` for image job and storage
   change events) and expose an API on `window`
-  (`s3`, `photosets`, `storage`, `themeMode`, `imagePicker`, `imageProcessor`, `cache`, and `debug`
+  (`s3`, `github`, `photosets`, `storage`, `themeMode`, `imagePicker`, `imageProcessor`, `cache`, and `debug`
   in dev only). The renderer calls S3 through React Query.
 - **Image processing.** `window.imageProcessor.resize()` returns a job with a `jobId`.
   `ImageWorkerSupervisor` (`drivers/image-worker/supervisor.ts`) queues jobs, forks
@@ -209,8 +224,11 @@ with `useQuery`, and writes invalidate the keys they change.
 2. **NewUpload** lists S3 buckets, then creates a photoset for the chosen one.
 3. **ImagePicker** takes files by drag and drop or the native file dialog.
 4. **ImageProcessing** runs the worker and saves the outputs to the photoset.
-5. **S3Upload** edits metadata, then uploads the album or saves it as a draft.
-6. **S3Summary** shows the result. Drafts reopen from **PhotosetDetail**.
+5. **S3Upload** edits metadata, then uploads the images or saves a draft. After the upload is
+   recorded, it calls `github:openPullRequest`, which builds the album JSON from the DB row and
+   opens the site PR. A PR failure leaves the upload in place.
+6. **S3Summary** shows the result and the PR link, or a button to retry just the PR step. Drafts
+   reopen from **PhotosetDetail**, which shows the same.
 
 ## sharp on Linux
 
