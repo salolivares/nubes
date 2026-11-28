@@ -32,6 +32,8 @@ interface MockState {
  */
 export class MockGitHub implements IGitHubProvider {
   readonly mock = true;
+  /** Publishes run one at a time, so two albums can't read the same state and overwrite it. */
+  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly root: string,
@@ -53,7 +55,10 @@ export class MockGitHub implements IGitHubProvider {
 
   private async writeState(state: MockState) {
     await fsp.mkdir(this.root, { recursive: true });
-    await fsp.writeFile(this.statePath(), `${JSON.stringify(state, null, 2)}\n`);
+    // Write then rename, so a crash mid-write never leaves half a state file.
+    const tmp = `${this.statePath()}.tmp`;
+    await fsp.writeFile(tmp, `${JSON.stringify(state, null, 2)}\n`);
+    await fsp.rename(tmp, this.statePath());
   }
 
   async testConnection(): Promise<GitHubConnectionResult> {
@@ -65,7 +70,16 @@ export class MockGitHub implements IGitHubProvider {
     };
   }
 
-  async publishAlbum(album: AlbumPublication): Promise<GitHubPullRequest> {
+  publishAlbum(album: AlbumPublication): Promise<GitHubPullRequest> {
+    const run = this.queue.then(
+      () => this.publishNow(album),
+      () => this.publishNow(album),
+    );
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async publishNow(album: AlbumPublication): Promise<GitHubPullRequest> {
     const { repo, baseBranch } = this.getConfig();
     const branch = albumBranch(album.albumId);
     const filePath = `${SITE_ALBUMS_DIR}/${album.albumId}.json`;

@@ -37,6 +37,11 @@ export class Storage {
     void Storage.instance;
   }
 
+  /** False when safeStorage is unavailable and secure writes would only be base64. */
+  public get canEncrypt(): boolean {
+    return this.isEncryptionAvailable;
+  }
+
   public secureWrite(key: string, value: string): void {
     const data = this.encrypt(value);
     this.store.set(key, data);

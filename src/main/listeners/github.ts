@@ -61,8 +61,31 @@ export async function albumPublicationFor(db: Db, photosetId: number): Promise<A
   };
 }
 
-/** Publishes in flight, by album id. A second click joins the first instead of racing it. */
-const inFlight = new Map<string, Promise<GitHubOpenPullRequestResult>>();
+/** The tail of each album's publish queue, by album id. */
+const albumQueues = new Map<string, Promise<unknown>>();
+
+/**
+ * Run publishes for the same album one after another. Two photosets can share an album id (same
+ * year and location) with different JSON, so a second call must not join the first: it runs after
+ * it, sees the branch and PR the first one made, and records its own result.
+ */
+function serializeByAlbum<T>(albumKey: string, task: () => Promise<T>): Promise<T> {
+  const previous = albumQueues.get(albumKey) ?? Promise.resolve();
+  const next = previous.then(task, task);
+  const tail = next.catch(() => undefined);
+  albumQueues.set(albumKey, tail);
+  void tail.then(() => {
+    if (albumQueues.get(albumKey) === tail) albumQueues.delete(albumKey);
+  });
+  return next;
+}
+
+function asResult(err: unknown): GitHubOpenPullRequestResult {
+  if (err instanceof GitHubError || err instanceof AlbumMetadataError) {
+    return { ok: false, error: err.message };
+  }
+  throw err;
+}
 
 /**
  * Commit the album JSON and open (or reuse) its draft PR, then record the URL on the photoset.
@@ -74,37 +97,27 @@ export async function openAlbumPullRequest(
   provider: IGitHubProvider,
   photosetId: number,
 ): Promise<GitHubOpenPullRequestResult> {
-  let album: AlbumPublication;
+  let key: string;
   try {
-    album = await albumPublicationFor(db, photosetId);
+    key = (await albumPublicationFor(db, photosetId)).albumId;
   } catch (err) {
-    if (err instanceof GitHubError || err instanceof AlbumMetadataError)
-      return { ok: false, error: err.message };
-    throw err;
+    return asResult(err);
   }
 
-  const running = inFlight.get(album.albumId);
-  if (running) return running;
-
-  const run = (async (): Promise<GitHubOpenPullRequestResult> => {
+  return serializeByAlbum(key, async () => {
     try {
+      // Read the row again inside the queue, so a publish that waited sends the latest JSON.
+      const album = await albumPublicationFor(db, photosetId);
       const pullRequest = await provider.publishAlbum(album);
       db.update(photosets)
         .set({ pullRequestUrl: pullRequest.url, updatedAt: new Date().toISOString() })
         .where(eq(photosets.id, photosetId))
         .run();
-      return { ok: true, pullRequest };
+      return { ok: true, pullRequest } as const;
     } catch (err) {
-      if (err instanceof GitHubError) return { ok: false, error: err.message };
-      throw err;
+      return asResult(err);
     }
-  })();
-  inFlight.set(album.albumId, run);
-  try {
-    return await run;
-  } finally {
-    inFlight.delete(album.albumId);
-  }
+  });
 }
 
 export function addGitHubEventListeners() {
@@ -112,7 +125,16 @@ export function addGitHubEventListeners() {
 
   handle(GITHUB_SAVE_SETTINGS, githubSaveSettingsArgsSchema, (_, args) => {
     const storage = Storage.instance;
-    if (args.token) storage.secureWrite(GITHUB_TOKEN, args.token);
+    if (args.token) {
+      // Without the OS keychain, Storage falls back to base64, which anyone who can read
+      // config.json can undo. A write token for the site repo doesn't get that fallback.
+      if (!storage.canEncrypt) {
+        throw new Error(
+          "Can't save the GitHub token: the system keychain isn't available to encrypt it.",
+        );
+      }
+      storage.secureWrite(GITHUB_TOKEN, args.token);
+    }
     storage.write(GITHUB_REPO, args.repo);
     storage.write(GITHUB_BASE_BRANCH, args.baseBranch);
     return getGitHubSettings();

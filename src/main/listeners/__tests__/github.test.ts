@@ -37,8 +37,12 @@ const electron = vi.hoisted(() => ({
     fromWebContents: vi.fn(() => ({ isDestroyed: () => false })),
     getAllWindows: vi.fn(() => []),
   },
-  // No keychain: the token is stored as plain base64, the worst case for a leak.
-  safeStorage: { isEncryptionAvailable: () => false },
+  // A stand-in keychain. Main refuses to save the token without one.
+  safeStorage: {
+    isEncryptionAvailable: () => true,
+    encryptString: (value: string) => Buffer.from(`enc:${[...value].reverse().join('')}`),
+    decryptString: (data: Buffer) => [...data.toString().slice(4)].reverse().join(''),
+  },
   app: { getPath: vi.fn() },
 }));
 
@@ -152,6 +156,15 @@ describe('GitHub settings IPC', () => {
     expect(Storage.instance.secureRead(GITHUB_TOKEN)).toBeNull();
   });
 
+  it('refuses to save the token when the keychain is unavailable', async () => {
+    const canEncrypt = vi.spyOn(Storage.instance, 'canEncrypt', 'get').mockReturnValue(false);
+    await expect(
+      invoke(GITHUB_SAVE_SETTINGS, { token: TOKEN, repo: 'a/b', baseBranch: 'master' }),
+    ).rejects.toThrow(/keychain/);
+    expect(Storage.instance.store.get(GITHUB_TOKEN)).toBeUndefined();
+    canEncrypt.mockRestore();
+  });
+
   it('defaults to the site repo and master', async () => {
     await expect(invoke(GITHUB_SETTINGS)).resolves.toEqual({
       hasToken: false,
@@ -241,21 +254,44 @@ describe('openAlbumPullRequest', () => {
     expect(state.pulls).toHaveLength(1);
   });
 
-  it('joins a publish already running for the same album instead of racing it', async () => {
-    const { id } = uploadedPhotoset();
-    const publishAlbum = vi.fn(async () => {
+  it('runs publishes for the same album one at a time, each with its own row', async () => {
+    const first = uploadedPhotoset();
+    // Same year and location, so the same album id and branch, but different JSON.
+    const second = uploadedPhotoset({ name: 'Trip, again' });
+    let running = 0;
+    const titles: string[] = [];
+    const publishAlbum = vi.fn(async (album: { title: string }) => {
+      running++;
+      expect(running).toBe(1);
       await new Promise((resolve) => setImmediate(resolve));
-      return { url: 'https://github.com/o/r/pull/1', number: 1, created: true, mock: false };
+      titles.push(album.title);
+      running--;
+      return { url: 'https://github.com/o/r/pull/1', number: 1, created: false, mock: false };
     });
     const provider: IGitHubProvider = { mock: false, testConnection: vi.fn(), publishAlbum };
 
-    const [a, b] = await Promise.all([
-      openAlbumPullRequest(db, provider, id),
-      openAlbumPullRequest(db, provider, id),
+    const results = await Promise.all([
+      openAlbumPullRequest(db, provider, first.id),
+      openAlbumPullRequest(db, provider, second.id),
     ]);
 
-    expect(a).toEqual(b);
-    expect(publishAlbum).toHaveBeenCalledTimes(1);
+    expect(results.every((r) => r.ok)).toBe(true);
+    expect(titles).toEqual(['Trip', 'Trip, again']);
+    for (const { id } of [first, second]) {
+      const [row] = db.select().from(photosets).where(eq(photosets.id, id)).all();
+      expect(row.pullRequestUrl).toBe('https://github.com/o/r/pull/1');
+    }
+  });
+
+  it('keeps the mock state whole when two albums publish at once', async () => {
+    const provider = getGitHubProvider() as MockGitHub;
+    const publish = (albumId: string) =>
+      provider.publishAlbum({ albumId, title: albumId, content: '{}\n', bucketName: 'b' });
+
+    const prs = await Promise.all([publish('2024-a'), publish('2024-b')]);
+
+    expect(prs.map((pr) => pr.number).sort()).toEqual([1, 2]);
+    expect((await provider.readState()).pulls).toHaveLength(2);
   });
 
   it('returns GitHub problems as a retryable error and leaves the row alone', async () => {

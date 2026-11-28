@@ -238,29 +238,66 @@ export class GitHub implements IGitHubProvider {
     const req = <T>(method: string, path: string, body?: unknown) =>
       this.request<T>(token, method, path, body);
 
+    const [owner] = repo.split('/');
+    const head = `${owner}:${branch}`;
+
+    const baseSha = async () => {
+      const res = await req<{ object: { sha: string } }>(
+        'GET',
+        `/repos/${repo}/git/ref/heads/${baseBranch}`,
+      );
+      if (res.status === 404) {
+        throw new GitHubError(`${repo} has no branch named "${baseBranch}". Check Settings.`);
+      }
+      if (res.status !== 200) throw this.failure(res, repo, 'read branches');
+      return res.data.object.sha;
+    };
+
     // 1. The album branch: reuse it if it exists (a re-upload), otherwise cut it from the base.
     const branchRes = await req<{ object: { sha: string } }>(
       'GET',
       `/repos/${repo}/git/ref/heads/${branch}`,
     );
+    let openPr: PullRequestJson | null = null;
     if (branchRes.status === 404) {
-      const baseRes = await req<{ object: { sha: string } }>(
-        'GET',
-        `/repos/${repo}/git/ref/heads/${baseBranch}`,
-      );
-      if (baseRes.status === 404) {
-        throw new GitHubError(`${repo} has no branch named "${baseBranch}". Check Settings.`);
-      }
-      if (baseRes.status !== 200) throw this.failure(baseRes, repo, 'read branches');
       const createRes = await req('POST', `/repos/${repo}/git/refs`, {
         ref: `refs/heads/${branch}`,
-        sha: baseRes.data.object.sha,
+        sha: await baseSha(),
       });
-      // 422 here means another publish of the same album created it first. Use it.
-      if (createRes.status !== 201 && createRes.status !== 422) {
-        throw this.failure(createRes, repo, 'create a branch', PERMISSION.contentsWrite);
+      if (createRes.status !== 201) {
+        // A 422 can mean another publish of the same album created it first. Only go on if the
+        // branch is really there now.
+        const recheck =
+          createRes.status === 422
+            ? await req('GET', `/repos/${repo}/git/ref/heads/${branch}`)
+            : null;
+        if (recheck?.status !== 200) {
+          throw this.failure(createRes, repo, 'create a branch', PERMISSION.contentsWrite);
+        }
       }
-    } else if (branchRes.status !== 200) {
+    } else if (branchRes.status === 200) {
+      openPr = await this.findOpenPullRequest(token, repo, head, baseBranch);
+      if (!openPr) {
+        // With no open PR, the branch may be left over from a merged one. If it has no commits
+        // the base lacks, move it to the base, so the file is compared with what the site has
+        // today rather than what it had at the old merge. A branch with commits of its own (a
+        // PR closed without merging) is kept, and the new commit goes on top.
+        const cmp = await req<{ ahead_by: number }>(
+          'GET',
+          `/repos/${repo}/compare/${baseBranch}...${branch}`,
+        );
+        if (cmp.status !== 200) throw this.failure(cmp, repo, 'compare branches');
+        if (cmp.data.ahead_by === 0) {
+          const reset = await req('PATCH', `/repos/${repo}/git/refs/heads/${branch}`, {
+            sha: await baseSha(),
+            force: true,
+          });
+          if (reset.status !== 200) {
+            throw this.failure(reset, repo, 'update a branch', PERMISSION.contentsWrite);
+          }
+        }
+      }
+    } else {
       throw this.failure(branchRes, repo, 'read branches');
     }
 
@@ -269,10 +306,10 @@ export class GitHub implements IGitHubProvider {
     const existed = await this.commitFile(token, repo, branch, filePath, album);
 
     // 3. The PR: reuse the open one for this branch, or open a draft.
-    const [owner] = repo.split('/');
-    const existing = await this.findOpenPullRequest(token, repo, `${owner}:${branch}`, baseBranch);
-    if (existing)
-      return { url: existing.html_url, number: existing.number, created: false, mock: false };
+    openPr ??= await this.findOpenPullRequest(token, repo, head, baseBranch);
+    if (openPr) {
+      return { url: openPr.html_url, number: openPr.number, created: false, mock: false };
+    }
 
     const verb = existed ? 'Update' : 'Add';
     const prRes = await req<PullRequestJson>('POST', `/repos/${repo}/pulls`, {
@@ -296,7 +333,7 @@ export class GitHub implements IGitHubProvider {
       const detail = messageOf(prRes.data);
       // Another publish opened it between the lookup and here.
       if (/already exists/i.test(detail)) {
-        const raced = await this.findOpenPullRequest(token, repo, `${owner}:${branch}`, baseBranch);
+        const raced = await this.findOpenPullRequest(token, repo, head, baseBranch);
         if (raced)
           return { url: raced.html_url, number: raced.number, created: false, mock: false };
       }

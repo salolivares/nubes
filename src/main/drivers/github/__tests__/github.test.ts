@@ -178,6 +178,11 @@ describe('GitHub.publishAlbum', () => {
         },
       }),
       route('GET', /\/pulls\?state=open/, { status: 200, body: [] }),
+      // Left over from a PR closed without merging: it has a commit of its own, so it's kept.
+      route('GET', `/repos/${REPO}/compare/master...${BRANCH}`, {
+        status: 200,
+        body: { ahead_by: 1 },
+      }),
       route('POST', `/repos/${REPO}/pulls`, {
         status: 201,
         body: { number: 5, html_url: `https://github.com/${REPO}/pull/5` },
@@ -188,10 +193,72 @@ describe('GitHub.publishAlbum', () => {
 
     expect(pr).toMatchObject({ number: 5, created: true });
     expect(calls.some((c) => c.method === 'PUT')).toBe(false);
-    // A merged PR's branch is reused, so the PR says "Update".
+    // The file was already on the branch, so the PR says "Update".
     expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
       title: 'Update "Trip" travel album',
     });
+  });
+
+  it('moves a branch left over from a merged PR to the base before committing', async () => {
+    let branchSha = 'old-merged-sha';
+    const { fetch, calls } = fakeFetch([
+      route('GET', `/repos/${REPO}/git/ref/heads/${BRANCH}`, {
+        status: 200,
+        body: { object: { sha: 'old-merged-sha' } },
+      }),
+      route('GET', `/repos/${REPO}/git/ref/heads/master`, {
+        status: 200,
+        body: { object: { sha: 'base-sha' } },
+      }),
+      route('GET', /\/pulls\?state=open/, { status: 200, body: [] }),
+      route('GET', `/repos/${REPO}/compare/master...${BRANCH}`, {
+        status: 200,
+        body: { ahead_by: 0 },
+      }),
+      route('PATCH', `/repos/${REPO}/git/refs/heads/${BRANCH}`, (call) => {
+        branchSha = call.body!.sha as string;
+        return { status: 200, body: {} };
+      }),
+      // After the move, the branch has what master has: the JSON as Pages CMS left it.
+      route('GET', new RegExp(`/contents/${FILE}\\?ref=`), () => ({
+        status: 200,
+        body: {
+          sha: branchSha === 'base-sha' ? 'cms-sha' : 'stale-sha',
+          encoding: 'base64',
+          content: b64(branchSha === 'base-sha' ? '{"edited":"in cms"}\n' : album.content),
+        },
+      })),
+      route('PUT', `/repos/${REPO}/contents/${FILE}`, { status: 200, body: {} }),
+      route('POST', `/repos/${REPO}/pulls`, {
+        status: 201,
+        body: { number: 9, html_url: `https://github.com/${REPO}/pull/9` },
+      }),
+    ]);
+
+    const pr = await driver(fetch).publishAlbum(album);
+
+    expect(pr).toMatchObject({ number: 9, created: true });
+    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ sha: 'base-sha', force: true });
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({ sha: 'cms-sha' });
+  });
+
+  it('fails on a 422 from branch creation when the branch still is not there', async () => {
+    const { fetch, calls } = fakeFetch([
+      route('GET', `/repos/${REPO}/git/ref/heads/${BRANCH}`, { status: 404 }),
+      route('GET', `/repos/${REPO}/git/ref/heads/master`, {
+        status: 200,
+        body: { object: { sha: 'base-sha' } },
+      }),
+      route('POST', `/repos/${REPO}/git/refs`, {
+        status: 422,
+        body: { message: 'Reference update failed' },
+      }),
+    ]);
+
+    await expect(driver(fetch).publishAlbum(album)).rejects.toThrow(
+      /refused to create a branch \(HTTP 422\): Reference update failed/,
+    );
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false);
   });
 
   it('rereads the file once when it changed under the commit', async () => {

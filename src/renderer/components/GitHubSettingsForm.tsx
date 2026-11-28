@@ -96,7 +96,12 @@ export const GitHubSettingsForm = () => {
           set to Read and write.
         </CardDescription>
       </CardHeader>
-      <form onSubmit={form.handleSubmit((values) => save.mutate(values))}>
+      <form
+        onSubmit={form.handleSubmit((values) =>
+          // The submitted values, token included, stay in the mutation's state until reset.
+          save.mutate(values, { onSettled: () => save.reset() }),
+        )}
+      >
         <CardContent className="pb-6">
           <FieldGroup>
             <Controller
