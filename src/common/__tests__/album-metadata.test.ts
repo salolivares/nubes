@@ -113,6 +113,18 @@ describe('buildAlbumMetadata', () => {
     expect(build).toThrow(/"img0001"/);
   });
 
+  it('rejects photos that still have their file name or no name', () => {
+    const imagePaths = (stem: string) => [{ imagePath: `/data/photosets/7/${stem}_640.jpg` }];
+    const build = () =>
+      buildAlbumMetadata(album, [
+        { name: 'Harbour', imagePaths: imagePaths('DSC_0001') },
+        { name: 'DSC_0002', imagePaths: imagePaths('DSC_0002') },
+        { name: '  ', imagePaths: imagePaths('DSC_0003') },
+      ]);
+    expect(build).toThrow(AlbumMetadataError);
+    expect(build).toThrow(/photo 2 \("DSC_0002"\), photo 3 \(""\)/);
+  });
+
   it.each([
     ['a fractional year', { year: 2026.5 }],
     ['a location with no letters or numbers', { location: '!!!' }],

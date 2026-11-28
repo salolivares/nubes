@@ -15,6 +15,7 @@ import { albumSchema } from '@/common/types';
 import { AlbumForm } from '../../components/AlbumForm/AlbumForm';
 import { CameraCombobox } from '../../components/CameraCombobox';
 import { ImagePreviewDialog, pickPreviewPath } from '../../components/ImagePreviewDialog';
+import { UnnamedPhotosNotice } from '../../components/PhotoNameInput';
 import { SortableTable } from '../../components/SortableTable';
 import { Button } from '../../components/ui/button';
 import { ButtonGroup } from '../../components/ui/button-group';
@@ -26,6 +27,7 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { WizardRedirect, WizardStep } from '../../components/wizard-step';
 import { useCameras } from '../../hooks/useCameras';
+import { usePhotoNameCheck } from '../../hooks/usePhotoNameCheck';
 import { useProcessedImages } from '../../hooks/useProcessedImages';
 import { paths } from '../../lib/paths';
 import { photosetKeys } from '../../lib/photoset-queries';
@@ -151,8 +153,20 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
     await addCamera(name);
   };
 
+  const photoNames = useMemo(
+    () =>
+      processedImages.map((img) => ({
+        id: img.id,
+        name: img.name,
+        outputPaths: img.imagePaths.map((p) => p.imagePath),
+      })),
+    [processedImages],
+  );
+  const nameCheck = usePhotoNameCheck(photoNames);
+
   const handleNameChange = (imageId: string, name: string) => {
     setProcessedImage(imageId, { name });
+    nameCheck.markTouched(imageId);
     setImagesDirty(true);
   };
 
@@ -161,6 +175,7 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
     onCameraSelect: handleCameraSelect,
     onCameraAdd: handleCameraAdd,
     onNameChange: handleNameChange,
+    nameErrors: nameCheck.visibleErrors,
     onPreview: setPreviewImage,
   });
 
@@ -215,7 +230,9 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
     if (dbSyncFailure) void syncUploadToDb(dbSyncFailure.values, dbSyncFailure.images);
   };
 
+  // Drafts can keep file names. Only the upload needs every photo named.
   const handleUpload = form.handleSubmit((values) => {
+    if (!nameCheck.checkBeforeUpload()) return;
     const images = processedImages;
     mutate(
       { bucketName, album: values, images },
@@ -258,23 +275,26 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
       {/* Header with split button */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Review & Upload</h1>
-        <ButtonGroup>
-          <Button disabled={!canSubmit} onClick={handleDraft}>
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Save as Draft
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button disabled={!canSubmit} className="pl-2!" />}>
-              <ChevronDown />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleUpload}>
-                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload />}
-                Upload to S3
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </ButtonGroup>
+        <div className="flex items-center gap-3">
+          <UnnamedPhotosNotice count={nameCheck.unnamedCount} emphasize={nameCheck.attempted} />
+          <ButtonGroup>
+            <Button disabled={!canSubmit} onClick={handleDraft}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save as Draft
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button disabled={!canSubmit} className="pl-2!" />}>
+                <ChevronDown />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleUpload}>
+                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload />}
+                  Upload to S3
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ButtonGroup>
+        </div>
       </div>
 
       {dbSyncFailure && (

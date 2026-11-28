@@ -3,10 +3,10 @@ import { ImageIcon, X } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { CameraCombobox } from '../../../components/CameraCombobox';
+import { PhotoNameInput } from '../../../components/PhotoNameInput';
 import { PhotoThumbnail } from '../../../components/PhotoThumbnail';
 import { RowDragHandleCell } from '../../../components/SortableTable';
 import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
 import type { CameraEntry } from '../../../hooks/useCameras';
 import type { DbImage } from '../utils';
 
@@ -15,12 +15,22 @@ export function useImageColumns(opts: {
   onCameraSelect: (imageId: number, name: string) => void;
   onCameraAdd: (name: string) => Promise<void>;
   onNameChange: (imageId: number, name: string) => void;
+  /** Photo name errors to show, keyed by row id. */
+  nameErrors: ReadonlyMap<string, string>;
   onPreview: (image: DbImage) => void;
   onRemove: (image: DbImage) => void;
   disabled?: boolean;
 }): ColumnDef<DbImage>[] {
-  const { cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove, disabled } =
-    opts;
+  const {
+    cameras,
+    onCameraSelect,
+    onCameraAdd,
+    onNameChange,
+    nameErrors,
+    onPreview,
+    onRemove,
+    disabled,
+  } = opts;
 
   return useMemo<ColumnDef<DbImage>[]>(
     () => [
@@ -64,17 +74,11 @@ export function useImageColumns(opts: {
         accessorKey: 'name',
         header: 'Name',
         cell: ({ row }) => (
-          <Input
-            type="text"
+          <PhotoNameInput
+            photoId={String(row.original.id)}
             defaultValue={row.original.name}
-            onBlur={(e) => onNameChange(row.original.id, e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                onNameChange(row.original.id, (e.target as HTMLInputElement).value);
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            className="border-transparent bg-transparent shadow-none hover:border-input focus:border-input focus:bg-background"
+            error={nameErrors.get(String(row.original.id))}
+            onCommit={(name) => onNameChange(row.original.id, name)}
           />
         ),
       },
@@ -107,6 +111,6 @@ export function useImageColumns(opts: {
         ),
       },
     ],
-    [cameras, onCameraSelect, onCameraAdd, onNameChange, onPreview, onRemove, disabled],
+    [cameras, onCameraSelect, onCameraAdd, onNameChange, nameErrors, onPreview, onRemove, disabled],
   );
 }
