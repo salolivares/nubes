@@ -14,6 +14,8 @@ const config: ForgeConfig = {
       unpack: '**/*.{node,dll,dylib,so}',
     },
     extraResource: ['./src/common/db/migrations'],
+    // Packager adds the platform extension (.icns on macOS). Source is assets/icon.svg.
+    icon: './assets/icon',
   },
   rebuildConfig: {},
   hooks: {

@@ -76,6 +76,9 @@ if (devEnvironment.background) {
   log.info('Running in the background (NUBES_BACKGROUND=1): no dock icon, no focus.');
   // An accessory app has no dock icon and never becomes the frontmost app on its own.
   if (platform === 'darwin') app.setActivationPolicy('accessory');
+} else if (!app.isPackaged && platform === 'darwin') {
+  // A packaged build gets its icon from the app bundle. In dev the dock would show Electron's.
+  app.dock?.setIcon(path.join(app.getAppPath(), 'assets', 'icon.png'));
 }
 if (!app.isPackaged && process.env.NUBES_MOCK_S3 && devEnvironment.mockS3Source !== 'env') {
   log.warn(`Ignoring NUBES_MOCK_S3=${process.env.NUBES_MOCK_S3}. Use 1 or 0.`);

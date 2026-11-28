@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Source for icon.icns and icon.png. Regenerate both with `pnpm icon`. -->
+  <!-- macOS icon grid: an 824px tile inset 100px on the 1024px canvas. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5B9DF9"/>
+      <stop offset="1" stop-color="#1F4FD1"/>
+    </linearGradient>
+    <mask id="lens" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+      <rect width="100" height="100" fill="#fff"/>
+      <circle cx="51" cy="56" r="9" fill="#000"/>
+      <circle cx="51" cy="56" r="4" fill="#fff"/>
+    </mask>
+  </defs>
+  <g transform="translate(100 100) scale(8.24)">
+    <rect width="100" height="100" rx="22.4" fill="url(#sky)"/>
+    <g mask="url(#lens)" fill="#fff">
+      <circle cx="34" cy="58" r="14"/>
+      <circle cx="53" cy="48" r="20"/>
+      <circle cx="68" cy="60" r="12"/>
+      <rect x="34" y="58" width="34" height="14"/>
+    </g>
+  </g>
+</svg>

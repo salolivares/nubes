@@ -16,6 +16,7 @@
   "scripts": {
     "start": "electron-forge start",
     "build": "node scripts/build-app.ts",
+    "icon": "node scripts/build-icon.ts",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
