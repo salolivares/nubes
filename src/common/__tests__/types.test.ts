@@ -190,6 +190,7 @@ describe('photosetSchema', () => {
     updatedAt: '2024-01-01T00:00:00Z',
     publishedAt: null,
     uploadedAt: null,
+    pullRequestUrl: null,
   };
 
   it('parses a valid photoset', () => {

@@ -37,6 +37,11 @@ export class Storage {
     void Storage.instance;
   }
 
+  /** False when safeStorage is unavailable and secure writes would only be base64. */
+  public get canEncrypt(): boolean {
+    return this.isEncryptionAvailable;
+  }
+
   public secureWrite(key: string, value: string): void {
     const data = this.encrypt(value);
     this.store.set(key, data);
@@ -54,6 +59,10 @@ export class Storage {
       this.store.delete(key);
       return null;
     }
+  }
+
+  public secureDelete(key: string): void {
+    this.store.delete(key);
   }
 
   public write(key: string, value: string): void {

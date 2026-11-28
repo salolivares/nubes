@@ -3,6 +3,11 @@ import type { Bucket } from '@aws-sdk/client-s3';
 import type {
   CredentialsStatus,
   DroppedFiles,
+  GitHubConnectionResult,
+  GitHubOpenPullRequestArgs,
+  GitHubOpenPullRequestResult,
+  GitHubSaveSettingsArgs,
+  GitHubSettings,
   ImageJob,
   ImageJobEvent,
   ImageProcessorResizeArgs,
@@ -82,7 +87,6 @@ declare global {
     addImages: (args: PhotosetAddImagesArgs) => Promise<PhotosetImage[]>;
     publish: (args: { id: number }) => Promise<Photoset>;
     markUploaded: (args: { id: number }) => Promise<Photoset>;
-    exportMetadata: (args: { id: number }) => Promise<{ filePath: string }>;
     removeFiles: (args: PhotosetRemoveFilesArgs) => Promise<void>;
     showInFolder: (args: PhotosetShowInFolderArgs) => Promise<void>;
   }
@@ -96,6 +100,18 @@ declare global {
     isMock: () => Promise<boolean>;
     listBuckets: () => Promise<Bucket[]>;
     createAlbum: (args: S3CreateAlbumArgs) => Promise<S3CreateAlbumResult>;
+  }
+
+  interface GitHubContext {
+    /** Repo, base branch and whether a token is saved. Never returns the token. */
+    settings: () => Promise<GitHubSettings>;
+    /** Saves the repo and base branch, and the token (encrypted) when one is given. */
+    saveSettings: (args: GitHubSaveSettingsArgs) => Promise<GitHubSettings>;
+    clearToken: () => Promise<GitHubSettings>;
+    /** Checks the saved token can open album PRs on the repo, and names missing permissions. */
+    testConnection: () => Promise<GitHubConnectionResult>;
+    /** Commits an uploaded photoset's album JSON and opens (or reuses) its draft PR. */
+    openPullRequest: (args: GitHubOpenPullRequestArgs) => Promise<GitHubOpenPullRequestResult>;
   }
 
   interface DebugContext {
@@ -118,6 +134,7 @@ declare global {
     photosets: PhotosetContext;
     cache: CacheContext;
     s3: S3Context;
+    github: GitHubContext;
     debug?: DebugContext;
   }
 }

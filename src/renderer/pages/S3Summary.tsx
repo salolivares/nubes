@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { PhotoThumbnail } from '../components/PhotoThumbnail';
+import { SitePullRequest } from '../components/SitePullRequest';
 import { Button } from '../components/ui/button';
 import { WizardRedirect, WizardStep } from '../components/wizard-step';
 import { paths } from '../lib/paths';
@@ -80,6 +81,9 @@ const S3SummaryStep = ({ photoset }: { photoset: PhotosetWithImages }) => {
           {totalFiles} files totalling {formatBytes(totalSize)}
           {photoset.status === 'published' ? ' · Published' : ' · Draft'}
         </p>
+        <div className="pt-2 text-sm text-muted-foreground">
+          <SitePullRequest photosetId={photoset.id} pullRequestUrl={photoset.pullRequestUrl} />
+        </div>
       </div>
 
       {photoset.images.length > 0 && (

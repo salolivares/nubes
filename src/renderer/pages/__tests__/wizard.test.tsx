@@ -446,7 +446,44 @@ describe('S3 upload', () => {
       expect.objectContaining({ bucketName: 'mock-bucket' }),
     );
     expect(window.photosets.markUploaded).toHaveBeenCalledWith({ id: 7 });
-    expect(toast.success).toHaveBeenCalledWith('Album uploaded to S3');
+  });
+
+  it('opens the site PR after the upload is recorded', async () => {
+    vi.mocked(window.github.openPullRequest).mockResolvedValueOnce({
+      ok: true,
+      pullRequest: {
+        url: 'https://github.com/o/r/pull/3',
+        number: 3,
+        created: true,
+        mock: false,
+      },
+    });
+    renderAt('/photoset/7/s3');
+    await fillAndUpload();
+
+    await expectLocation('/photoset/7/summary');
+    expect(window.github.openPullRequest).toHaveBeenCalledWith({ photosetId: 7 });
+    // Main builds the JSON from the DB row, so the row must be complete first.
+    expect(vi.mocked(window.photosets.markUploaded).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(window.github.openPullRequest).mock.invocationCallOrder[0],
+    );
+    expect(toast.success).toHaveBeenCalledWith('Album uploaded and draft PR #3 opened');
+  });
+
+  it('keeps the upload and moves on when the site PR fails', async () => {
+    vi.mocked(window.github.openPullRequest).mockResolvedValueOnce({
+      ok: false,
+      error: 'GitHub rejected the token: it is invalid, expired or revoked.',
+    });
+    renderAt('/photoset/7/s3');
+    await fillAndUpload();
+
+    await expectLocation('/photoset/7/summary');
+    expect(window.photosets.markUploaded).toHaveBeenCalledWith({ id: 7 });
+    expect(toast.error).toHaveBeenCalledWith(
+      'Images uploaded to S3, but the site PR was not opened',
+      { description: 'GitHub rejected the token: it is invalid, expired or revoked.' },
+    );
   });
 
   it('does not touch the DB when S3 reports a failed upload', async () => {

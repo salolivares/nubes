@@ -1,0 +1,1 @@
+ALTER TABLE `photosets` ADD `pull_request_url` text;

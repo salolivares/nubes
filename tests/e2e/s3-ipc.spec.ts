@@ -103,19 +103,8 @@ test('renderer can create an album through Electron IPC', async () => {
     );
 
     expect(result).toEqual({ success: true });
-    // Named after the prefix, because the site turns the filename into the album id.
-    const metadata = JSON.parse(
-      await fs.readFile(path.join(albumPath, `2026-e2e-${runId}.json`), 'utf-8'),
-    );
-    expect(metadata).toEqual({
-      title: `IPC E2E ${runId}`,
-      description: 'Made by the e2e test.',
-      location,
-      year: 2026,
-      month: 3,
-      published: false,
-      images: [],
-    });
+    // Images only: the album JSON goes to the site repo as a PR, never to the bucket.
+    expect(await fs.readdir(albumPath)).toEqual([]);
   } finally {
     await electronApp.close();
     await fs.rm(userDataPath, { recursive: true, force: true });

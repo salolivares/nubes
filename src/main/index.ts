@@ -11,6 +11,7 @@ import { APP_SCHEME_PRIVILEGES, registerAppProtocol } from './app-protocol';
 import { createErrorHandler } from './crash-handling';
 import { readDotGitFile, resolveDevEnvironment } from './dev-environment';
 import { Database } from './drivers/database';
+import { enableMockGitHub } from './drivers/github';
 import { MockS3, setS3Provider } from './drivers/s3';
 import { Storage } from './drivers/storage';
 import { registerListeners } from './listeners';
@@ -68,9 +69,13 @@ app.on('before-quit', () => errors.appQuitting());
 if (devEnvironment.mockS3) {
   setS3Provider(new MockS3());
 }
+if (devEnvironment.mockGitHub) {
+  enableMockGitHub();
+}
 log.info(
   `userData: ${app.getPath('userData')} (${devEnvironment.userDataSource}); ` +
-    `S3: ${devEnvironment.mockS3 ? 'mock' : 'real'} (${devEnvironment.mockS3Source})`,
+    `S3: ${devEnvironment.mockS3 ? 'mock' : 'real'} (${devEnvironment.mockS3Source}); ` +
+    `GitHub: ${devEnvironment.mockGitHub ? 'mock' : 'real'} (${devEnvironment.mockGitHubSource})`,
 );
 if (devEnvironment.background) {
   log.info('Running in the background (NUBES_BACKGROUND=1): no dock icon, no focus.');
@@ -79,6 +84,9 @@ if (devEnvironment.background) {
 }
 if (!app.isPackaged && process.env.NUBES_MOCK_S3 && devEnvironment.mockS3Source !== 'env') {
   log.warn(`Ignoring NUBES_MOCK_S3=${process.env.NUBES_MOCK_S3}. Use 1 or 0.`);
+}
+if (!app.isPackaged && process.env.NUBES_MOCK_GITHUB && devEnvironment.mockGitHubSource !== 'env') {
+  log.warn(`Ignoring NUBES_MOCK_GITHUB=${process.env.NUBES_MOCK_GITHUB}. Use 1 or 0.`);
 }
 
 /**

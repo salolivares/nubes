@@ -1,5 +1,6 @@
 import { addCacheEventListeners } from './cache';
 import { addDebugEventListeners } from './debug';
+import { addGitHubEventListeners } from './github';
 import { addImagePickerEventListeners } from './image-picker';
 import { addImageProcessorEventListeners } from './image-processor';
 import { addPhotosetEventListeners } from './photoset';
@@ -18,6 +19,7 @@ export function registerListeners() {
   addImagePickerEventListeners();
   addPhotosetEventListeners();
   addS3EventListeners();
+  addGitHubEventListeners();
   addThemeEventListeners();
   addStorageEventListeners();
   addImageProcessorEventListeners();

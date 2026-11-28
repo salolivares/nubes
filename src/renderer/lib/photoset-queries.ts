@@ -92,3 +92,16 @@ export const s3Keys = {
   isMock: () => ['s3', 'isMock'] as const,
   buckets: () => ['s3', 'buckets'] as const,
 };
+
+/** GitHub settings for the site repo. Invalidate after saving or clearing them. */
+export const githubKeys = {
+  all: ['github'] as const,
+  settings: () => ['github', 'settings'] as const,
+};
+
+export const githubSettingsQuery = () =>
+  queryOptions({
+    queryKey: githubKeys.settings(),
+    queryFn: () => window.github.settings(),
+    ...localQuery,
+  });

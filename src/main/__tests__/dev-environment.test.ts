@@ -94,7 +94,12 @@ describe('resolveDevEnvironment', () => {
       resolveDevEnvironment(
         input({
           isPackaged: true,
-          env: { NUBES_USER_DATA: '/tmp/x', NUBES_MOCK_S3: '1', NUBES_BACKGROUND: '1' },
+          env: {
+            NUBES_USER_DATA: '/tmp/x',
+            NUBES_MOCK_S3: '1',
+            NUBES_MOCK_GITHUB: '1',
+            NUBES_BACKGROUND: '1',
+          },
           dotGitFile: WORKTREE_GIT_FILE,
         }),
       ),
@@ -103,6 +108,8 @@ describe('resolveDevEnvironment', () => {
       userDataSource: 'packaged',
       mockS3: false,
       mockS3Source: 'packaged',
+      mockGitHub: false,
+      mockGitHubSource: 'packaged',
       background: false,
     });
   });
@@ -160,6 +167,28 @@ describe('resolveDevEnvironment', () => {
     expect(resolveDevEnvironment(input({ env: { NUBES_MOCK_S3: 'yes' } }))).toMatchObject({
       mockS3: true,
       mockS3Source: 'dev-default',
+    });
+  });
+
+  it('defaults to mock GitHub in dev, even when S3 is real', () => {
+    expect(resolveDevEnvironment(input())).toMatchObject({
+      mockGitHub: true,
+      mockGitHubSource: 'dev-default',
+    });
+    expect(resolveDevEnvironment(input({ env: { NUBES_MOCK_S3: '0' } }))).toMatchObject({
+      mockS3: false,
+      mockGitHub: true,
+    });
+  });
+
+  it('only opens real PRs in dev for NUBES_MOCK_GITHUB=0', () => {
+    expect(resolveDevEnvironment(input({ env: { NUBES_MOCK_GITHUB: '0' } }))).toMatchObject({
+      mockGitHub: false,
+      mockGitHubSource: 'env',
+    });
+    expect(resolveDevEnvironment(input({ env: { NUBES_MOCK_GITHUB: 'no' } }))).toMatchObject({
+      mockGitHub: true,
+      mockGitHubSource: 'dev-default',
     });
   });
 

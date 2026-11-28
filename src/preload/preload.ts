@@ -2,6 +2,7 @@ import { contextBridge } from 'electron';
 
 import { cache } from './cache';
 import { debug } from './debug';
+import { github } from './github';
 import { imagePicker } from './image-picker';
 import { imageProcessor } from './image-processor';
 import { photosets } from './photoset';
@@ -16,6 +17,7 @@ contextBridge.exposeInMainWorld('imagePicker', imagePicker);
 contextBridge.exposeInMainWorld('imageProcessor', imageProcessor);
 contextBridge.exposeInMainWorld('photosets', photosets);
 contextBridge.exposeInMainWorld('s3', s3);
+contextBridge.exposeInMainWorld('github', github);
 if (process.env.NODE_ENV === 'development') {
   contextBridge.exposeInMainWorld('debug', debug);
 }

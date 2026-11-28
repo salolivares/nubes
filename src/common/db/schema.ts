@@ -21,6 +21,8 @@ export const photosets = sqliteTable('photosets', {
     .$defaultFn(() => new Date().toISOString()),
   publishedAt: text('published_at'),
   uploadedAt: text('uploaded_at'),
+  /** Draft PR on the site repo that adds this album's JSON. Set once the PR step succeeds. */
+  pullRequestUrl: text('pull_request_url'),
 });
 
 export const photosetImages = sqliteTable('photoset_images', {

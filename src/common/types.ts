@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import {
+  DEFAULT_GITHUB_BASE_BRANCH,
+  DEFAULT_GITHUB_REPO,
   SECURE_STORAGE_KEYS,
   SECURE_STORAGE_WRITE,
   STORAGE_READ,
@@ -242,6 +244,8 @@ export const photosetSchema = z.object({
   updatedAt: z.string(),
   publishedAt: z.string().nullable(),
   uploadedAt: z.string().nullable(),
+  /** The draft PR on the site repo that adds this album, once one is open. */
+  pullRequestUrl: z.string().nullable(),
 });
 
 export type Photoset = z.infer<typeof photosetSchema>;
@@ -330,3 +334,86 @@ export const photosetRemoveFilesArgsSchema = z.object({
 });
 
 export type PhotosetRemoveFilesArgs = z.infer<typeof photosetRemoveFilesArgsSchema>;
+
+// ── GitHub (site repo PRs) ──────────────────────────────────────────
+
+/** `owner/name`, as GitHub allows them. */
+export const githubRepoSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/, 'Use the form owner/name');
+
+/** A branch name that is safe to put in a REST path. Stricter than git, on purpose. */
+export const githubBranchSchema = z
+  .string()
+  .trim()
+  .min(1, 'Base branch is required')
+  .max(100)
+  .regex(/^[A-Za-z0-9._/-]+$/, 'Use letters, numbers, ".", "_", "-" and "/"')
+  .refine(
+    (name) => !name.includes('..') && !name.startsWith('/') && !name.endsWith('/'),
+    'Not a valid branch name',
+  );
+
+/** Only fine-grained tokens, so a broad classic token can't end up saved here by mistake. */
+export const githubTokenSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^github_pat_[A-Za-z0-9_]{20,250}$/,
+    'Paste a fine-grained token (starts with github_pat_)',
+  );
+
+export const githubSaveSettingsArgsSchema = z.object({
+  /** Omit or leave empty to keep the saved token. */
+  token: z.union([z.literal(''), githubTokenSchema]).optional(),
+  repo: githubRepoSchema,
+  baseBranch: githubBranchSchema,
+});
+
+export type GitHubSaveSettingsArgs = z.infer<typeof githubSaveSettingsArgsSchema>;
+
+/** What the renderer may know about the GitHub settings. The token itself stays in main. */
+export interface GitHubSettings {
+  hasToken: boolean;
+  repo: string;
+  baseBranch: string;
+  /** True when PRs go to the local mock instead of github.com. */
+  mock: boolean;
+}
+
+export const DEFAULT_GITHUB_SETTINGS = {
+  repo: DEFAULT_GITHUB_REPO,
+  baseBranch: DEFAULT_GITHUB_BASE_BRANCH,
+} as const;
+
+export interface GitHubConnectionResult {
+  ok: boolean;
+  /** One line for the user: what works, or what to fix. */
+  message: string;
+  /** Token permissions the site repo PR flow needs and the token doesn't have. */
+  missingPermissions: string[];
+}
+
+export const githubOpenPullRequestArgsSchema = z.object({
+  photosetId: z.number().int().positive(),
+});
+
+export type GitHubOpenPullRequestArgs = z.infer<typeof githubOpenPullRequestArgsSchema>;
+
+export interface GitHubPullRequest {
+  url: string;
+  number: number;
+  /** False when an open PR for the album's branch already existed and was reused. */
+  created: boolean;
+  /** True when the mock opened it and nothing reached github.com. */
+  mock: boolean;
+}
+
+/**
+ * `error` is a message for the user, set when GitHub refused (bad token, missing permission,
+ * repo not found). The images in S3 are untouched, so the step can be retried on its own.
+ */
+export type GitHubOpenPullRequestResult =
+  | { ok: true; pullRequest: GitHubPullRequest }
+  | { ok: false; error: string };

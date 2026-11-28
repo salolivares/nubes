@@ -6,7 +6,6 @@ import type { PutObjectCommand } from '@aws-sdk/client-s3';
 import { S3Client } from '@aws-sdk/client-s3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { travelAlbumSchema } from '@/common/album-metadata';
 import type { Album, ProcessedImage } from '@/common/types';
 import { S3 } from '@/main/drivers/s3/s3';
 
@@ -50,7 +49,7 @@ describe('S3.createAlbum', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it('logs a failed upload with its key, keeps going, and skips the metadata', async () => {
+  it('logs a failed upload with its key and keeps going', async () => {
     const failure = new Error('AccessDenied');
     const sent: string[] = [];
     vi.spyOn(S3Client.prototype, 'send').mockImplementation(async (command: unknown) => {
@@ -72,23 +71,6 @@ describe('S3.createAlbum', () => {
     expect(sent.some((key) => key.endsWith('.json'))).toBe(false);
   });
 
-  it('logs a failed metadata upload with its key', async () => {
-    const failure = new Error('SlowDown');
-    vi.spyOn(S3Client.prototype, 'send').mockImplementation(async (command: unknown) => {
-      if ((command as PutObjectCommand).input.Key!.endsWith('.json')) throw failure;
-      return {};
-    });
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    const result = await S3.instance.createAlbum('bucket', album, images);
-
-    expect(result).toEqual({ success: false });
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringMatching(/^Failed to upload metadata 2024-big-sur\/.+\.json:$/),
-      failure,
-    );
-  });
-
   it('reads each file in its own batch instead of all up front', async () => {
     // Two photos make 8 files, so the uploads run as a batch of 5, then a batch of 3.
     images.push({ ...images[0], id: 'b', name: 'Dawn' });
@@ -99,7 +81,7 @@ describe('S3.createAlbum', () => {
     });
     vi.spyOn(S3Client.prototype, 'send').mockImplementation(async (command: unknown) => {
       const key = (command as PutObjectCommand).input.Key!;
-      events.push(key.endsWith('.json') ? 'metadata' : 'send');
+      events.push(key.endsWith('.json') ? 'json' : 'send');
       return {};
     });
 
@@ -111,11 +93,10 @@ describe('S3.createAlbum', () => {
       ...Array(5).fill('send'),
       ...Array(3).fill('read'),
       ...Array(3).fill('send'),
-      'metadata',
     ]);
   });
 
-  it('uploads metadata the site accepts, named after the image prefix', async () => {
+  it('uploads only images, under the album id prefix', async () => {
     const sent: PutObjectCommand['input'][] = [];
     vi.spyOn(S3Client.prototype, 'send').mockImplementation(async (command: unknown) => {
       sent.push((command as PutObjectCommand).input);
@@ -125,19 +106,13 @@ describe('S3.createAlbum', () => {
     const result = await S3.instance.createAlbum('bucket', album, images);
 
     expect(result).toEqual({ success: true });
-    const metadata = sent.find((input) => input.Key!.endsWith('.json'))!;
-    // The site reads the album id from the filename and loads `{id}/{image id}_{size}.{ext}`.
-    expect(metadata.Key).toBe('2024-big-sur/2024-big-sur.json');
-    expect(sent.map((input) => input.Key)).toContain('2024-big-sur/sunset_640.webp');
-    expect(travelAlbumSchema.parse(JSON.parse(metadata.Body as string))).toEqual({
-      title: 'Trip',
-      description: 'A drive up the coast.',
-      location: 'Big Sur',
-      year: 2024,
-      month: 6,
-      published: false,
-      images: [{ id: 'sunset', name: 'Sunset', camera: 'X100' }],
-    });
+    // The site loads `{id}/{image id}_{size}.{ext}`. The album JSON goes to the site repo instead.
+    expect(sent.map((input) => input.Key).sort()).toEqual([
+      '2024-big-sur/sunset_128.jpg',
+      '2024-big-sur/sunset_128.webp',
+      '2024-big-sur/sunset_640.jpg',
+      '2024-big-sur/sunset_640.webp',
+    ]);
   });
 
   it('rejects an album the site would reject before uploading anything', async () => {
