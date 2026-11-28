@@ -192,26 +192,15 @@ describe('photoset:addImages paths', () => {
 });
 
 describe('photoset:showInFolder paths', () => {
-  it('reveals files in the photosets folder and files main exported', () => {
-    const exported = path.join(tmpDir, 'Downloads', '2026-trip.json');
-    const set = new Set([exported]);
-    expect(canReveal(access, path.join(photosetsDir, '1', 'a_128.jpg'), set)).toBe(true);
-    expect(canReveal(access, exported, set)).toBe(true);
+  it('reveals files in the photosets folder', () => {
+    expect(canReveal(access, path.join(photosetsDir, '1', 'a_128.jpg'))).toBe(true);
   });
 
   it('refuses anything else', () => {
-    const set = new Set<string>();
-    expect(canReveal(access, path.join(outsideDir, 'secret.txt'), set)).toBe(false);
-    expect(canReveal(access, 'relative.jpg', set)).toBe(false);
-    expect(canReveal(access, `${photosetsDir}${path.sep}..${path.sep}nubes.db`, set)).toBe(false);
-  });
-
-  it('matches exports exactly, so a traversal that normalizes to one is refused', () => {
-    const downloads = path.join(tmpDir, 'Downloads');
-    const exported = path.join(downloads, '2026-trip.json');
-    const set = new Set([exported]);
-    const sneaky = `${downloads}${path.sep}link${path.sep}..${path.sep}2026-trip.json`;
-    expect(canReveal(access, sneaky, set)).toBe(false);
+    expect(canReveal(access, path.join(outsideDir, 'secret.txt'))).toBe(false);
+    expect(canReveal(access, path.join(tmpDir, 'Downloads', '2026-trip.json'))).toBe(false);
+    expect(canReveal(access, 'relative.jpg')).toBe(false);
+    expect(canReveal(access, `${photosetsDir}${path.sep}..${path.sep}nubes.db`)).toBe(false);
   });
 });
 

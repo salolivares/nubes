@@ -4,6 +4,7 @@ import type { Album, ProcessedImage, S3CreateAlbumResult } from '@/common/types'
 
 import { S3 } from './s3';
 
+/** Uploads images only. The album JSON goes to the site repo through the GitHub provider. */
 export interface IS3Provider {
   listBuckets(): Promise<Bucket[]>;
   listImagesInBucket(bucketName: string): Promise<string[]>;

@@ -8,14 +8,11 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 
-import type { TravelAlbum } from '@/common/album-metadata';
 import {
   albumId,
   albumImageId,
   AlbumMetadataError,
-  albumMetadataFilename,
   buildAlbumMetadata,
-  serializeAlbumMetadata,
 } from '@/common/album-metadata';
 import type { Album, ProcessedImage, S3CreateAlbumResult } from '@/common/types';
 import { batchPromises } from '@/common/utils';
@@ -144,36 +141,15 @@ export class S3 implements IS3Provider {
     return this.client;
   }
 
-  /**
-   * Uploads the album JSON, already built and checked by `buildAlbumMetadata()`, next to its
-   * images.
-   */
-  private async createAlbumMetadata(bucketName: string, album: Album, metadata: TravelAlbum) {
-    const key = `${albumId(album)}/${albumMetadataFilename(album)}`;
-    const uploadCommand = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-      Body: serializeAlbumMetadata(metadata),
-      ContentType: 'application/json',
-    });
-
-    try {
-      return await this.requireClient().send(uploadCommand);
-    } catch (err) {
-      console.error(`Failed to upload metadata ${key}:`, err);
-      throw err;
-    }
-  }
-
   public async createAlbum(
     bucketName: string,
     album: Album,
     images: ProcessedImage[],
   ): Promise<S3CreateAlbumResult> {
-    // Check the metadata first, so an album the site can't build never reaches the bucket.
-    let metadata: TravelAlbum;
+    // Check the metadata first, so an album the site can't build never reaches the bucket. The
+    // JSON itself goes to the site repo as a PR (`github:openPullRequest`), not to S3.
     try {
-      metadata = buildAlbumMetadata(album, images);
+      buildAlbumMetadata(album, images);
     } catch (err) {
       if (err instanceof AlbumMetadataError) return { success: false, error: err.message };
       throw err;
@@ -181,18 +157,7 @@ export class S3 implements IS3Provider {
 
     const imageUploadResults = await this.createAlbumImages(bucketName, album, images);
 
-    // Don't publish metadata that points at images missing from the bucket.
-    if (imageUploadResults.errors.length > 0) {
-      return { success: false };
-    }
-
-    try {
-      await this.createAlbumMetadata(bucketName, album, metadata);
-    } catch {
-      // Already logged with its key in createAlbumMetadata.
-      return { success: false };
-    }
-
-    return { success: true };
+    // The PR step only runs after a full success, so the site never points at missing images.
+    return { success: imageUploadResults.errors.length === 0 };
   }
 }

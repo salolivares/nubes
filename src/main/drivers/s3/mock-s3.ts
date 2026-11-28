@@ -4,14 +4,11 @@ import path from 'node:path';
 import type { Bucket } from '@aws-sdk/client-s3';
 import { app } from 'electron';
 
-import type { TravelAlbum } from '@/common/album-metadata';
 import {
   albumId,
   albumImageId,
   AlbumMetadataError,
-  albumMetadataFilename,
   buildAlbumMetadata,
-  serializeAlbumMetadata,
 } from '@/common/album-metadata';
 import type { Album, ProcessedImage, S3CreateAlbumResult } from '@/common/types';
 
@@ -28,13 +25,8 @@ const MOCK_IMAGES: Record<string, string[]> = {
     '2024-yosemite/sunset_1920.jpg',
     '2024-yosemite/half-dome_1920.jpg',
     '2024-yosemite/el-capitan_1920.webp',
-    '2024-yosemite/yosemite.json',
   ],
-  'mock-travel-bucket': [
-    '2025-tokyo/shibuya_1920.jpg',
-    '2025-tokyo/temple_1920.jpg',
-    '2025-tokyo/tokyo.json',
-  ],
+  'mock-travel-bucket': ['2025-tokyo/shibuya_1920.jpg', '2025-tokyo/temple_1920.jpg'],
   'mock-portfolio-bucket': [],
 };
 
@@ -61,9 +53,8 @@ export class MockS3 implements IS3Provider {
     images: ProcessedImage[],
   ): Promise<S3CreateAlbumResult> {
     // Same order as real S3: an album the site can't build never reaches the bucket.
-    let metadata: TravelAlbum;
     try {
-      metadata = buildAlbumMetadata(album, images);
+      buildAlbumMetadata(album, images);
     } catch (err) {
       if (err instanceof AlbumMetadataError) return { success: false, error: err.message };
       throw err;
@@ -75,7 +66,7 @@ export class MockS3 implements IS3Provider {
     await fsp.mkdir(albumDir, { recursive: true });
 
     // Same contract as real S3: log each failed file with its key, keep going, and report
-    // `{ success: false }` without writing metadata.
+    // `{ success: false }`.
     let failed = false;
     for (const image of images) {
       for (const outputImage of image.imagePaths) {
@@ -90,14 +81,6 @@ export class MockS3 implements IS3Provider {
       }
     }
     if (failed) {
-      return { success: false };
-    }
-
-    const filename = albumMetadataFilename(album);
-    try {
-      await fsp.writeFile(path.join(albumDir, filename), serializeAlbumMetadata(metadata));
-    } catch (error) {
-      console.error(`[MockS3] Failed to upload metadata ${prefix}/${filename}:`, error);
       return { success: false };
     }
 

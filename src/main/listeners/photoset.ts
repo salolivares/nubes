@@ -2,18 +2,12 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 
 import { and, eq, inArray, ne, sql } from 'drizzle-orm';
-import { app, shell } from 'electron';
+import { shell } from 'electron';
 
-import {
-  albumMetadataFilename,
-  buildAlbumMetadata,
-  serializeAlbumMetadata,
-} from '@/common/album-metadata';
 import {
   PHOTOSET_ADD_IMAGES,
   PHOTOSET_CREATE,
   PHOTOSET_DELETE,
-  PHOTOSET_EXPORT_METADATA,
   PHOTOSET_GET,
   PHOTOSET_LIST,
   PHOTOSET_MARK_UPLOADED,
@@ -91,15 +85,9 @@ export async function deleteFiles(filePaths: string[]): Promise<void> {
   );
 }
 
-/** Files main wrote outside the photosets folder this session (metadata exports). */
-const exportedFiles = new Set<string>();
-
-/**
- * Reveal only files in the photosets folder, or files main itself exported. Exports match exactly,
- * not after normalizing, so `<dir>/<symlink>/../export.json` can't pass as one.
- */
-export function canReveal(access: MediaAccess, filePath: string, exported: Set<string>): boolean {
-  return access.isInRoots(filePath) || exported.has(filePath);
+/** Reveal only files in the photosets folder. */
+export function canReveal(access: MediaAccess, filePath: string): boolean {
+  return access.isInRoots(filePath);
 }
 
 /**
@@ -354,33 +342,6 @@ export function addPhotosetEventListeners() {
     return rows[0];
   });
 
-  handle(PHOTOSET_EXPORT_METADATA, photosetIdArgsSchema, async (_, args) => {
-    const db = getDb();
-    const photoset = await db.query.photosets.findFirst({
-      where: eq(photosets.id, args.id),
-      with: {
-        images: {
-          columns: { name: true, camera: true },
-          orderBy: (images, { asc }) => [asc(images.sortOrder)],
-        },
-      },
-    });
-
-    if (!photoset) throw new Error(`Photoset ${args.id} not found`);
-
-    // Throws a readable error when the photoset would break the site build.
-    const metadata = buildAlbumMetadata(
-      { ...photoset, published: photoset.status === 'published' },
-      photoset.images,
-    );
-
-    const filePath = path.join(app.getPath('downloads'), albumMetadataFilename(photoset));
-    await fsp.writeFile(filePath, serializeAlbumMetadata(metadata), 'utf-8');
-    exportedFiles.add(filePath);
-
-    return { filePath };
-  });
-
   handle(PHOTOSET_REMOVE_FILES, photosetRemoveFilesArgsSchema, (_, args) =>
     removeUnreferencedFiles(args.filePaths, {
       db: getDb(),
@@ -390,7 +351,7 @@ export function addPhotosetEventListeners() {
   );
 
   handle(PHOTOSET_SHOW_IN_FOLDER, photosetShowInFolderArgsSchema, (_, { filePath }) => {
-    if (!canReveal(mediaAccess, filePath, exportedFiles)) {
+    if (!canReveal(mediaAccess, filePath)) {
       throw new Error(`Refused to reveal a file outside the allowed folders: ${filePath}`);
     }
     shell.showItemInFolder(filePath);

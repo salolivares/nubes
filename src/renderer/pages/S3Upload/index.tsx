@@ -15,6 +15,7 @@ import { albumSchema } from '@/common/types';
 import { AlbumForm } from '../../components/AlbumForm/AlbumForm';
 import { CameraCombobox } from '../../components/CameraCombobox';
 import { ImagePreviewDialog, pickPreviewPath } from '../../components/ImagePreviewDialog';
+import { openPullRequest } from '../../components/SitePullRequest';
 import { SortableTable } from '../../components/SortableTable';
 import { Button } from '../../components/ui/button';
 import { ButtonGroup } from '../../components/ui/button-group';
@@ -204,11 +205,28 @@ const S3UploadStep = ({ photosetId, bucketName }: { photosetId: number; bucketNa
       setIsSaving(false);
       return;
     }
-    toast.success('Album uploaded to S3');
+    await openSitePullRequest();
     // Refetch before leaving, so the summary step doesn't read the pre-upload row from the cache.
     // The refetch alone already redirects this step to the summary, so replace, don't push.
     await queryClient.invalidateQueries({ queryKey: photosetKeys.all });
     navigate(paths.wizard.summary(photosetId), { replace: true });
+  };
+
+  /**
+   * Open the album's draft PR on the site repo. A failure leaves the images in S3 and the upload
+   * recorded; the summary step offers a retry of just this step.
+   */
+  const openSitePullRequest = async () => {
+    try {
+      const pr = await openPullRequest(photosetId);
+      toast.success(
+        `Album uploaded and draft PR #${pr.number} ${pr.created ? 'opened' : 'updated'}`,
+      );
+    } catch (err) {
+      toast.error('Images uploaded to S3, but the site PR was not opened', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    }
   };
 
   const handleRetryDbSync = () => {
